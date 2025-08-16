@@ -1,0 +1,569 @@
+import { prisma } from "@/lib/prisma";
+import { IAgentService } from "./interfaces";
+import {
+  AgentProfile,
+  Business,
+  BusinessVerificationStatus,
+  BusinessCategory,
+  State,
+} from "@/types";
+
+export class AgentService implements IAgentService {
+  // Single Responsibility: This service only handles agent-related operations
+
+  async createAgentProfile(
+    userId: string,
+    agentData: {
+      bankName?: string;
+      accountNumber?: string;
+      accountName?: string;
+    },
+  ): Promise<AgentProfile> {
+    try {
+      // Check if user already has an agent profile
+      const existingProfile = await prisma.agentProfile.findUnique({
+        where: { userId },
+      });
+
+      if (existingProfile) {
+        throw new Error("User already has an agent profile");
+      }
+
+      const agentProfile = await prisma.agentProfile.create({
+        data: {
+          userId,
+          bankName: agentData.bankName,
+          accountNumber: agentData.accountNumber,
+          accountName: agentData.accountName,
+          isApproved: false,
+          totalEarnings: 0,
+          totalBusinessesOnboarded: 0,
+        },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to create agent profile: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async findById(id: string): Promise<AgentProfile | null> {
+    try {
+      const agentProfile = await prisma.agentProfile.findUnique({
+        where: { id },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to find agent profile: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async findByUser(userId: string): Promise<AgentProfile | null> {
+    try {
+      const agentProfile = await prisma.agentProfile.findUnique({
+        where: { userId },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to find agent profile by user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async updateAgentProfile(
+    id: string,
+    data: Partial<AgentProfile>,
+  ): Promise<AgentProfile> {
+    try {
+      // Remove fields that shouldn't be updated
+      const {
+        userId,
+        totalEarnings,
+        totalBusinessesOnboarded,
+        isApproved,
+        approvedAt,
+        approvedBy,
+        ...updateData
+      } = data;
+
+      const agentProfile = await prisma.agentProfile.update({
+        where: { id },
+        data: updateData,
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to update agent profile: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async deleteAgentProfile(id: string): Promise<void> {
+    try {
+      await prisma.agentProfile.delete({
+        where: { id },
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to delete agent profile: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async approveAgent(id: string, adminId: string): Promise<AgentProfile> {
+    try {
+      const agentProfile = await prisma.agentProfile.update({
+        where: { id },
+        data: {
+          isApproved: true,
+          approvedAt: new Date(),
+          approvedBy: adminId,
+        },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to approve agent: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async rejectAgent(
+    id: string,
+    adminId: string,
+    reason: string,
+  ): Promise<AgentProfile> {
+    try {
+      const agentProfile = await prisma.agentProfile.update({
+        where: { id },
+        data: {
+          isApproved: false,
+          approvedAt: null,
+          approvedBy: null,
+        },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to reject agent: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async onboardBusiness(
+    agentId: string,
+    businessData: {
+      name: string;
+      description: string;
+      category: BusinessCategory;
+      phone: string;
+      email: string;
+      website?: string;
+      state: State;
+      city: string;
+      address: string;
+      cacNumber?: string;
+      utilityBill?: string;
+      ownerId: string;
+    },
+  ): Promise<Business> {
+    try {
+      // Verify agent is approved
+      const agentProfile = await prisma.agentProfile.findUnique({
+        where: { id: agentId },
+      });
+
+      if (!agentProfile) {
+        throw new Error("Agent profile not found");
+      }
+
+      if (!agentProfile.isApproved) {
+        throw new Error("Agent is not approved");
+      }
+
+      // Check if owner already has a business
+      const existingBusiness = await prisma.business.findUnique({
+        where: { ownerId: businessData.ownerId },
+      });
+
+      if (existingBusiness) {
+        throw new Error("Owner already has a business");
+      }
+
+      // Create business
+      const business = await prisma.business.create({
+        data: {
+          name: businessData.name,
+          description: businessData.description,
+          category: businessData.category,
+          phone: businessData.phone,
+          email: businessData.email,
+          website: businessData.website,
+          state: businessData.state,
+          city: businessData.city,
+          address: businessData.address,
+          cacNumber: businessData.cacNumber,
+          utilityBill: businessData.utilityBill,
+          verificationStatus: BusinessVerificationStatus.PENDING,
+          ownerId: businessData.ownerId,
+          onboardedByAgentId: agentId,
+        },
+        include: {
+          owner: true,
+          onboardedByAgent: true,
+        },
+      });
+
+      // Update agent stats
+      await prisma.agentProfile.update({
+        where: { id: agentId },
+        data: {
+          totalBusinessesOnboarded: {
+            increment: 1,
+          },
+        },
+      });
+
+      return business as Business;
+    } catch (error) {
+      throw new Error(
+        `Failed to onboard business: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getAgentStats(agentId: string): Promise<{
+    totalBusinessesOnboarded: number;
+    totalEarnings: number;
+    pendingApprovals: number;
+    monthlyEarnings: number;
+  }> {
+    try {
+      const agentProfile = await prisma.agentProfile.findUnique({
+        where: { id: agentId },
+      });
+
+      if (!agentProfile) {
+        throw new Error("Agent profile not found");
+      }
+
+      // Get pending business approvals
+      const pendingApprovals = await prisma.business.count({
+        where: {
+          onboardedByAgentId: agentId,
+          verificationStatus: BusinessVerificationStatus.PENDING,
+        },
+      });
+
+      // Get monthly earnings (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const monthlyEarnings = await prisma.reward.aggregate({
+        where: {
+          userId: agentProfile.userId,
+          type: "BUSINESS_ONBOARDING",
+          createdAt: {
+            gte: thirtyDaysAgo,
+          },
+        },
+        _sum: { amount: true },
+      });
+
+      return {
+        totalBusinessesOnboarded: agentProfile.totalBusinessesOnboarded,
+        totalEarnings: agentProfile.totalEarnings,
+        pendingApprovals,
+        monthlyEarnings: monthlyEarnings._sum.amount || 0,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get agent stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getOnboardedBusinesses(
+    agentId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    data: Business[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [businesses, total] = await Promise.all([
+        prisma.business.findMany({
+          where: { onboardedByAgentId: agentId },
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            owner: true,
+            onboardedByAgent: true,
+          },
+        }),
+        prisma.business.count({ where: { onboardedByAgentId: agentId } }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: businesses as Business[],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get onboarded businesses: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async updateBankDetails(
+    agentId: string,
+    bankData: {
+      bankName: string;
+      accountNumber: string;
+      accountName: string;
+    },
+  ): Promise<AgentProfile> {
+    try {
+      const agentProfile = await prisma.agentProfile.update({
+        where: { id: agentId },
+        data: {
+          bankName: bankData.bankName,
+          accountNumber: bankData.accountNumber,
+          accountName: bankData.accountName,
+        },
+        include: {
+          user: true,
+          onboardedBusinesses: true,
+        },
+      });
+
+      return agentProfile as AgentProfile;
+    } catch (error) {
+      throw new Error(
+        `Failed to update bank details: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getPendingAgents(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    data: AgentProfile[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [agents, total] = await Promise.all([
+        prisma.agentProfile.findMany({
+          where: { isApproved: false },
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            user: true,
+          },
+        }),
+        prisma.agentProfile.count({ where: { isApproved: false } }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: agents as AgentProfile[],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get pending agents: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getTopAgents(limit: number = 10): Promise<AgentProfile[]> {
+    try {
+      const agents = await prisma.agentProfile.findMany({
+        where: { isApproved: true },
+        orderBy: [
+          { totalBusinessesOnboarded: "desc" },
+          { totalEarnings: "desc" },
+        ],
+        take: limit,
+        include: {
+          user: true,
+        },
+      });
+
+      return agents as AgentProfile[];
+    } catch (error) {
+      throw new Error(
+        `Failed to get top agents: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async searchAgents(
+    filters: {
+      isApproved?: boolean;
+      minBusinessesOnboarded?: number;
+      minEarnings?: number;
+      state?: State;
+    },
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    data: AgentProfile[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    try {
+      const where: Record<string, unknown> = {};
+
+      if (filters.isApproved !== undefined) {
+        where.isApproved = filters.isApproved;
+      }
+
+      if (filters.minBusinessesOnboarded) {
+        where.totalBusinessesOnboarded = {
+          gte: filters.minBusinessesOnboarded,
+        };
+      }
+
+      if (filters.minEarnings) {
+        where.totalEarnings = {
+          gte: filters.minEarnings,
+        };
+      }
+
+      if (filters.state) {
+        where.user = {
+          state: filters.state,
+        };
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [agents, total] = await Promise.all([
+        prisma.agentProfile.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { totalBusinessesOnboarded: "desc" },
+          include: {
+            user: true,
+          },
+        }),
+        prisma.agentProfile.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: agents as AgentProfile[],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to search agents: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+}
