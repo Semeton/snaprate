@@ -1,246 +1,301 @@
-import { prisma } from '@/lib/prisma';
-import { IReviewService } from './interfaces';
-import { Review, ReviewStatus } from '@/types';
+import { prisma } from "@/lib/prisma";
+import { Review, ReviewStatus, Business } from "@/types";
+import { RewardService } from "./RewardService";
 
-export class ReviewService implements IReviewService {
-  // Single Responsibility: This service only handles review-related operations
-  
+export class ReviewService {
+  private rewardService: RewardService;
+
+  constructor() {
+    this.rewardService = new RewardService();
+  }
+
   async createReview(reviewData: {
+    userId: string;
+    businessId: string;
     rating: number;
-    title?: string;
     content: string;
-    images?: string[];
-    video?: string;
-    isAnonymous: boolean;
-  }, userId: string, businessId: string): Promise<Review> {
+    images: string[];
+    video?: string | null;
+  }): Promise<Review> {
     try {
-      // Validate rating
-      if (reviewData.rating < 1 || reviewData.rating > 5) {
-        throw new Error('Rating must be between 1 and 5');
-      }
+      // Start a transaction to create review and update business metrics
+      const result = await prisma.$transaction(async (tx) => {
+        // Create the review
+        const review = await tx.review.create({
+          data: {
+            rating: reviewData.rating,
+            content: reviewData.content,
+            images: reviewData.images,
+            video: reviewData.video,
+            status: ReviewStatus.PENDING,
+            reviewerId: reviewData.userId,
+            businessId: reviewData.businessId,
+          },
+          include: {
+            reviewer: true,
+            business: true,
+          },
+        });
 
-      // Check if user has already reviewed this business
-      const existingReview = await prisma.review.findFirst({
+        // Update business rating and review count
+        await this.updateBusinessMetrics(reviewData.businessId, tx);
+
+        return review;
+      });
+
+      // Create reward for the review (NGN 50)
+      await this.rewardService.createReward({
+        type: "REVIEW" as any,
+        amount: 50,
+        description: `Review reward for ${result.business?.name || "business"}`,
+        userId: reviewData.userId,
+        reviewId: result.id,
+      });
+
+      return result as Review;
+    } catch (error) {
+      throw new Error(
+        `Failed to create review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getUserReviewForBusiness(
+    userId: string,
+    businessId: string,
+  ): Promise<Review | null> {
+    try {
+      const review = await prisma.review.findFirst({
         where: {
           userId,
           businessId,
-        }
-      });
-
-      if (existingReview) {
-        throw new Error('You have already reviewed this business');
-      }
-
-      // Create review
-      const review = await prisma.review.create({
-        data: {
-          rating: reviewData.rating,
-          title: reviewData.title,
-          content: reviewData.content,
-          images: reviewData.images || [],
-          video: reviewData.video,
-          isAnonymous: reviewData.isAnonymous,
-          userId,
-          businessId,
-          status: ReviewStatus.PENDING,
         },
         include: {
           user: true,
           business: true,
-          reward: true,
-        }
+        },
       });
 
       return review as Review;
     } catch (error) {
-      throw new Error(`Failed to create review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async findById(id: string): Promise<Review | null> {
-    try {
-      const review = await prisma.review.findUnique({
-        where: { id },
-        include: {
-          user: true,
-          business: true,
-          reward: true,
-        }
-      });
-
-      return review as Review;
-    } catch (error) {
-      throw new Error(`Failed to find review: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async findByUser(userId: string, page: number = 1, limit: number = 10): Promise<{
-    data: Review[];
-    pagination: {
+  async getBusinessReviews(
+    businessId: string,
+    options: {
       page: number;
       limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
+      status?: ReviewStatus;
+    },
+  ) {
     try {
+      const { page, limit, status } = options;
       const skip = (page - 1) * limit;
+
+      const where: any = { businessId };
+      if (status) {
+        where.status = status;
+      }
 
       const [reviews, total] = await Promise.all([
         prisma.review.findMany({
-          where: { userId },
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
+          where,
           include: {
-            business: true,
-            reward: true,
-          }
-        }),
-        prisma.review.count({ where: { userId } })
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data: reviews as Review[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-        }
-      };
-    } catch (error) {
-      throw new Error(`Failed to find reviews by user: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async findByBusiness(businessId: string, page: number = 1, limit: number = 10): Promise<{
-    data: Review[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
-    try {
-      const skip = (page - 1) * limit;
-
-      const [reviews, total] = await Promise.all([
-        prisma.review.findMany({
-          where: { 
-            businessId,
-            status: ReviewStatus.APPROVED
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+              },
+            },
           },
+          orderBy: { createdAt: "desc" },
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: true,
-            reward: true,
-          }
         }),
-        prisma.review.count({ 
-          where: { 
-            businessId,
-            status: ReviewStatus.APPROVED
-          }
-        })
+        prisma.review.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / limit);
-
       return {
-        data: reviews as Review[],
+        reviews: reviews as Review[],
         pagination: {
           page,
           limit,
           total,
-          totalPages,
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
-      throw new Error(`Failed to find reviews by business: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get business reviews: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async updateReview(id: string, data: Partial<Review>): Promise<Review> {
+  async getUserReviews(
+    userId: string,
+    options: {
+      page: number;
+      limit: number;
+      status?: ReviewStatus;
+    },
+  ) {
     try {
-      // Remove fields that shouldn't be updated
-      const { userId, businessId, status, ...updateData } = data;
+      const { page, limit, status } = options;
+      const skip = (page - 1) * limit;
 
-      const review = await prisma.review.update({
-        where: { id },
-        data: updateData,
-        include: {
-          user: true,
-          business: true,
-          reward: true,
-        }
-      });
+      const where: any = { reviewerId: userId };
+      if (status) {
+        where.status = status;
+      }
 
-      return review as Review;
+      const [reviews, total] = await Promise.all([
+        prisma.review.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                state: true,
+                city: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.review.count({ where }),
+      ]);
+
+      return {
+        reviews: reviews as Review[],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
     } catch (error) {
-      throw new Error(`Failed to update review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user reviews: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async deleteReview(id: string): Promise<void> {
-    try {
-      await prisma.review.delete({
-        where: { id }
-      });
-    } catch (error) {
-      throw new Error(`Failed to delete review: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async approveReview(id: string, adminId: string): Promise<Review> {
+  async approveReview(reviewId: string, adminId: string): Promise<Review> {
     try {
       const review = await prisma.review.update({
-        where: { id },
+        where: { id: reviewId },
         data: {
           status: ReviewStatus.APPROVED,
         },
         include: {
           user: true,
           business: true,
-          reward: true,
-        }
+        },
+      });
+
+      // Update business metrics after approval
+      await this.updateBusinessMetrics(review.businessId);
+
+      // Log admin action
+      await prisma.adminAction.create({
+        data: {
+          action: "APPROVE_REVIEW",
+          targetType: "REVIEW",
+          targetId: reviewId,
+          adminId,
+          adminName: "Admin", // You'd get this from the session
+        },
       });
 
       return review as Review;
     } catch (error) {
-      throw new Error(`Failed to approve review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to approve review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async rejectReview(id: string, adminId: string, reason: string): Promise<Review> {
+  async rejectReview(
+    reviewId: string,
+    adminId: string,
+    reason: string,
+  ): Promise<Review> {
     try {
       const review = await prisma.review.update({
-        where: { id },
+        where: { id: reviewId },
         data: {
           status: ReviewStatus.REJECTED,
         },
         include: {
           user: true,
           business: true,
-          reward: true,
-        }
+        },
+      });
+
+      // Log admin action
+      await prisma.adminAction.create({
+        data: {
+          action: "REJECT_REVIEW",
+          targetType: "REVIEW",
+          targetId: reviewId,
+          adminId,
+          adminName: "Admin",
+          details: { reason },
+        },
       });
 
       return review as Review;
     } catch (error) {
-      throw new Error(`Failed to reject review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to reject review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async reportReview(id: string, reason: string): Promise<Review> {
+  async reportReview(
+    reviewId: string,
+    reason: string,
+    reporterId: string,
+  ): Promise<Review> {
     try {
       const review = await prisma.review.update({
-        where: { id },
+        where: { id: reviewId },
         data: {
           reported: true,
           reportReason: reason,
@@ -248,163 +303,131 @@ export class ReviewService implements IReviewService {
         include: {
           user: true,
           business: true,
-          reward: true,
-        }
+        },
       });
 
       return review as Review;
     } catch (error) {
-      throw new Error(`Failed to report review: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to report review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async searchReviews(filters: {
-    status?: ReviewStatus;
-    rating?: number;
-    dateFrom?: Date;
-    dateTo?: Date;
-  }, page: number = 1, limit: number = 10): Promise<{
-    data: Review[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
+  async deleteReview(reviewId: string, userId: string): Promise<void> {
     try {
-      const where: Record<string, unknown> = {};
+      const review = await prisma.review.findUnique({
+        where: { id: reviewId },
+      });
 
-      if (filters.status) {
-        where.status = filters.status;
+      if (!review) {
+        throw new Error("Review not found");
       }
 
-      if (filters.rating) {
-        where.rating = filters.rating;
+      if (review.userId !== userId) {
+        throw new Error("You can only delete your own reviews");
       }
 
-      if (filters.dateFrom || filters.dateTo) {
-        where.createdAt = {};
-        if (filters.dateFrom) {
-          (where.createdAt as Record<string, unknown>).gte = filters.dateFrom;
-        }
-        if (filters.dateTo) {
-          (where.createdAt as Record<string, unknown>).lte = filters.dateTo;
-        }
-      }
+      await prisma.review.delete({
+        where: { id: reviewId },
+      });
 
-      const skip = (page - 1) * limit;
-
-      const [reviews, total] = await Promise.all([
-        prisma.review.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: true,
-            business: true,
-            reward: true,
-          }
-        }),
-        prisma.review.count({ where })
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data: reviews as Review[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-        }
-      };
+      // Update business metrics after deletion
+      await this.updateBusinessMetrics(review.businessId);
     } catch (error) {
-      throw new Error(`Failed to search reviews: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async getReviewStats(businessId: string): Promise<{
-    averageRating: number;
-    totalReviews: number;
-    ratingDistribution: Record<number, number>;
-  }> {
+  private async updateBusinessMetrics(
+    businessId: string,
+    tx?: any,
+  ): Promise<void> {
     try {
-      const reviews = await prisma.review.findMany({
-        where: { 
+      const prismaClient = tx || prisma;
+
+      // Get all approved reviews for the business
+      const reviews = await prismaClient.review.findMany({
+        where: {
           businessId,
-          status: ReviewStatus.APPROVED
+          status: ReviewStatus.APPROVED,
         },
-        select: { rating: true }
+        select: {
+          rating: true,
+        },
       });
 
       if (reviews.length === 0) {
-        return {
-          averageRating: 0,
-          totalReviews: 0,
-          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-        };
+        // No approved reviews, reset to defaults
+        await prismaClient.business.update({
+          where: { id: businessId },
+          data: {
+            rating: 0,
+            reviewCount: 0,
+          },
+        });
+        return;
       }
 
-      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      // Calculate new rating and review count
+      const totalRating = reviews.reduce(
+        (sum, review) => sum + review.rating,
+        0,
+      );
       const averageRating = totalRating / reviews.length;
+      const reviewCount = reviews.length;
 
-      const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-      reviews.forEach(review => {
-        ratingDistribution[review.rating]++;
+      await prismaClient.business.update({
+        where: { id: businessId },
+        data: {
+          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+          reviewCount,
+        },
       });
-
-      return {
-        averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-        totalReviews: reviews.length,
-        ratingDistribution,
-      };
     } catch (error) {
-      throw new Error(`Failed to get review stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Failed to update business metrics:", error);
     }
   }
 
-  async getReportedReviews(page: number = 1, limit: number = 10): Promise<{
-    data: Review[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
+  async getReviewStats(userId: string) {
     try {
-      const skip = (page - 1) * limit;
-
-      const [reviews, total] = await Promise.all([
-        prisma.review.findMany({
-          where: { reported: true },
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: true,
-            business: true,
-          }
-        }),
-        prisma.review.count({ where: { reported: true } })
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
+      const [totalReviews, approvedReviews, pendingReviews, totalEarnings] =
+        await Promise.all([
+          prisma.review.count({ where: { userId } }),
+          prisma.review.count({
+            where: { userId, status: ReviewStatus.APPROVED },
+          }),
+          prisma.review.count({
+            where: { userId, status: ReviewStatus.PENDING },
+          }),
+          prisma.reward.aggregate({
+            where: {
+              userId,
+              reviewId: { not: null },
+              isRedeemed: false,
+            },
+            _sum: { amount: true },
+          }),
+        ]);
 
       return {
-        data: reviews as Review[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-        }
+        totalReviews,
+        approvedReviews,
+        pendingReviews,
+        totalEarnings: totalEarnings._sum.amount || 0,
       };
     } catch (error) {
-      throw new Error(`Failed to get reported reviews: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get review stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 }

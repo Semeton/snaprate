@@ -17,34 +17,30 @@ export interface BaseUser {
   isVerified: boolean;
   referralCode: string;
   referredBy?: string;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface Reviewer extends BaseUser {
-  role: "REVIEWER";
   totalReviews: number;
   totalEarnings: number;
   referralEarnings: number;
 }
 
 export interface BusinessOwner extends BaseUser {
-  role: "BUSINESS_OWNER";
   business?: Business;
 }
 
 export interface Agent extends BaseUser {
-  role: "AGENT";
   agentProfile?: AgentProfile;
 }
 
 export interface Admin extends BaseUser {
-  role: "ADMIN";
   permissions: AdminPermission[];
 }
 
 export interface SuperAdmin extends BaseUser {
-  role: "SUPER_ADMIN";
   canManageAdmins: true;
 }
 
@@ -62,6 +58,7 @@ export enum AccountStatus {
   ACTIVE = "ACTIVE",
   SUSPENDED = "SUSPENDED",
   BANNED = "BANNED",
+  DELETED = "DELETED",
 }
 
 export enum BusinessVerificationStatus {
@@ -76,11 +73,16 @@ export enum ReviewStatus {
   REJECTED = "REJECTED",
 }
 
+export enum CouponType {
+  PERCENTAGE = "PERCENTAGE",
+  FIXED_AMOUNT = "FIXED_AMOUNT",
+}
+
 export enum CouponStatus {
+  DRAFT = "DRAFT",
   ACTIVE = "ACTIVE",
-  USED = "USED",
+  PAUSED = "PAUSED",
   EXPIRED = "EXPIRED",
-  CANCELLED = "CANCELLED",
 }
 
 export enum RewardType {
@@ -92,23 +94,58 @@ export enum RewardType {
 }
 
 export enum State {
-  ABUJA = "ABUJA",
-  LAGOS = "LAGOS",
-  ENUGU = "ENUGU",
+  ABIA = "ABIA",
+  ADAMAWA = "ADAMAWA",
+  AKWA_IBOM = "AKWA_IBOM",
   ANAMBRA = "ANAMBRA",
-  PH = "PH",
-  IBADAN = "IBADAN",
-  IMO = "IMO",
+  BAUCHI = "BAUCHI",
+  BAYELSA = "BAYELSA",
+  BENUE = "BENUE",
+  BORNO = "BORNO",
+  CROSS_RIVER = "CROSS_RIVER",
+  DELTA = "DELTA",
   EBONYI = "EBONYI",
+  EDO = "EDO",
+  EKITI = "EKITI",
+  ENUGU = "ENUGU",
+  FCT = "FCT", // Federal Capital Territory (Abuja)
+  GOMBE = "GOMBE",
+  IMO = "IMO",
+  JIGAWA = "JIGAWA",
+  KADUNA = "KADUNA",
+  KANO = "KANO",
+  KATSINA = "KATSINA",
+  KEBBI = "KEBBI",
+  KOGI = "KOGI",
+  KWARA = "KWARA",
+  LAGOS = "LAGOS",
+  NASARAWA = "NASARAWA",
+  NIGER = "NIGER",
+  OGUN = "OGUN",
+  ONDO = "ONDO",
+  OSUN = "OSUN",
+  OYO = "OYO",
+  PLATEAU = "PLATEAU",
+  RIVERS = "RIVERS",
+  SOKOTO = "SOKOTO",
+  TARABA = "TARABA",
+  YOBE = "YOBE",
+  ZAMFARA = "ZAMFARA",
 }
 
 export enum BusinessCategory {
-  HOSPITALITY = "HOSPITALITY",
-  TRANSPORT = "TRANSPORT",
+  RESTAURANT = "RESTAURANT",
   RETAIL = "RETAIL",
   HEALTHCARE = "HEALTHCARE",
   EDUCATION = "EDUCATION",
   ENTERTAINMENT = "ENTERTAINMENT",
+  TECHNOLOGY = "TECHNOLOGY",
+  FINANCE = "FINANCE",
+  REAL_ESTATE = "REAL_ESTATE",
+  AUTOMOTIVE = "AUTOMOTIVE",
+  BEAUTY = "BEAUTY",
+  FITNESS = "FITNESS",
+  TRAVEL = "TRAVEL",
   OTHER = "OTHER",
 }
 
@@ -126,7 +163,7 @@ export interface Business {
   state: State;
   city: string;
   address: string;
-  coordinates?: any; // Use any to be compatible with Prisma's JsonValue
+  coordinates?: Record<string, unknown>; // More specific than 'any'
   cacNumber?: string;
   utilityBill?: string;
   verificationStatus: BusinessVerificationStatus;
@@ -204,12 +241,13 @@ export interface Coupon {
   code: string;
   title: string;
   description?: string;
-  discountType: "PERCENTAGE" | "FIXED_AMOUNT";
-  discountValue: number;
-  minPurchase?: number;
-  maxDiscount?: number;
+  type: CouponType;
+  value: number;
+  minimumOrderAmount?: number;
+  maximumDiscount?: number;
   maxUses?: number;
-  currentUses: number;
+  totalIssued: number;
+  totalRedeemed: number;
   validFrom: Date;
   validUntil: Date;
   status: CouponStatus;
@@ -269,7 +307,7 @@ export interface AdminAction {
   targetId: string;
   adminId: string;
   adminName: string;
-  details?: any;
+  details?: Record<string, unknown>;
   ipAddress?: string;
   createdAt: Date;
 }
@@ -314,7 +352,7 @@ export interface ReviewFormData {
 }
 
 // API Response types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -396,7 +434,7 @@ export interface BusinessServiceData {
   state: State;
   city: string;
   address: string;
-  coordinates?: any; // Compatible with Prisma's JsonValue
+  coordinates?: Record<string, unknown>; // Compatible with Prisma's JsonValue
   cacNumber?: string;
   utilityBill?: string;
   verificationStatus: BusinessVerificationStatus;
@@ -409,10 +447,10 @@ export interface BusinessServiceData {
   updatedAt: Date;
   onboardedByAgentId?: string;
   // Relations (optional for flexibility)
-  owner?: any;
-  staffMembers?: any[];
-  reviews?: any[];
-  coupons?: any[];
-  campaigns?: any[];
-  onboardedByAgent?: any;
+  owner?: Record<string, unknown>;
+  staffMembers?: Record<string, unknown>[];
+  reviews?: Record<string, unknown>[];
+  coupons?: Record<string, unknown>[];
+  campaigns?: Record<string, unknown>[];
+  onboardedByAgent?: Record<string, unknown>;
 }

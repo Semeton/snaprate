@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,205 +14,323 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react";
+import { Star, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [showResendOption, setShowResendOption] = useState(false);
+  const [resendEmail, setResendEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState("");
   const router = useRouter();
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (submitError) setSubmitError("");
+  };
+
+  const handleResendVerification = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError("");
+    if (!resendEmail.trim()) {
+      setResendMessage("Please enter your email address");
+      return;
+    }
+
+    setIsResending(true);
+    setResendMessage("");
+    setSubmitError("");
 
     try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: resendEmail.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResendMessage(
+          "Verification email resent successfully! Please check your inbox.",
+        );
+        setResendEmail("");
+        setShowResendOption(false);
+      } else {
+        setResendMessage(data.error || "Failed to resend verification email");
+      }
+    } catch (error) {
+      setResendMessage("An error occurred. Please try again.");
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    try {
+      // Use NextAuth signIn instead of custom API
       const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
+        email: formData.email,
+        password: formData.password,
+        redirect: false, // Don't redirect automatically, we'll handle it
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
-      } else {
-        // Check user role and redirect accordingly
-        const session = await getSession();
-        if (session?.user?.role) {
-          switch (session.user.role) {
+        // Handle specific error cases
+        if (result.error.includes("Email not verified")) {
+          setShowResendOption(true);
+          setResendEmail(formData.email);
+        } else if (result.error.includes("not active")) {
+          setSubmitError("Account is not active. Please verify your email.");
+        } else {
+          setSubmitError("Invalid email or password");
+        }
+      } else if (result?.ok) {
+        // Signin successful, redirect based on user role
+        console.log("Signin successful, redirecting...");
+
+        // Get user info from the session
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          const userData = await response.json();
+          const userRole = userData.role;
+
+          let redirectPath = "/dashboard"; // Default path
+
+          switch (userRole) {
             case "REVIEWER":
-              router.push("/reviewer/dashboard");
+              redirectPath = "/dashboard";
               break;
             case "BUSINESS_OWNER":
-              router.push("/business/dashboard");
+              redirectPath = "/business/dashboard";
               break;
             case "AGENT":
-              router.push("/agent/dashboard");
+              redirectPath = "/agent/dashboard";
               break;
             case "ADMIN":
             case "SUPER_ADMIN":
-              router.push("/admin/dashboard");
+              redirectPath = "/admin/dashboard";
               break;
             default:
-              router.push("/dashboard");
+              redirectPath = "/dashboard";
           }
+
+          console.log("Redirecting to:", redirectPath);
+          router.push(redirectPath);
         } else {
+          // Fallback redirect
           router.push("/dashboard");
         }
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      console.error("Sign in error:", error);
+      setSubmitError("Network error. Please try again.");
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      await signIn("google", { callbackUrl: "/dashboard" });
-    } catch (error) {
-      setError("Google sign-in failed. Please try again.");
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Link
-          href="/"
-          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Home
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950">
+      {/* Simple Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-800/50">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl apple-gradient flex items-center justify-center">
+                <Star className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold apple-text-gradient">
+                SnapRate
+              </span>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+      <div className="max-w-md mx-auto px-4 pt-24 pb-16">
+        {/* Simple Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-3">Welcome Back</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Sign in to your SnapRate account
+          </p>
+        </div>
+
+        {/* Signin Form */}
+        <Card className="apple-card">
+          <CardHeader>
+            <CardTitle className="text-xl">Account Access</CardTitle>
             <CardDescription>
-              Sign in to your SnapRate account to continue earning rewards
+              Enter your credentials to access your account
             </CardDescription>
           </CardHeader>
-
-          <CardContent className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="pl-10"
-                  />
-                </div>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  className="apple-input mt-2"
+                  required
+                  disabled={isSubmitting}
+                />
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <div className="relative mt-2">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={formData.password}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
+                    className="apple-input pr-10"
                     required
-                    className="pl-10 pr-10"
+                    disabled={isSubmitting}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    disabled={isSubmitting}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
+                      <EyeOff className="w-4 h-4" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <Eye className="w-4 h-4" />
                     )}
                   </button>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing In..." : "Sign In"}
+              {/* Error Alert */}
+              {submitError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Resend Verification Option */}
+              {showResendOption && (
+                <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+                  <AlertDescription className="text-blue-800 dark:text-blue-200">
+                    <div className="space-y-3">
+                      <p>
+                        Your email needs to be verified before you can sign in.
+                      </p>
+                      <form
+                        onSubmit={handleResendVerification}
+                        className="flex space-x-2"
+                      >
+                        <Input
+                          type="email"
+                          placeholder="Enter your email address"
+                          value={resendEmail}
+                          onChange={(e) => setResendEmail(e.target.value)}
+                          className="flex-1"
+                          required
+                          disabled={isResending}
+                        />
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={isResending || !resendEmail.trim()}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {isResending ? "Sending..." : "Resend Email"}
+                        </Button>
+                      </form>
+                      {resendMessage && (
+                        <p
+                          className={`text-sm ${
+                            resendMessage.includes("successfully")
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {resendMessage}
+                        </p>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="remember" className="text-sm">
+                    Remember me
+                  </Label>
+                </div>
+                <a
+                  href="/auth/forgot-password"
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Forgot password?
+                </a>
+              </div>
+
+              <Button
+                type="submit"
+                className="apple-button w-full py-4 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
               </Button>
+
+              <div className="text-center">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Don&apos;t have an account?{" "}
+                  <a
+                    href="/auth/signup"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Sign up here
+                  </a>
+                </p>
+              </div>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-gray-500">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              className="w-full"
-            >
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
-              </svg>
-              Continue with Google
-            </Button>
-
-            <div className="text-center text-sm text-gray-600">
-              Don't have an account?{" "}
-              <Link
-                href="/auth/signup"
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Sign up
-              </Link>
-            </div>
-
-            <div className="text-center text-sm text-gray-600">
-              <Link
-                href="/auth/forgot-password"
-                className="text-blue-600 hover:text-blue-700"
-              >
-                Forgot your password?
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,111 +1,221 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ReviewService } from "@/services/ReviewService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { ReviewService } from "@/services/ReviewService";
-import { RewardService } from "@/services/RewardService";
+import { prisma } from "@/lib/prisma";
 
 const reviewService = new ReviewService();
-const rewardService = new RewardService();
 
-// GET /api/reviews - Get reviews with filters
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const businessId = searchParams.get("businessId");
-    const userId = searchParams.get("userId");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
-
-    let reviews;
-    if (businessId) {
-      reviews = await reviewService.findByBusiness(businessId, page, limit);
-    } else if (userId) {
-      reviews = await reviewService.findByUser(userId, page, limit);
-    } else {
-      return NextResponse.json(
-        { error: "businessId or userId required" },
-        { status: 400 },
-      );
-    }
-
-    return NextResponse.json(reviews);
-  } catch (error) {
-    console.error("Failed to fetch reviews:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch reviews" },
-      { status: 500 },
-    );
-  }
-}
-
-// POST /api/reviews - Create a new review
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
     const { businessId, rating, title, content, images, video, isAnonymous } =
       body;
 
-    // Validate required fields
+    // Validation
     if (!businessId || !rating || !content) {
       return NextResponse.json(
-        { error: "businessId, rating, and content are required" },
+        {
+          success: false,
+          error: "Business ID, rating, and content are required",
+        },
         { status: 400 },
       );
     }
 
-    // Validate rating range
     if (rating < 1 || rating > 5) {
       return NextResponse.json(
-        { error: "Rating must be between 1 and 5" },
+        { success: false, error: "Rating must be between 1 and 5" },
         { status: 400 },
       );
     }
 
-    // Create review
-    const review = await reviewService.createReview(
-      {
-        rating,
-        title,
-        content,
-        images: images || [],
-        video,
-        isAnonymous: isAnonymous || false,
-      },
+    if (content.length < 10) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Review content must be at least 10 characters long",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Check if user has already reviewed this business
+    const existingReview = await reviewService.getUserReviewForBusiness(
       session.user.id,
       businessId,
     );
 
-    // Create reward for the review (NGN 50)
-    const reward = await rewardService.createReward({
-      type: "CASH",
-      amount: 50,
-      description: `Review reward for ${review.business?.name || "business"}`,
+    if (existingReview) {
+      return NextResponse.json(
+        { success: false, error: "You have already reviewed this business" },
+        { status: 409 },
+      );
+    }
+
+    // Create review
+    const review = await reviewService.createReview({
       userId: session.user.id,
-      reviewId: review.id,
+      businessId,
+      rating,
+      title,
+      content,
+      images: images || [],
+      video: video || null,
+      isAnonymous: isAnonymous || false,
     });
 
     return NextResponse.json({
-      review,
-      reward,
-      message: "Review submitted successfully! You earned NGN 50.",
+      success: true,
+      message: "Review submitted successfully",
+      data: review,
     });
   } catch (error) {
-    console.error("Failed to create review:", error);
+    console.error("Review creation error:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to create review",
-      },
+      { success: false, error: "Failed to create review" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const businessId = searchParams.get("businessId");
+    const userId = searchParams.get("userId");
+    const status = searchParams.get("status");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+
+    if (businessId) {
+      try {
+        const skip = (page - 1) * limit;
+        const where: any = { businessId };
+        if (status) {
+          where.status = status;
+        }
+
+        const [reviews, total] = await Promise.all([
+          prisma.review.findMany({
+            where,
+            include: {
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                },
+              },
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  state: true,
+                  city: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+          }),
+          prisma.review.count({ where }),
+        ]);
+
+        const result = {
+          reviews,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
+
+        return NextResponse.json({ success: true, data: reviews });
+      } catch (error) {
+        console.error("Failed to fetch business reviews:", error);
+        return NextResponse.json(
+          { success: false, error: "Failed to fetch reviews" },
+          { status: 500 },
+        );
+      }
+    }
+
+    if (userId) {
+      try {
+        const skip = (page - 1) * limit;
+        const where: any = { reviewerId: userId };
+        if (status) {
+          where.status = status;
+        }
+
+        const [reviews, total] = await Promise.all([
+          prisma.review.findMany({
+            where,
+            include: {
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                },
+              },
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  state: true,
+                  city: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            skip,
+            take: limit,
+          }),
+          prisma.review.count({ where }),
+        ]);
+
+        const result = {
+          reviews,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        };
+
+        return NextResponse.json({ success: true, data: result });
+      } catch (error) {
+        console.error("Failed to fetch user reviews:", error);
+        return NextResponse.json(
+          { success: false, error: "Failed to fetch reviews" },
+          { status: 500 },
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Business ID or User ID is required" },
+      { status: 400 },
+    );
+  } catch (error) {
+    console.error("Review fetch error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch reviews" },
       { status: 500 },
     );
   }

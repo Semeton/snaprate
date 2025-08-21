@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -11,69 +18,90 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  User,
-  Phone,
-  ArrowLeft,
-  Building2,
-  Star,
-  Users,
-} from "lucide-react";
-import { UserRole, State, BusinessCategory } from "@/types";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { State } from "@/types";
+import { Star, CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 
 export default function SignUpPage() {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>("");
+  const [submitSuccess, setSubmitSuccess] = useState<string>("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-    role: UserRole.REVIEWER,
-    state: State.LAGOS,
-    city: "",
+    role: "",
     referralCode: "",
+    state: "",
+    city: "",
+    address: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Pre-fill referral code from URL if present
-  const referralCodeFromUrl = searchParams.get("ref");
-  if (referralCodeFromUrl && !formData.referralCode) {
-    setFormData((prev) => ({ ...prev, referralCode: referralCodeFromUrl }));
-  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear any previous errors when user starts typing
+    if (submitError) setSubmitError("");
+  };
+
+  const validateForm = () => {
+    if (!formData.role) {
+      setSubmitError("Please select a role");
+      return false;
+    }
+    if (!formData.name.trim()) {
+      setSubmitError("Name is required");
+      return false;
+    }
+    if (!formData.email.trim()) {
+      setSubmitError("Email is required");
+      return false;
+    }
+    if (!formData.phone.trim()) {
+      setSubmitError("Phone number is required");
+      return false;
+    }
+    if (!formData.password) {
+      setSubmitError("Password is required");
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setSubmitError("Passwords do not match");
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setSubmitError("Password must be at least 6 characters");
+      return false;
+    }
+    if (!formData.state) {
+      setSubmitError("State is required");
+      return false;
+    }
+    if (!formData.city.trim()) {
+      setSubmitError("City is required");
+      return false;
+    }
+    if (!formData.address.trim()) {
+      setSubmitError("Address is required");
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError("");
 
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
+    if (isSubmitting) return;
 
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      setIsLoading(false);
-      return;
-    }
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setSubmitError("");
 
     try {
       const response = await fetch("/api/auth/signup", {
@@ -81,220 +109,161 @@ export default function SignUpPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          role: formData.role,
+        }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (response.ok) {
-        // Redirect to verification page or dashboard
-        router.push("/auth/verify");
+      if (result.success) {
+        setSubmitSuccess(
+          "Account created successfully! Please check your email and phone for verification.",
+        );
+        // Reset form
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          password: "",
+          confirmPassword: "",
+          role: "",
+          referralCode: "",
+          state: "",
+          city: "",
+          address: "",
+        });
       } else {
-        setError(data.error || "Sign up failed. Please try again.");
+        setSubmitError(result.error || "Failed to create account");
       }
     } catch (error) {
-      setError("An error occurred. Please try again.");
+      console.error("Signup error:", error);
+      setSubmitError("Network error. Please try again.");
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getRoleDescription = (role: UserRole) => {
-    switch (role) {
-      case UserRole.REVIEWER:
-        return "Earn rewards by reviewing businesses and referring friends";
-      case UserRole.BUSINESS_OWNER:
-        "Manage your business profile, create coupons, and track reviews";
-      case UserRole.AGENT:
-        "Onboard businesses and earn commissions";
-      default:
-        return "";
-    }
-  };
-
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case UserRole.REVIEWER:
-        return <Star className="h-5 w-5" />;
-      case UserRole.BUSINESS_OWNER:
-        return <Building2 className="h-5 w-5" />;
-      case UserRole.AGENT:
-        return <Users className="h-5 w-5" />;
-      default:
-        return <Star className="h-5 w-5" />;
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        <Link
-          href="/"
-          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Home
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950">
+      {/* Simple Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-800/50">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-xl apple-gradient flex items-center justify-center">
+                <Star className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold apple-text-gradient">
+                SnapRate
+              </span>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">
-              Create Your Account
-            </CardTitle>
+      <div className="max-w-2xl mx-auto px-4 pt-24 pb-16">
+        {/* Simple Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-3">Create Your Account</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Join SnapRate and start earning rewards today
+          </p>
+        </div>
+
+        {/* Signup Form */}
+        <Card className="apple-card">
+          <CardHeader>
+            <CardTitle className="text-xl">Account Details</CardTitle>
             <CardDescription>
-              Join SnapRate and start earning rewards for your honest reviews
+              Fill in your information to complete your registration
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Role Selection - Simple Dropdown */}
+              <div>
+                <Label htmlFor="role">Role *</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) => handleInputChange("role", value)}
+                >
+                  <SelectTrigger className="apple-input mt-2">
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                    <SelectItem value="BUSINESS_OWNER">
+                      Business Owner
+                    </SelectItem>
+                    <SelectItem value="AGENT">Agent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <CardContent className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Role Selection */}
-              <div className="space-y-3">
-                <Label>Account Type</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {Object.values(UserRole)
-                    .filter(
-                      (role) => role !== "ADMIN" && role !== "SUPER_ADMIN",
-                    )
-                    .map((role) => (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => handleInputChange("role", role)}
-                        className={`p-4 border rounded-lg text-left transition-colors ${
-                          formData.role === role
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2 mb-2">
-                          {getRoleIcon(role)}
-                          <span className="font-medium">
-                            {role.replace("_", " ")}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {getRoleDescription(role)}
-                        </p>
-                      </button>
-                    ))}
+              {/* Basic Info */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Full Name *</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                    className="apple-input mt-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="apple-input mt-2"
+                    required
+                  />
                 </div>
               </div>
 
-              {/* Personal Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="name"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        handleInputChange("name", e.target.value)
-                      }
-                      required
-                      className="pl-10"
-                    />
-                  </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="phone">Phone Number *</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    className="apple-input mt-2"
+                    required
+                  />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="+234 801 234 5678"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        handleInputChange("phone", e.target.value)
-                      }
-                      required
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                      required
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="referralCode">Referral Code (Optional)</Label>
                   <Input
                     id="referralCode"
+                    type="text"
                     placeholder="Enter referral code"
                     value={formData.referralCode}
                     onChange={(e) =>
                       handleInputChange("referralCode", e.target.value)
                     }
-                    className="pl-3"
+                    className="apple-input mt-2"
                   />
                 </div>
               </div>
 
-              {/* Location */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <select
-                    id="state"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange("state", e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    required
-                  >
-                    {Object.values(State).map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    placeholder="Enter your city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              {/* Passwords */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative mt-2">
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -303,27 +272,25 @@ export default function SignUpPage() {
                       onChange={(e) =>
                         handleInputChange("password", e.target.value)
                       }
+                      className="apple-input pr-10"
                       required
-                      className="pl-10 pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="w-4 h-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="w-4 h-4" />
                       )}
                     </button>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <div className="relative mt-2">
                     <Input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
@@ -332,40 +299,128 @@ export default function SignUpPage() {
                       onChange={(e) =>
                         handleInputChange("confirmPassword", e.target.value)
                       }
+                      className="apple-input pr-10"
                       required
-                      className="pl-10 pr-10"
                     />
                     <button
                       type="button"
                       onClick={() =>
                         setShowConfirmPassword(!showConfirmPassword)
                       }
-                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
                     >
                       {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeOff className="w-4 h-4" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Eye className="w-4 h-4" />
                       )}
                     </button>
                   </div>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating Account..." : "Create Account"}
-              </Button>
-            </form>
+              {/* Location */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="state">State *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => handleInputChange("state", value)}
+                  >
+                    <SelectTrigger className="apple-input mt-2">
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(State).map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state === "FCT"
+                            ? "Federal Capital Territory"
+                            : state
+                                .split("_")
+                                .map(
+                                  (word) =>
+                                    word.charAt(0) +
+                                    word.slice(1).toLowerCase(),
+                                )
+                                .join(" ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="city">City *</Label>
+                  <Input
+                    id="city"
+                    type="text"
+                    placeholder="Enter your city"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange("city", e.target.value)}
+                    className="apple-input mt-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="address">Address *</Label>
+                  <Input
+                    id="address"
+                    type="text"
+                    placeholder="Enter your address"
+                    value={formData.address}
+                    onChange={(e) =>
+                      handleInputChange("address", e.target.value)
+                    }
+                    className="apple-input mt-2"
+                    required
+                  />
+                </div>
+              </div>
 
-            <div className="text-center text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link
-                href="/auth/signin"
-                className="text-blue-600 hover:text-blue-700 font-medium"
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                className="apple-button w-full py-4 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                disabled={!formData.role || isSubmitting}
               >
-                Sign in
-              </Link>
-            </div>
+                {isSubmitting ? "Creating Account..." : "Create Account"}
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+
+              {/* Alerts */}
+              {submitError && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertDescription>{submitError}</AlertDescription>
+                </Alert>
+              )}
+              {submitSuccess && (
+                <Alert className="mt-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-200">
+                    {submitSuccess}
+                  </AlertDescription>
+                  <div className="mt-3">
+                    <Link
+                      href="/auth/verify"
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Go to Verification Page
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Link>
+                  </div>
+                </Alert>
+              )}
+
+              {/* Sign In Link */}
+              <p className="text-center text-gray-600 dark:text-gray-400 text-sm">
+                Already have an account?{" "}
+                <a
+                  href="/auth/signin"
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Sign in here
+                </a>
+              </p>
+            </form>
           </CardContent>
         </Card>
       </div>

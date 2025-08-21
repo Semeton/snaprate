@@ -101,9 +101,7 @@ export interface IReviewService {
     page?: number,
     limit?: number,
   ): Promise<PaginatedResponse<Review>>;
-  getReviewStats(
-    businessId: string,
-  ): Promise<{
+  getReviewStats(businessId: string): Promise<{
     averageRating: number;
     totalReviews: number;
     ratingDistribution: any;
@@ -244,17 +242,31 @@ export interface INotificationService {
 
 // Authentication service interface
 export interface IAuthService {
-  signUp(userData: any): Promise<{ user: User; token: string }>;
+  signUp(userData: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    role?: string;
+    referralCode?: string;
+    state: string;
+    city: string;
+    address: string;
+  }): Promise<{ user: any; token: string }>;
   signIn(credentials: {
     email: string;
     password: string;
-  }): Promise<{ user: User; token: string }>;
+  }): Promise<{ user: any; token: string }>;
   signOut(): Promise<void>;
   verifyEmail(token: string): Promise<boolean>;
-  verifyPhone(phone: string, code: string): Promise<boolean>;
-  sendVerificationEmail(email: string): Promise<void>;
-  sendVerificationSMS(phone: string): Promise<void>;
+  sendVerificationEmail(
+    email: string,
+    name: string,
+    token: string,
+  ): Promise<void>;
+  resendVerificationEmail(email: string): Promise<boolean>;
   resetPassword(email: string): Promise<void>;
+  verifyAndResetPassword(token: string, newPassword: string): Promise<boolean>;
   changePassword(
     userId: string,
     oldPassword: string,

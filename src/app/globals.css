@@ -1,56 +1,261 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #ffffff;
-  --card-foreground: #171717;
-  --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #374151;
-  --muted: #f9fafb;
-  --muted-foreground: #6b7280;
-  --accent: #f3f4f6;
-  --accent-foreground: #374151;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #ffffff;
-  --ring: #2563eb;
-  --radius: 0.5rem;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Apple-style typography */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      sans-serif;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+    line-height: 1.1;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+    line-height: 1.2;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+    line-height: 1.3;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+    line-height: 1.4;
+  }
+
+  p {
+    @apply text-base leading-relaxed;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      sans-serif;
+  }
 }
 
-.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #171717;
-  --card-foreground: #ededed;
-  --popover: #171717;
-  --popover-foreground: #ededed;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #374151;
-  --secondary-foreground: #f9fafb;
-  --muted: #374151;
-  --muted-foreground: #9ca3af;
-  --accent: #374151;
-  --accent-foreground: #f9fafb;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: #374151;
-  --input: #171717;
-  --ring: #3b82f6;
-}
+@layer components {
+  /* Apple-style gradients */
+  .apple-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
 
-* {
-  border-color: hsl(var(--border));
-}
+  .apple-gradient-secondary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family: Arial, Helvetica, sans-serif;
+  .apple-gradient-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  }
+
+  .apple-gradient-warning {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  }
+
+  /* Apple-style shadows */
+  .apple-shadow {
+    @apply shadow-xl;
+  }
+
+  .apple-shadow-lg {
+    @apply shadow-2xl;
+  }
+
+  .apple-shadow-xl {
+    @apply shadow-3xl;
+  }
+
+  /* Apple-style glassmorphism */
+  .apple-glass {
+    @apply bg-white/10 backdrop-blur-xl border border-white/20;
+  }
+
+  .apple-glass-dark {
+    @apply bg-black/10 backdrop-blur-xl border border-white/10;
+  }
+
+  /* Apple-style transitions */
+  .apple-transition {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Apple-style hover effects */
+  .apple-hover {
+    @apply apple-transition;
+  }
+
+  .apple-hover:hover {
+    @apply -translate-y-1 apple-shadow-lg;
+  }
+
+  /* Apple-style button - COMPLETELY FIXED to not interfere with button functionality */
+  .apple-button {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  /* Apple-style card designs */
+  .apple-card {
+    @apply bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800;
+    @apply apple-shadow apple-transition;
+  }
+
+  .apple-card:hover {
+    @apply apple-shadow-lg -translate-y-1;
+  }
+
+  /* Apple-style input fields */
+  .apple-input {
+    @apply bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700;
+    @apply rounded-xl px-4 py-3 text-gray-900 dark:text-gray-100;
+    @apply focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply apple-transition w-full;
+  }
+
+  /* Apple-style badges */
+  .apple-badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+    @apply apple-transition;
+  }
+
+  .apple-badge-primary {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+
+  .apple-badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .apple-badge-warning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .apple-badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+
+  /* Apple-style progress bars */
+  .apple-progress {
+    @apply w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2;
+  }
+
+  .apple-progress-bar {
+    @apply h-2 rounded-full apple-gradient transition-all duration-500 ease-out;
+  }
+
+  /* Apple-style dividers */
+  .apple-divider {
+    @apply border-t border-gray-200 dark:border-gray-800 my-8;
+  }
+
+  /* Apple-style spacing */
+  .apple-section {
+    @apply py-16 md:py-24;
+  }
+
+  .apple-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Apple-style grid layouts */
+  .apple-grid {
+    @apply grid gap-8 md:gap-12;
+  }
+
+  .apple-grid-2 {
+    @apply apple-grid md:grid-cols-2;
+  }
+
+  .apple-grid-3 {
+    @apply apple-grid md:grid-cols-3;
+  }
+
+  .apple-grid-4 {
+    @apply apple-grid md:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Apple-style text utilities */
+  .apple-text-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
+  }
+
+  .apple-text-muted {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+
+  .apple-text-emphasis {
+    @apply text-gray-900 dark:text-gray-100 font-semibold;
+  }
+
+  /* Apple-style responsive utilities */
+  .apple-responsive-text {
+    @apply text-sm sm:text-base md:text-lg;
+  }
+
+  .apple-responsive-heading {
+    @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl;
+  }
 }

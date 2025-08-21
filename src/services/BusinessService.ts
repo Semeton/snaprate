@@ -1,82 +1,159 @@
-import { prisma } from "@/lib/prisma";
-import { IBusinessService } from "./interfaces";
 import {
-  BusinessServiceData,
-  BusinessVerificationStatus,
+  PrismaClient,
+  Business,
   BusinessCategory,
   State,
-} from "@/types";
+  BusinessVerificationStatus,
+  Coupon,
+  Review,
+  ReviewStatus,
+  CouponStatus,
+  CouponType,
+} from "@prisma/client";
+import logger from "@/lib/logger";
 
-// Type for business data returned from Prisma with relations
-type PrismaBusinessWithRelations = Awaited<
-  ReturnType<typeof prisma.business.findUnique>
->;
+const prisma = new PrismaClient();
 
-export class BusinessService implements IBusinessService {
-  // Helper function to transform Prisma data to BusinessServiceData type
-  private transformPrismaBusiness(
-    prismaBusiness: PrismaBusinessWithRelations,
-  ): BusinessServiceData | null {
-    if (!prismaBusiness) return null;
+export interface CreateBusinessData {
+  name: string;
+  description?: string;
+  category: BusinessCategory;
+  phone: string;
+  email: string;
+  website?: string;
+  address: string;
+  city: string;
+  state: State;
+  latitude?: number;
+  longitude?: number;
+  verificationDocuments?: string[];
+}
 
-    return prismaBusiness as BusinessServiceData;
-  }
-  // Single Responsibility: This service only handles business-related operations
+export interface UpdateBusinessData {
+  name?: string;
+  description?: string;
+  category?: BusinessCategory;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: State;
+  latitude?: number;
+  longitude?: number;
+  logo?: string;
+  coverImage?: string;
+}
 
-  async createBusiness(
-    businessData: {
-      name: string;
-      description: string;
-      category: BusinessCategory;
-      phone: string;
-      email: string;
-      website?: string;
-      state: State;
-      city: string;
-      address: string;
-      cacNumber?: string;
-      utilityBill?: string;
-    },
+export interface CreateCouponData {
+  title: string;
+  description?: string;
+  type: CouponType;
+  value: number;
+  minimumOrderAmount?: number;
+  maximumDiscount?: number;
+  validFrom: Date;
+  validUntil: Date;
+  maxUses?: number;
+}
+
+export interface CreateReviewData {
+  businessId: string;
+  reviewerId: string;
+  rating: number;
+  content: string;
+  images?: string[];
+  video?: string;
+}
+
+export interface BusinessAnalyticsData {
+  totalVisits: number;
+  totalReviews: number;
+  averageRating: number;
+  activeCoupons: number;
+  totalRevenue: number;
+  monthlyGrowth: number;
+  topPerformingCoupons: Array<{
+    name: string;
+    redemptions: number;
+    revenue: number;
+  }>;
+  customerDemographics: Array<{
+    ageGroup: string;
+    percentage: number;
+  }>;
+  peakHours: Array<{
+    hour: string;
+    visits: number;
+  }>;
+  monthlyTrends: Array<{
+    month: string;
+    visits: number;
+    reviews: number;
+    revenue: number;
+  }>;
+}
+
+export class BusinessService {
+  /**
+   * Create a new business
+   */
+  static async createBusiness(
     ownerId: string,
-  ): Promise<BusinessServiceData> {
+    data: CreateBusinessData,
+  ): Promise<Business> {
     try {
-      // Check if owner already has a business
-      const existingBusiness = await prisma.business.findUnique({
-        where: { ownerId },
+      logger.info(`Creating business for owner: ${ownerId}`, {
+        businessName: data.name,
       });
 
-      if (existingBusiness) {
-        throw new Error("User already owns a business");
-      }
-
-      // Create business
       const business = await prisma.business.create({
         data: {
-          name: businessData.name,
-          description: businessData.description,
-          category: businessData.category,
-          phone: businessData.phone,
-          email: businessData.email,
-          website: businessData.website,
-          state: businessData.state,
-          city: businessData.city,
-          address: businessData.address,
-          cacNumber: businessData.cacNumber,
-          utilityBill: businessData.utilityBill,
-          verificationStatus: BusinessVerificationStatus.PENDING,
+          ...data,
           ownerId,
+          verificationDocuments: data.verificationDocuments || [],
         },
         include: {
-          owner: true,
-          staffMembers: true,
-          reviews: true,
-          coupons: true,
-          campaigns: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
-      return business as Business;
+      // Create default business settings
+      await prisma.businessSettings.create({
+        data: {
+          businessId: business.id,
+        },
+      });
+
+      // Create default business hours (Monday-Friday, 9 AM - 5 PM)
+      const defaultHours = [
+        { dayOfWeek: 1, openTime: "09:00", closeTime: "17:00" }, // Monday
+        { dayOfWeek: 2, openTime: "09:00", closeTime: "17:00" }, // Tuesday
+        { dayOfWeek: 3, openTime: "09:00", closeTime: "17:00" }, // Wednesday
+        { dayOfWeek: 4, openTime: "09:00", closeTime: "17:00" }, // Thursday
+        { dayOfWeek: 5, openTime: "09:00", closeTime: "17:00" }, // Friday
+        { dayOfWeek: 6, openTime: "10:00", closeTime: "16:00" }, // Saturday
+        { dayOfWeek: 0, openTime: "12:00", closeTime: "18:00" }, // Sunday
+      ];
+
+      await prisma.businessHours.createMany({
+        data: defaultHours.map((hour) => ({
+          ...hour,
+          businessId: business.id,
+        })),
+      });
+
+      logger.info(`Business created successfully: ${business.id}`);
+      return business;
     } catch (error) {
+      logger.error("Failed to create business", { error, ownerId, data });
       throw new Error(
         `Failed to create business: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -85,85 +162,112 @@ export class BusinessService implements IBusinessService {
     }
   }
 
-  async findById(id: string): Promise<BusinessServiceData | null> {
+  /**
+   * Get business by ID with full details
+   */
+  static async getBusinessById(businessId: string): Promise<Business | null> {
     try {
       const business = await prisma.business.findUnique({
-        where: { id },
+        where: { id: businessId },
         include: {
-          owner: true,
-          staffMembers: true,
-          reviews: {
-            include: {
-              user: true,
-              reward: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
             },
           },
-          coupons: true,
-          campaigns: true,
+          businessHours: true,
+          businessSettings: true,
+          reviews: {
+            where: { status: "APPROVED" },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            include: {
+              reviewer: {
+                select: {
+                  id: true,
+                  name: true,
+                  avatar: true,
+                },
+              },
+            },
+          },
+          coupons: {
+            where: { status: "ACTIVE" },
+            orderBy: { createdAt: "desc" },
+            take: 5,
+          },
         },
       });
 
-      return this.transformPrismaBusiness(business);
+      return business;
     } catch (error) {
+      logger.error("Failed to get business by ID", { error, businessId });
       throw new Error(
-        `Failed to find business: ${
+        `Failed to get business: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async findByOwner(ownerId: string): Promise<Business | null> {
+  /**
+   * Get business by owner ID
+   */
+  static async getBusinessByOwnerId(ownerId: string): Promise<Business | null> {
     try {
       const business = await prisma.business.findUnique({
         where: { ownerId },
         include: {
-          owner: true,
-          staffMembers: true,
-          reviews: {
-            include: {
-              user: true,
-              reward: true,
-            },
-          },
-          coupons: true,
-          campaigns: true,
+          businessHours: true,
+          businessSettings: true,
         },
       });
 
-      return business as Business;
+      return business;
     } catch (error) {
+      logger.error("Failed to get business by owner ID", { error, ownerId });
       throw new Error(
-        `Failed to find business by owner: ${
+        `Failed to get business: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async updateBusiness(id: string, data: Partial<Business>): Promise<Business> {
+  /**
+   * Update business information
+   */
+  static async updateBusiness(
+    businessId: string,
+    data: UpdateBusinessData,
+  ): Promise<Business> {
     try {
-      // Remove fields that shouldn't be updated
-      const { ownerId, ...updateData } = data;
+      logger.info(`Updating business: ${businessId}`, {
+        updates: Object.keys(data),
+      });
 
       const business = await prisma.business.update({
-        where: { id },
-        data: updateData,
+        where: { id: businessId },
+        data,
         include: {
-          owner: true,
-          staffMembers: true,
-          reviews: true,
-          coupons: true,
-          campaigns: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
         },
       });
 
-      const transformedBusiness = this.transformPrismaBusiness(business);
-      if (!transformedBusiness) {
-        throw new Error("Failed to transform business data");
-      }
-      return transformedBusiness;
+      logger.info(`Business updated successfully: ${businessId}`);
+      return business;
     } catch (error) {
+      logger.error("Failed to update business", { error, businessId, data });
       throw new Error(
         `Failed to update business: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -172,335 +276,440 @@ export class BusinessService implements IBusinessService {
     }
   }
 
-  async deleteBusiness(id: string): Promise<void> {
+  /**
+   * Create a new coupon
+   */
+  static async createCoupon(
+    businessId: string,
+    data: CreateCouponData,
+  ): Promise<Coupon> {
     try {
-      await prisma.business.delete({
-        where: { id },
+      logger.info(`Creating coupon for business: ${businessId}`, {
+        couponTitle: data.title,
       });
-    } catch (error) {
-      throw new Error(
-        `Failed to delete business: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
 
-  async verifyBusiness(id: string, adminId: string): Promise<Business> {
-    try {
-      const business = await prisma.business.update({
-        where: { id },
+      // Generate unique coupon code
+      const code = await this.generateUniqueCouponCode();
+
+      const coupon = await prisma.coupon.create({
         data: {
-          verificationStatus: BusinessVerificationStatus.VERIFIED,
-          verifiedAt: new Date(),
+          ...data,
+          businessId,
+          code,
         },
         include: {
-          owner: true,
-          staffMembers: true,
-          reviews: true,
-          coupons: true,
-          campaigns: true,
-        },
-      });
-
-      return business as Business;
-    } catch (error) {
-      throw new Error(
-        `Failed to verify business: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async rejectBusiness(
-    id: string,
-    adminId: string,
-    reason: string,
-  ): Promise<Business> {
-    try {
-      const business = await prisma.business.update({
-        where: { id },
-        data: {
-          verificationStatus: BusinessVerificationStatus.REJECTED,
-        },
-        include: {
-          owner: true,
-          staffMembers: true,
-          reviews: true,
-          coupons: true,
-          campaigns: true,
-        },
-      });
-
-      return business as Business;
-    } catch (error) {
-      throw new Error(
-        `Failed to reject business: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async searchBusinesses(
-    filters: {
-      category?: BusinessCategory;
-      state?: State;
-      city?: string;
-      rating?: number;
-      verified?: boolean;
-    },
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<{
-    data: Business[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
-    try {
-      const where: Record<string, unknown> = {};
-
-      if (filters.category) {
-        where.category = filters.category;
-      }
-
-      if (filters.state) {
-        where.state = filters.state;
-      }
-
-      if (filters.city) {
-        where.city = {
-          contains: filters.city,
-          mode: "insensitive",
-        };
-      }
-
-      if (filters.verified !== undefined) {
-        where.verificationStatus = filters.verified
-          ? BusinessVerificationStatus.VERIFIED
-          : BusinessVerificationStatus.PENDING;
-      }
-
-      if (filters.rating) {
-        where.rating = {
-          gte: filters.rating,
-        };
-      }
-
-      const skip = (page - 1) * limit;
-
-      const [businesses, total] = await Promise.all([
-        prisma.business.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { rating: "desc" },
-          include: {
-            owner: true,
-            reviews: {
-              take: 5,
-              orderBy: { createdAt: "desc" },
-              include: {
-                user: true,
-              },
+          business: {
+            select: {
+              id: true,
+              name: true,
             },
           },
-        }),
-        prisma.business.count({ where }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data: businesses
-          .map((business) => this.transformPrismaBusiness(business))
-          .filter(Boolean) as Business[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
         },
-      };
+      });
+
+      logger.info(`Coupon created successfully: ${coupon.id}`);
+      return coupon;
     } catch (error) {
+      logger.error("Failed to create coupon", { error, businessId, data });
       throw new Error(
-        `Failed to search businesses: ${
+        `Failed to create coupon: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async getBusinessStats(businessId: string): Promise<{
-    totalReviews: number;
-    averageRating: number;
-    totalVisits: number;
-    activeCoupons: number;
-    totalCampaigns: number;
-  }> {
+  /**
+   * Get all coupons for a business
+   */
+  static async getBusinessCoupons(businessId: string): Promise<Coupon[]> {
     try {
-      const [reviews, coupons, campaigns, visits] = await Promise.all([
-        prisma.review.count({
-          where: {
-            businessId,
-            status: "APPROVED",
+      const coupons = await prisma.coupon.findMany({
+        where: { businessId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          redemptions: {
+            select: {
+              id: true,
+              redeemedAt: true,
+              orderAmount: true,
+              discountApplied: true,
+            },
           },
-        }),
-        prisma.coupon.count({
-          where: {
-            businessId,
-            status: "ACTIVE",
-          },
-        }),
-        prisma.campaign.count({
-          where: {
-            businessId,
-            isActive: true,
-          },
-        }),
-        prisma.business.findUnique({
-          where: { id: businessId },
-          select: { visitCount: true },
-        }),
-      ]);
+        },
+      });
 
-      const averageRating = await prisma.review.aggregate({
+      return coupons;
+    } catch (error) {
+      logger.error("Failed to get business coupons", { error, businessId });
+      throw new Error(
+        `Failed to get coupons: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Update coupon status
+   */
+  static async updateCouponStatus(
+    couponId: string,
+    status: CouponStatus,
+  ): Promise<Coupon> {
+    try {
+      const coupon = await prisma.coupon.update({
+        where: { id: couponId },
+        data: { status },
+      });
+
+      logger.info(`Coupon status updated: ${couponId} -> ${status}`);
+      return coupon;
+    } catch (error) {
+      logger.error("Failed to update coupon status", {
+        error,
+        couponId,
+        status,
+      });
+      throw new Error(
+        `Failed to update coupon status: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Get all reviews for a business
+   */
+  static async getBusinessReviews(
+    businessId: string,
+    status?: ReviewStatus,
+  ): Promise<Review[]> {
+    try {
+      const where: { businessId: string; status?: ReviewStatus } = {
+        businessId,
+      };
+      if (status) {
+        where.status = status;
+      }
+
+      const reviews = await prisma.review.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      return reviews;
+    } catch (error) {
+      logger.error("Failed to get business reviews", {
+        error,
+        businessId,
+        status,
+      });
+      throw new Error(
+        `Failed to get reviews: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Respond to a review
+   */
+  static async respondToReview(
+    reviewId: string,
+    businessId: string,
+    response: string,
+  ): Promise<Review> {
+    try {
+      logger.info(`Business responding to review: ${reviewId}`);
+
+      const review = await prisma.review.update({
+        where: {
+          id: reviewId,
+          businessId, // Ensure the business owns this review
+        },
+        data: {
+          businessResponse: response,
+          businessResponseDate: new Date(),
+        },
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      logger.info(`Review response added successfully: ${reviewId}`);
+      return review;
+    } catch (error) {
+      logger.error("Failed to respond to review", {
+        error,
+        reviewId,
+        businessId,
+      });
+      throw new Error(
+        `Failed to respond to review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Get business analytics
+   */
+  static async getBusinessAnalytics(
+    businessId: string,
+    days: number = 30,
+  ): Promise<BusinessAnalyticsData> {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      // Get business data
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: {
+          totalVisits: true,
+          totalReviews: true,
+          averageRating: true,
+        },
+      });
+
+      if (!business) {
+        throw new Error("Business not found");
+      }
+
+      // Get coupons data
+      const coupons = await prisma.coupon.findMany({
         where: {
           businessId,
-          status: "APPROVED",
+          status: "ACTIVE",
         },
-        _avg: { rating: true },
+        select: {
+          title: true,
+          totalRedeemed: true,
+          type: true,
+          value: true,
+        },
       });
+
+      // Get analytics data
+      const analytics = await prisma.businessAnalytics.findMany({
+        where: {
+          businessId,
+          date: {
+            gte: startDate,
+          },
+        },
+        orderBy: { date: "asc" },
+      });
+
+      // Calculate top performing coupons
+      const topPerformingCoupons = coupons
+        .map((coupon) => ({
+          name: coupon.title,
+          redemptions: coupon.totalRedeemed,
+          revenue:
+            coupon.type === "PERCENTAGE"
+              ? coupon.totalRedeemed * (coupon.value / 100) * 1000 // Assuming avg order value
+              : coupon.totalRedeemed * coupon.value,
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 3);
+
+      // Mock data for demographics and peak hours (replace with real analytics)
+      const customerDemographics = [
+        { ageGroup: "18-25", percentage: 25 },
+        { ageGroup: "26-35", percentage: 40 },
+        { ageGroup: "36-45", percentage: 20 },
+        { ageGroup: "46+", percentage: 15 },
+      ];
+
+      const peakHours = [
+        { hour: "12:00 PM", visits: 89 },
+        { hour: "1:00 PM", visits: 76 },
+        { hour: "6:00 PM", visits: 92 },
+        { hour: "7:00 PM", visits: 85 },
+        { hour: "8:00 PM", visits: 78 },
+      ];
+
+      // Calculate monthly trends
+      const monthlyTrends = analytics.map((day) => ({
+        month: day.date.toLocaleDateString("en-US", { month: "short" }),
+        visits: day.visits,
+        reviews: day.reviews,
+        revenue: day.revenue,
+      }));
+
+      // Calculate growth
+      const currentMonth = analytics[analytics.length - 1];
+      const previousMonth = analytics[analytics.length - 2];
+      const monthlyGrowth = previousMonth
+        ? ((currentMonth.visits - previousMonth.visits) /
+            previousMonth.visits) *
+          100
+        : 0;
 
       return {
-        totalReviews: reviews,
-        averageRating: averageRating._avg.rating || 0,
-        totalVisits: visits?.visitCount || 0,
-        activeCoupons: coupons,
-        totalCampaigns: campaigns,
+        totalVisits: business.totalVisits,
+        totalReviews: business.totalReviews,
+        averageRating: business.averageRating,
+        activeCoupons: coupons.length,
+        totalRevenue: analytics.reduce((sum, day) => sum + day.revenue, 0),
+        monthlyGrowth,
+        topPerformingCoupons,
+        customerDemographics,
+        peakHours,
+        monthlyTrends,
       };
     } catch (error) {
+      logger.error("Failed to get business analytics", {
+        error,
+        businessId,
+        days,
+      });
       throw new Error(
-        `Failed to get business stats: ${
+        `Failed to get analytics: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async addStaffMember(
+  /**
+   * Update business settings
+   */
+  static async updateBusinessSettings(
     businessId: string,
-    staffData: {
-      name: string;
-      email: string;
-      phone: string;
-      role: string;
-      canManageCoupons?: boolean;
-      canViewAnalytics?: boolean;
-      canManageReviews?: boolean;
-    },
-  ): Promise<{
-    id: string;
-    businessId: string;
-    name: string;
-    email: string;
-    phone: string;
-    role: string;
-    canManageCoupons: boolean;
-    canViewAnalytics: boolean;
-    canManageReviews: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-  }> {
+    settings: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     try {
-      const staffMember = await prisma.businessStaff.create({
-        data: {
-          businessId,
-          name: staffData.name,
-          email: staffData.email,
-          phone: staffData.phone,
-          role: staffData.role,
-          canManageCoupons: staffData.canManageCoupons || false,
-          canViewAnalytics: staffData.canViewAnalytics || false,
-          canManageReviews: staffData.canManageReviews || false,
-        },
+      const updatedSettings = await prisma.businessSettings.update({
+        where: { businessId },
+        data: settings,
       });
 
-      return staffMember;
+      logger.info(`Business settings updated: ${businessId}`);
+      return updatedSettings;
     } catch (error) {
+      logger.error("Failed to update business settings", {
+        error,
+        businessId,
+        settings,
+      });
       throw new Error(
-        `Failed to add staff member: ${
+        `Failed to update settings: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async removeStaffMember(businessId: string, staffId: string): Promise<void> {
+  /**
+   * Get business settings
+   */
+  static async getBusinessSettings(
+    businessId: string,
+  ): Promise<Record<string, unknown> | null> {
     try {
-      await prisma.businessStaff.delete({
-        where: { id: staffId },
+      const settings = await prisma.businessSettings.findUnique({
+        where: { businessId },
       });
+
+      return settings;
     } catch (error) {
+      logger.error("Failed to get business settings", { error, businessId });
       throw new Error(
-        `Failed to remove staff member: ${
+        `Failed to get settings: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async incrementVisitCount(businessId: string): Promise<void> {
+  /**
+   * Generate unique coupon code
+   */
+  private static async generateUniqueCouponCode(): Promise<string> {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let code: string;
+    let isUnique = false;
+
+    do {
+      code = "";
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      // Check if code already exists
+      const existingCoupon = await prisma.coupon.findUnique({
+        where: { code },
+      });
+
+      isUnique = !existingCoupon;
+    } while (!isUnique);
+
+    return code;
+  }
+
+  /**
+   * Record business visit
+   */
+  static async recordVisit(businessId: string): Promise<void> {
     try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Update business total visits
       await prisma.business.update({
         where: { id: businessId },
         data: {
-          visitCount: {
+          totalVisits: {
             increment: 1,
           },
         },
       });
-    } catch (error) {
-      throw new Error(
-        `Failed to increment visit count: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
 
-  async updateRating(businessId: string): Promise<void> {
-    try {
-      const reviews = await prisma.review.aggregate({
+      // Update daily analytics
+      await prisma.businessAnalytics.upsert({
         where: {
+          businessId_date: {
+            businessId,
+            date: today,
+          },
+        },
+        update: {
+          visits: {
+            increment: 1,
+          },
+        },
+        create: {
           businessId,
-          status: "APPROVED",
-        },
-        _avg: { rating: true },
-        _count: { rating: true },
-      });
-
-      const averageRating = reviews._avg.rating || 0;
-      const reviewCount = reviews._count.rating;
-
-      await prisma.business.update({
-        where: { id: businessId },
-        data: {
-          rating: averageRating,
-          reviewCount,
+          date: today,
+          visits: 1,
         },
       });
+
+      logger.debug(`Visit recorded for business: ${businessId}`);
     } catch (error) {
-      throw new Error(
-        `Failed to update rating: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
+      logger.error("Failed to record business visit", { error, businessId });
+      // Don't throw error for visit recording as it's not critical
     }
   }
 }

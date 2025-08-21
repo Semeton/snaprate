@@ -1,17 +1,11 @@
 import { NextAuthOptions } from "next-auth";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import bcrypt from "bcryptjs";
+import { UserRole, AccountStatus } from "@/types";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -23,31 +17,52 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: {
+              business: true,
+              agentProfile: true,
+            },
+          });
 
-        if (!user || !user.password) {
+          if (!user || !user.password) {
+            return null;
+          }
+
+          // Check if account is active
+          if (user.status !== "ACTIVE") {
+            throw new Error("Account is not active. Please verify your email.");
+          }
+
+          // Check if email is verified
+          if (!user.emailVerified) {
+            throw new Error(
+              "Email not verified. Please check your email for verification link or resend verification email.",
+            );
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password,
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role as UserRole,
+            status: user.status as AccountStatus,
+            referralCode: user.referralCode,
+          };
+        } catch (error) {
+          console.error("Auth error:", error);
           return null;
         }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password,
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
       },
     }),
   ],
@@ -57,15 +72,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
         token.id = user.id;
+        token.role = user.role;
+        token.status = user.status;
+        token.referralCode = user.referralCode;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.role = token.role;
-        session.user.id = token.id;
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
+        session.user.status = token.status as AccountStatus;
+        session.user.referralCode = token.referralCode as string;
       }
       return session;
     },
@@ -73,5 +92,7 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
     signUp: "/auth/signup",
+    error: "/auth/error",
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
