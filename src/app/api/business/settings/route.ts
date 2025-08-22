@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -30,7 +30,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const settings = await BusinessService.getBusinessSettings(business.id);
+    // Get business settings (create default if doesn't exist)
+    let settings = await prisma.businessSettings.findUnique({
+      where: { businessId: business.id },
+    });
+
+    if (!settings) {
+      settings = await prisma.businessSettings.create({
+        data: {
+          businessId: business.id,
+          notifications: true,
+          privacy: "PUBLIC",
+          security: "STANDARD",
+        },
+      });
+    }
 
     return NextResponse.json({ settings });
   } catch (error) {
@@ -62,9 +76,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -72,10 +86,15 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updatedSettings = await BusinessService.updateBusinessSettings(
-      business.id,
-      body,
-    );
+    // Update business settings
+    const updatedSettings = await prisma.businessSettings.upsert({
+      where: { businessId: business.id },
+      update: body,
+      create: {
+        businessId: business.id,
+        ...body,
+      },
+    });
 
     logger.info(`Business settings updated: ${business.id}`, {
       businessId: business.id,

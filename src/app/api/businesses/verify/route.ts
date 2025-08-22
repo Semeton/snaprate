@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
 import { prisma } from "@/lib/prisma";
-
-const businessService = new BusinessService();
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,7 +66,14 @@ export async function POST(request: NextRequest) {
 
     let result;
     if (action === "APPROVE") {
-      result = await businessService.approveBusiness(businessId, user.id);
+      result = await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          verificationStatus: "VERIFIED",
+          verifiedAt: new Date(),
+        },
+        include: { owner: true },
+      });
     } else {
       if (!reason) {
         return NextResponse.json(
@@ -77,11 +81,14 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      result = await businessService.rejectBusiness(
-        businessId,
-        user.id,
-        reason,
-      );
+      result = await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          verificationStatus: "REJECTED",
+          verifiedAt: new Date(),
+        },
+        include: { owner: true },
+      });
     }
 
     // Log admin action

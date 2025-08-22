@@ -7,9 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Star, Search, MapPin, Phone, Globe, ArrowLeft, Plus } from "lucide-react";
+import {
+  Star,
+  Search,
+  MapPin,
+  Phone,
+  Globe,
+  ArrowLeft,
+  Plus,
+} from "lucide-react";
 
 interface Business {
   id: string;
@@ -31,12 +45,18 @@ export default function BusinessesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "all");
-  const [selectedState, setSelectedState] = useState(searchParams.get("state") || "all");
+  const [searchQuery, setSearchQuery] = useState(
+    searchParams.get("search") || "",
+  );
+  const [selectedCategory, setSelectedCategory] = useState(
+    searchParams.get("category") || "all",
+  );
+  const [selectedState, setSelectedState] = useState(
+    searchParams.get("state") || "all",
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasReviewed, setHasReviewed] = useState<Set<string>>(new Set());
@@ -46,20 +66,29 @@ export default function BusinessesPage() {
       fetchBusinesses();
       fetchUserReviews();
     }
-  }, [session, status, searchQuery, selectedCategory, selectedState, currentPage]);
+  }, [
+    session,
+    status,
+    searchQuery,
+    selectedCategory,
+    selectedState,
+    currentPage,
+  ]);
 
   const fetchBusinesses = async () => {
     try {
       setLoading(true);
-      
+
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: "12",
       });
-      
+
       if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-      if (selectedState && selectedState !== "all") params.append("state", selectedState);
+      if (selectedCategory && selectedCategory !== "all")
+        params.append("category", selectedCategory);
+      if (selectedState && selectedState !== "all")
+        params.append("state", selectedState);
 
       const response = await fetch(`/api/businesses?${params.toString()}`);
       if (response.ok) {
@@ -79,7 +108,9 @@ export default function BusinessesPage() {
       const response = await fetch(`/api/reviews?userId=${session?.user?.id}`);
       if (response.ok) {
         const data = await response.json();
-        const reviewedBusinessIds = new Set(data.data?.map((r: any) => r.businessId) || []);
+        const reviewedBusinessIds = new Set(
+          data.data?.map((r: any) => r.businessId) || [],
+        );
         setHasReviewed(reviewedBusinessIds);
       }
     } catch (error) {
@@ -91,9 +122,11 @@ export default function BusinessesPage() {
     setCurrentPage(1);
     const params = new URLSearchParams();
     if (searchQuery) params.append("search", searchQuery);
-    if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-    if (selectedState && selectedState !== "all") params.append("state", selectedState);
-    
+    if (selectedCategory && selectedCategory !== "all")
+      params.append("category", selectedCategory);
+    if (selectedState && selectedState !== "all")
+      params.append("state", selectedState);
+
     router.push(`/reviewer/businesses?${params.toString()}`);
   };
 
@@ -136,8 +169,12 @@ export default function BusinessesPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Find Businesses</h1>
-              <p className="text-gray-600">Discover and review businesses to earn rewards</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Find Businesses
+              </h1>
+              <p className="text-gray-600">
+                Discover and review businesses to earn rewards
+              </p>
             </div>
           </div>
         </div>
@@ -161,10 +198,13 @@ export default function BusinessesPage() {
                   className="mt-1"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="category">Category</Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <Select
+                  value={selectedCategory}
+                  onValueChange={setSelectedCategory}
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
@@ -186,7 +226,7 @@ export default function BusinessesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="state">State</Label>
                 <Select value={selectedState} onValueChange={setSelectedState}>
@@ -236,9 +276,12 @@ export default function BusinessesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex items-end">
-                <Button onClick={handleSearch} className="w-full bg-blue-600 hover:bg-blue-700">
+                <Button
+                  onClick={handleSearch}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
                   <Search className="h-4 w-4 mr-2" />
                   Search
                 </Button>
@@ -275,7 +318,10 @@ export default function BusinessesPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {businesses.map((business) => (
-                <Card key={business.id} className="hover:shadow-lg transition-shadow">
+                <Card
+                  key={business.id}
+                  className="hover:shadow-lg transition-shadow"
+                >
                   <CardContent className="p-6">
                     {/* Business Logo/Image */}
                     <div className="h-32 bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
@@ -300,7 +346,7 @@ export default function BusinessesPage() {
                       <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                         {business.description || "No description available"}
                       </p>
-                      
+
                       <div className="flex items-center space-x-2 mb-3">
                         <Badge variant="secondary">
                           {business.category.replace(/_/g, " ")}
@@ -309,7 +355,8 @@ export default function BusinessesPage() {
                           <div className="flex items-center space-x-1">
                             <Star className="h-4 w-4 text-yellow-400 fill-current" />
                             <span className="text-sm text-gray-600">
-                              {business.averageRating.toFixed(1)} ({business.totalReviews})
+                              {business.averageRating.toFixed(1)} (
+                              {business.totalReviews})
                             </span>
                           </div>
                         )}
@@ -318,7 +365,10 @@ export default function BusinessesPage() {
                       <div className="space-y-2 text-sm text-gray-500">
                         <div className="flex items-center space-x-2">
                           <MapPin className="h-4 w-4" />
-                          <span>{business.address}, {business.city}, {business.state}</span>
+                          <span>
+                            {business.address}, {business.city},{" "}
+                            {business.state}
+                          </span>
                         </div>
                         {business.phone && (
                           <div className="flex items-center space-x-2">
@@ -369,7 +419,7 @@ export default function BusinessesPage() {
                 >
                   Previous
                 </Button>
-                
+
                 {[...Array(totalPages)].map((_, i) => {
                   const page = i + 1;
                   if (
@@ -391,11 +441,15 @@ export default function BusinessesPage() {
                     page === currentPage - 3 ||
                     page === currentPage + 3
                   ) {
-                    return <span key={page} className="px-3 py-2">...</span>;
+                    return (
+                      <span key={page} className="px-3 py-2">
+                        ...
+                      </span>
+                    );
                   }
                   return null;
                 })}
-                
+
                 <Button
                   variant="outline"
                   onClick={() => handlePageChange(currentPage + 1)}
@@ -410,7 +464,9 @@ export default function BusinessesPage() {
           <Card>
             <CardContent className="p-12 text-center">
               <Search className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No businesses found</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No businesses found
+              </h3>
               <p className="text-gray-600 mb-4">
                 Try adjusting your search criteria or browse all businesses
               </p>

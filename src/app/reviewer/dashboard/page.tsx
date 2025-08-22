@@ -39,6 +39,9 @@ interface RecentReview {
   id: string;
   business: {
     name: string;
+    category: string;
+    state: string;
+    city: string;
   };
   rating: number;
   content: string;
@@ -52,7 +55,7 @@ interface RecentReward {
   type: string;
   amount: number;
   description: string;
-  status: string;
+  isRedeemed: boolean;
   createdAt: string;
 }
 
@@ -62,6 +65,18 @@ export default function ReviewerDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [recentRewards, setRecentRewards] = useState<RecentReward[]>([]);
+  const [recentBusinesses, setRecentBusinesses] = useState<
+    {
+      id: string;
+      name: string;
+      category: string;
+      state: string;
+      city: string;
+      averageRating: number;
+      totalReviews: number;
+      logo?: string;
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -84,21 +99,26 @@ export default function ReviewerDashboard() {
       }
 
       // Fetch recent reviews
-      const reviewsResponse = await fetch(
-        "/api/reviews?userId=" + session?.user?.id + "&limit=5",
-      );
+      const reviewsResponse = await fetch("/api/dashboard/reviews?limit=5");
       if (reviewsResponse.ok) {
         const reviewsData = await reviewsResponse.json();
-        setRecentReviews(reviewsData.data || []);
+        setRecentReviews(reviewsData.data?.reviews || []);
       }
 
       // Fetch recent rewards
-      const rewardsResponse = await fetch(
-        `/api/rewards?userId=${session?.user?.id}&limit=5`,
-      );
+      const rewardsResponse = await fetch("/api/dashboard/rewards?limit=5");
       if (rewardsResponse.ok) {
         const rewardsData = await rewardsResponse.json();
-        setRecentRewards(rewardsData.data || []);
+        setRecentRewards(rewardsData.data?.rewards || []);
+      }
+
+      // Fetch recent businesses
+      const businessesResponse = await fetch(
+        "/api/dashboard/businesses?limit=3",
+      );
+      if (businessesResponse.ok) {
+        const businessesData = await businessesResponse.json();
+        setRecentBusinesses(businessesData.data?.businesses || []);
       }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
@@ -343,6 +363,77 @@ export default function ReviewerDashboard() {
           </CardContent>
         </Card>
 
+        {/* Recent Businesses */}
+        <Card className="mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Recent Businesses</CardTitle>
+            <Button
+              onClick={() => router.push("/reviewer/businesses")}
+              variant="outline"
+              size="sm"
+            >
+              See All
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {recentBusinesses.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {recentBusinesses.map((business) => (
+                  <div
+                    key={business.id}
+                    className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => router.push(`/businesses/${business.id}`)}
+                  >
+                    <div className="flex items-center space-x-3 mb-3">
+                      {business.logo ? (
+                        <img
+                          src={business.logo}
+                          alt={business.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-gray-500 text-sm font-medium">
+                            {business.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 truncate">
+                          {business.name}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          {business.category.replace(/_/g, " ")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">
+                          {business.city}, {business.state}
+                        </span>
+                        <div className="flex items-center space-x-1">
+                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                          <span className="font-medium">
+                            {business.averageRating.toFixed(1)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {business.totalReviews} reviews
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No businesses found</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tabs for Recent Activity */}
         <Tabs defaultValue="reviews" className="space-y-4">
           <TabsList>
@@ -446,12 +537,10 @@ export default function ReviewerDashboard() {
                           </p>
                           <Badge
                             variant={
-                              reward.status === "PENDING"
-                                ? "secondary"
-                                : "default"
+                              reward.isRedeemed ? "default" : "secondary"
                             }
                           >
-                            {reward.status}
+                            {reward.isRedeemed ? "REDEEMED" : "PENDING"}
                           </Badge>
                         </div>
                       </div>

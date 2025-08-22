@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") as any;
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -33,10 +33,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const reviews = await BusinessService.getBusinessReviews(
-      business.id,
-      status,
-    );
+    // Get reviews for the business
+    const where: any = { businessId: business.id };
+    if (status && status !== "all") {
+      where.status = status;
+    }
+
+    const reviews = await prisma.review.findMany({
+      where,
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
     return NextResponse.json({ reviews });
   } catch (error) {
@@ -78,9 +93,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -88,11 +103,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const updatedReview = await BusinessService.respondToReview(
-      reviewId,
-      business.id,
-      response,
-    );
+    // Update the review with business response
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        businessResponse: response,
+        businessResponseDate: new Date(),
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+      },
+    });
 
     logger.info(`Review response added successfully: ${reviewId}`, {
       reviewId,

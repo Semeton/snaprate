@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { RewardService } from "@/services/RewardService";
 import { prisma } from "@/lib/prisma";
 import { RewardType } from "@/types";
-
-const rewardService = new RewardService();
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,21 +36,69 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
 
     // Get rewards
-    const rewards = await rewardService.getUserRewards(userId, {
-      page,
-      limit,
-      type: type || undefined,
-      isRedeemed,
-    });
+    const skip = (page - 1) * limit;
+    const where: {
+      referrerId: string;
+      type?: RewardType;
+      isRedeemed?: boolean;
+    } = { referrerId: userId };
+    if (type) {
+      where.type = type;
+    }
+    if (isRedeemed !== undefined) {
+      where.isRedeemed = isRedeemed;
+    }
+
+    const [rewards, total] = await Promise.all([
+      prisma.reward.findMany({
+        where,
+        include: {
+          referrer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.reward.count({ where }),
+    ]);
 
     // Get reward stats
-    const stats = await rewardService.getRewardStats(userId);
+    const [totalRewards, totalAmount, redeemedRewards] = await Promise.all([
+      prisma.reward.count({ where: { referrerId: userId } }),
+      prisma.reward.aggregate({
+        where: { referrerId: userId },
+        _sum: { amount: true },
+      }),
+      prisma.reward.count({
+        where: {
+          referrerId: userId,
+          isRedeemed: true,
+        },
+      }),
+    ]);
+
+    const stats = {
+      totalRewards,
+      totalAmount: totalAmount._sum.amount || 0,
+      redeemedRewards,
+    };
 
     return NextResponse.json({
       success: true,
       data: {
-        rewards: rewards.rewards,
-        pagination: rewards.pagination,
+        rewards,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
         stats,
       },
     });
@@ -102,7 +147,22 @@ export async function POST(request: NextRequest) {
     const userId = user.id;
 
     // Redeem reward
-    const redeemedReward = await rewardService.redeemReward(rewardId, userId);
+    const redeemedReward = await prisma.reward.update({
+      where: { id: rewardId },
+      data: {
+        isRedeemed: true,
+        redeemedAt: new Date(),
+      },
+      include: {
+        referrer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
 
     return NextResponse.json({
       success: true,

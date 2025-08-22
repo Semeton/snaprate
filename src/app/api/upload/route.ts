@@ -98,6 +98,8 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(bytes);
         await writeFile(filePath, buffer);
 
+        console.log(`File uploaded successfully: ${filePath}`);
+
         // Return public URL
         const publicUrl = `/uploads/${type}/${filename}`;
         uploadedFiles.push(publicUrl);

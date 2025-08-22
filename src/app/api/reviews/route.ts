@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ReviewService } from "@/services/ReviewService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-const reviewService = new ReviewService();
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,10 +46,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user has already reviewed this business
-    const existingReview = await reviewService.getUserReviewForBusiness(
-      session.user.id,
-      businessId,
-    );
+    const existingReview = await prisma.review.findFirst({
+      where: {
+        reviewerId: session.user.id,
+        businessId,
+      },
+    });
 
     if (existingReview) {
       return NextResponse.json(
@@ -62,15 +61,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Create review
-    const review = await reviewService.createReview({
-      userId: session.user.id,
-      businessId,
-      rating,
-      title,
-      content,
-      images: images || [],
-      video: video || null,
-      isAnonymous: isAnonymous || false,
+    const review = await prisma.review.create({
+      data: {
+        reviewerId: session.user.id,
+        businessId,
+        rating,
+        content,
+        images: images || [],
+        video: video || null,
+        status: "PENDING",
+        isVerified: false,
+        helpfulCount: 0,
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+          },
+        },
+      },
+    });
+
+    // Update business metrics
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        totalReviews: {
+          increment: 1,
+        },
+        averageRating: {
+          set: await prisma.review
+            .aggregate({
+              where: { businessId },
+              _avg: { rating: true },
+            })
+            .then((result) => result._avg.rating || 0),
+        },
+      },
     });
 
     return NextResponse.json({

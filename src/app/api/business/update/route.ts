@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function PUT(request: NextRequest) {
@@ -55,9 +55,9 @@ export async function PUT(request: NextRequest) {
     });
 
     // Get the user's business
-    const existingBusiness = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const existingBusiness = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!existingBusiness) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -66,9 +66,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update business
-    const updatedBusiness = await BusinessService.updateBusiness(
-      existingBusiness.id,
-      {
+    const updatedBusiness = await prisma.business.update({
+      where: { id: existingBusiness.id },
+      data: {
         name,
         description,
         category,
@@ -79,7 +79,17 @@ export async function PUT(request: NextRequest) {
         city,
         state,
       },
-    );
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
 
     logger.info(`Business updated successfully: ${updatedBusiness.id}`, {
       businessId: updatedBusiness.id,

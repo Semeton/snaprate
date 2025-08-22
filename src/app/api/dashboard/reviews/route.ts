@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { ReviewService } from "@/services/ReviewService";
 import { prisma } from "@/lib/prisma";
-
-const reviewService = new ReviewService();
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +16,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const status = searchParams.get("status") as any;
+    const status = searchParams.get("status") as string | null;
 
     // Get user by email
     const user = await prisma.user.findUnique({
@@ -37,20 +34,71 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
 
     // Get user reviews
-    const reviews = await reviewService.getUserReviews(userId, {
-      page,
-      limit,
-      status,
-    });
+    const skip = (page - 1) * limit;
+    const where: { reviewerId: string; status?: string } = {
+      reviewerId: userId,
+    };
+    if (status) {
+      where.status = status;
+    }
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              state: true,
+              city: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.review.count({ where }),
+    ]);
 
     // Get review stats
-    const stats = await reviewService.getReviewStats(userId);
+    const [totalReviews, averageRating, totalHelpful] = await Promise.all([
+      prisma.review.count({ where: { reviewerId: userId } }),
+      prisma.review.aggregate({
+        where: { reviewerId: userId },
+        _avg: { rating: true },
+      }),
+      prisma.review.aggregate({
+        where: { reviewerId: userId },
+        _sum: { helpfulCount: true },
+      }),
+    ]);
+
+    const stats = {
+      totalReviews,
+      averageRating: averageRating._avg.rating || 0,
+      totalHelpful: totalHelpful._sum.helpfulCount || 0,
+    };
 
     return NextResponse.json({
       success: true,
       data: {
-        reviews: reviews.reviews,
-        pagination: reviews.pagination,
+        reviews,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
         stats,
       },
     });

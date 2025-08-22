@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
       : 30;
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -35,10 +35,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const analytics = await BusinessService.getBusinessAnalytics(
-      business.id,
-      days,
-    );
+    // Get basic analytics data
+    const analytics = {
+      totalVisits: business.totalVisits || 0,
+      totalReviews: business.totalReviews || 0,
+      averageRating: business.averageRating || 0,
+      activeCoupons: 0, // Will be calculated below
+      totalRevenue: 0, // Will be calculated below
+      monthlyGrowth: 0, // Will be calculated below
+      topPerformingCoupons: [],
+      customerDemographics: [],
+      peakHours: [],
+      monthlyTrends: [],
+    };
+
+    // Get active coupons count
+    const activeCoupons = await prisma.coupon.count({
+      where: {
+        businessId: business.id,
+        status: "ACTIVE",
+        validUntil: { gte: new Date() },
+      },
+    });
+    analytics.activeCoupons = activeCoupons;
+
+    // Get total revenue from coupon redemptions
+    const totalRevenue = await prisma.couponRedemption.aggregate({
+      where: {
+        coupon: {
+          businessId: business.id,
+        },
+      },
+      _sum: {
+        discountApplied: true,
+      },
+    });
+    analytics.totalRevenue = totalRevenue._sum.discountApplied || 0;
 
     return NextResponse.json({ analytics });
   } catch (error) {

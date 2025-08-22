@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { ReviewService } from "@/services/ReviewService";
-import { RewardService } from "@/services/RewardService";
-import { UserService } from "@/services/UserService";
 import { prisma } from "@/lib/prisma";
-
-const reviewService = new ReviewService();
-const rewardService = new RewardService();
-const userService = new UserService();
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,13 +25,50 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
 
     // Get review stats
-    const reviewStats = await reviewService.getReviewStats(userId);
+    const [totalReviews, approvedReviews, pendingReviews] = await Promise.all([
+      prisma.review.count({ where: { reviewerId: userId } }),
+      prisma.review.count({
+        where: { reviewerId: userId, status: "APPROVED" },
+      }),
+      prisma.review.count({ where: { reviewerId: userId, status: "PENDING" } }),
+    ]);
+
+    const reviewStats = {
+      totalReviews,
+      approvedReviews,
+      pendingReviews,
+    };
 
     // Get reward stats
-    const rewardStats = await rewardService.getRewardStats(userId);
+    const [totalRewards, totalAmount, pendingRewards] = await Promise.all([
+      prisma.reward.count({ where: { referrerId: userId } }),
+      prisma.reward.aggregate({
+        where: { referrerId: userId },
+        _sum: { amount: true },
+      }),
+      prisma.reward.count({
+        where: {
+          referrerId: userId,
+          isRedeemed: false,
+        },
+      }),
+    ]);
+
+    const rewardStats = {
+      totalEarnings: totalAmount._sum.amount || 0,
+      pendingRewards,
+      referralEarnings: totalAmount._sum.amount || 0,
+      reviewEarnings: totalAmount._sum.amount || 0,
+    };
 
     // Get referral count
-    const referralStats = await userService.getReferralStats(userId);
+    const referralCount = await prisma.user.count({
+      where: { referredBy: userId },
+    });
+
+    const referralStats = {
+      count: referralCount,
+    };
 
     // Calculate current streak (simplified - in real app you'd track daily reviews)
     const currentStreak = await calculateCurrentStreak(userId);
@@ -83,7 +113,7 @@ async function calculateCurrentStreak(userId: string): Promise<number> {
 
     const recentReviews = await prisma.review.findMany({
       where: {
-        userId,
+        reviewerId: userId,
         createdAt: {
           gte: thirtyDaysAgo,
         },

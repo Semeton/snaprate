@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has a business
-    const existingBusiness = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const existingBusiness = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (existingBusiness) {
       return NextResponse.json(
         { error: "User already has a business" },
@@ -57,19 +57,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const business = await BusinessService.createBusiness(session.user.id, {
-      name,
-      description,
-      category,
-      phone,
-      email,
-      website,
-      address,
-      city,
-      state,
-      latitude,
-      longitude,
-      verificationDocuments,
+    const business = await prisma.business.create({
+      data: {
+        name,
+        description,
+        category,
+        phone,
+        email,
+        website,
+        address,
+        city,
+        state,
+        latitude,
+        longitude,
+        verificationDocuments: verificationDocuments || [],
+        ownerId: session.user.id,
+        isActive: true,
+        averageRating: 0,
+        totalReviews: 0,
+        totalVisits: 0,
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
     });
 
     logger.info(`Business created successfully: ${business.id}`, {
@@ -108,9 +125,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
 
     if (!business) {
       return NextResponse.json(

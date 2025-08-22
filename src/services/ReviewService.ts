@@ -69,11 +69,11 @@ export class ReviewService {
     try {
       const review = await prisma.review.findFirst({
         where: {
-          userId,
+          reviewerId: userId,
           businessId,
         },
         include: {
-          user: true,
+          reviewer: true,
           business: true,
         },
       });
@@ -109,7 +109,7 @@ export class ReviewService {
         prisma.review.findMany({
           where,
           include: {
-            user: {
+            reviewer: {
               select: {
                 id: true,
                 name: true,

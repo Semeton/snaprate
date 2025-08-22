@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const business = await prisma.business.findUnique({
       where: { id },
@@ -44,7 +44,7 @@ export async function GET(
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -55,7 +55,7 @@ export async function GET(
     logger.error("Failed to get business details", { error });
     return NextResponse.json(
       { error: "Failed to get business details" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -54,20 +54,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const coupon = await BusinessService.createCoupon(business.id, {
-      title,
-      description,
-      type,
-      value: parseFloat(value),
-      minimumOrderAmount: minimumOrderAmount
-        ? parseFloat(minimumOrderAmount)
-        : undefined,
-      maximumDiscount: maximumDiscount
-        ? parseFloat(maximumDiscount)
-        : undefined,
-      validFrom: new Date(validFrom),
-      validUntil: new Date(validUntil),
-      maxUses: maxUses ? parseInt(maxUses) : undefined,
+    // Generate unique coupon code
+    const generateCouponCode = () => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+
+    let couponCode;
+    let isUnique = false;
+    do {
+      couponCode = generateCouponCode();
+      const existingCoupon = await prisma.coupon.findUnique({
+        where: { code: couponCode },
+      });
+      isUnique = !existingCoupon;
+    } while (!isUnique);
+
+    const coupon = await prisma.coupon.create({
+      data: {
+        title,
+        description,
+        type,
+        value: parseFloat(value),
+        minimumOrderAmount: minimumOrderAmount
+          ? parseFloat(minimumOrderAmount)
+          : undefined,
+        maximumDiscount: maximumDiscount
+          ? parseFloat(maximumDiscount)
+          : undefined,
+        validFrom: new Date(validFrom),
+        validUntil: new Date(validUntil),
+        maxUses: maxUses ? parseInt(maxUses) : undefined,
+        code: couponCode,
+        businessId: business.id,
+      },
     });
 
     logger.info(`Coupon created successfully: ${coupon.id}`, {
@@ -108,9 +132,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the user's business
-    const business = await BusinessService.getBusinessByOwnerId(
-      session.user.id,
-    );
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
@@ -118,7 +142,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const coupons = await BusinessService.getBusinessCoupons(business.id);
+    const coupons = await prisma.coupon.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "desc" },
+    });
 
     return NextResponse.json({ coupons });
   } catch (error) {
