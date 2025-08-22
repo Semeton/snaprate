@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Star,
@@ -30,6 +24,7 @@ import {
   Video,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { BusinessCategory } from "@/types";
 
 interface DashboardStats {
   totalReviews: number;
@@ -317,30 +312,23 @@ export default function ReviewerDashboard() {
               </div>
               <div className="w-full sm:w-48">
                 <Label htmlFor="category">Category</Label>
-                {/* <Select
-                  value={selectedCategory}
-                  onValueChange={setSelectedCategory}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All categories</SelectItem>
-                    <SelectItem value="RESTAURANT">Restaurant</SelectItem>
-                    <SelectItem value="RETAIL">Retail</SelectItem>
-                    <SelectItem value="HEALTHCARE">Healthcare</SelectItem>
-                    <SelectItem value="EDUCATION">Education</SelectItem>
-                    <SelectItem value="ENTERTAINMENT">Entertainment</SelectItem>
-                    <SelectItem value="TECHNOLOGY">Technology</SelectItem>
-                    <SelectItem value="FINANCE">Finance</SelectItem>
-                    <SelectItem value="REAL_ESTATE">Real Estate</SelectItem>
-                    <SelectItem value="AUTOMOTIVE">Automotive</SelectItem>
-                    <SelectItem value="BEAUTY">Beauty</SelectItem>
-                    <SelectItem value="FITNESS">Fitness</SelectItem>
-                    <SelectItem value="TRAVEL">Travel</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select> */}
+                <div className="mt-1">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => {
+                      console.log("Category selected:", e.target.value);
+                      setSelectedCategory(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All categories</option>
+                    {Object.values(BusinessCategory).map((category) => (
+                      <option key={category} value={category}>
+                        {category.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div className="flex items-end">
                 <Button

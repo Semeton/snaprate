@@ -35,8 +35,8 @@ export default function BusinessesPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
-  const [selectedState, setSelectedState] = useState(searchParams.get("state") || "");
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "all");
+  const [selectedState, setSelectedState] = useState(searchParams.get("state") || "all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [hasReviewed, setHasReviewed] = useState<Set<string>>(new Set());
@@ -58,8 +58,8 @@ export default function BusinessesPage() {
       });
       
       if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory) params.append("category", selectedCategory);
-      if (selectedState) params.append("state", selectedState);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+      if (selectedState && selectedState !== "all") params.append("state", selectedState);
 
       const response = await fetch(`/api/businesses?${params.toString()}`);
       if (response.ok) {
@@ -91,8 +91,8 @@ export default function BusinessesPage() {
     setCurrentPage(1);
     const params = new URLSearchParams();
     if (searchQuery) params.append("search", searchQuery);
-    if (selectedCategory) params.append("category", selectedCategory);
-    if (selectedState) params.append("state", selectedState);
+    if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+    if (selectedState && selectedState !== "all") params.append("state", selectedState);
     
     router.push(`/reviewer/businesses?${params.toString()}`);
   };
@@ -169,7 +169,7 @@ export default function BusinessesPage() {
                     <SelectValue placeholder="All categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All categories</SelectItem>
+                    <SelectItem value="all">All categories</SelectItem>
                     <SelectItem value="RESTAURANT">Restaurant</SelectItem>
                     <SelectItem value="RETAIL">Retail</SelectItem>
                     <SelectItem value="HEALTHCARE">Healthcare</SelectItem>
@@ -194,7 +194,7 @@ export default function BusinessesPage() {
                     <SelectValue placeholder="All states" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All states</SelectItem>
+                    <SelectItem value="all">All states</SelectItem>
                     <SelectItem value="LAGOS">Lagos</SelectItem>
                     <SelectItem value="ABUJA">Abuja</SelectItem>
                     <SelectItem value="KANO">Kano</SelectItem>
