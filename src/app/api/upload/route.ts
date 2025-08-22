@@ -19,6 +19,14 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll("files") as File[];
     const type = formData.get("type") as string; // "image" or "video"
 
+    console.log("Upload request received:");
+    console.log("Files count:", files.length);
+    console.log("Type:", type);
+    console.log(
+      "File names:",
+      files.map((f) => f.name),
+    );
+
     if (!files || files.length === 0) {
       return NextResponse.json(
         { success: false, error: "No files provided" },
@@ -103,6 +111,10 @@ export async function POST(request: NextRequest) {
         // Return public URL
         const publicUrl = `/uploads/${type}/${filename}`;
         uploadedFiles.push(publicUrl);
+
+        console.log(`File uploaded successfully: ${filePath}`);
+        console.log(`Public URL: ${publicUrl}`);
+        console.log(`File size: ${file.size} bytes`);
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
         return NextResponse.json(

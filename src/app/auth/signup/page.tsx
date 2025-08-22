@@ -198,7 +198,7 @@ export default function SignUpPage() {
                     <SelectItem value="BUSINESS_OWNER">
                       Business Owner
                     </SelectItem>
-                    <SelectItem value="AGENT">Agent</SelectItem>
+                    {/* <SelectItem value="AGENT">Agent</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>

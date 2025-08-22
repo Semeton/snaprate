@@ -109,6 +109,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Create reward for the review (NGN 50)
+    await prisma.reward.create({
+      data: {
+        referrerId: session.user.id,
+        amount: 50,
+        type: "REVIEW",
+        description: `Review reward for ${review.business.name}`,
+        isRedeemed: false,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Review submitted successfully",
@@ -134,11 +145,13 @@ export async function GET(request: NextRequest) {
 
     if (businessId) {
       try {
+        console.log("Fetching reviews for businessId:", businessId);
         const skip = (page - 1) * limit;
         const where: any = { businessId };
         if (status) {
           where.status = status;
         }
+        console.log("Where clause:", where);
 
         const [reviews, total] = await Promise.all([
           prisma.review.findMany({
@@ -178,7 +191,18 @@ export async function GET(request: NextRequest) {
           },
         };
 
-        return NextResponse.json({ success: true, data: reviews });
+        return NextResponse.json({
+          success: true,
+          data: {
+            reviews,
+            pagination: {
+              page,
+              limit,
+              total,
+              totalPages: Math.ceil(total / limit),
+            },
+          },
+        });
       } catch (error) {
         console.error("Failed to fetch business reviews:", error);
         return NextResponse.json(

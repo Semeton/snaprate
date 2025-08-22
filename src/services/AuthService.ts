@@ -148,6 +148,32 @@ export class AuthService implements IAuthService {
       // Generate JWT token (in a real app, you'd use a proper JWT library)
       const token = this.generateToken(user.id);
 
+      // Create referral reward if user was referred
+      if (referredByUserId) {
+        try {
+          await prisma.reward.create({
+            data: {
+              referrerId: referredByUserId,
+              amount: 20,
+              type: "REFERRAL",
+              description: `Referral reward for ${userData.email}`,
+              isRedeemed: false,
+            },
+          });
+          logger.info("Referral reward created successfully", {
+            referrerId: referredByUserId,
+            referredUserId: user.id,
+            amount: 20,
+          });
+        } catch (error) {
+          logger.error("Failed to create referral reward", {
+            referrerId: referredByUserId,
+            referredUserId: user.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
       // Send verification email
       logger.debug("Sending verification email");
       await this.sendVerificationEmail(

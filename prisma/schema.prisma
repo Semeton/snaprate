@@ -141,6 +141,7 @@ model User {
   sessions                Session[]
   reviews                 Review[]
   rewards                 Reward[]  @relation("ReferrerRewards")
+  rewardRedemptions       RewardRedemption[]
   business                Business?
   agentProfile            Agent?
   businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
@@ -363,6 +364,21 @@ model Reward {
   referrer    User     @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
 
   @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String    // "AIRTIME" or "COUPON"
+  amount      Float
+  phone       String?   // For airtime redemption
+  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reward_redemptions")
 }
 
 model BusinessAnalytics {

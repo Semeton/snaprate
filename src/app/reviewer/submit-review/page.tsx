@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Star, Camera, Video, Upload, X, ArrowLeft } from "lucide-react";
@@ -27,8 +33,12 @@ export default function SubmitReview() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const businessId = searchParams.get("businessId");
-  
+
   const [business, setBusiness] = useState<Business | null>(null);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState(
+    businessId || "",
+  );
   const [rating, setRating] = useState(0);
   const [content, setContent] = useState("");
   const [images, setImages] = useState<File[]>([]);
@@ -41,12 +51,32 @@ export default function SubmitReview() {
   useEffect(() => {
     if (businessId) {
       fetchBusinessDetails();
+    } else {
+      fetchBusinesses();
     }
   }, [businessId]);
 
+  useEffect(() => {
+    if (selectedBusinessId && selectedBusinessId !== businessId) {
+      fetchBusinessDetails();
+    }
+  }, [selectedBusinessId]);
+
+  const fetchBusinesses = async () => {
+    try {
+      const response = await fetch("/api/dashboard/businesses?limit=50");
+      if (response.ok) {
+        const data = await response.json();
+        setBusinesses(data.data.businesses || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch businesses:", error);
+    }
+  };
+
   const fetchBusinessDetails = async () => {
     try {
-      const response = await fetch(`/api/businesses/${businessId}`);
+      const response = await fetch(`/api/businesses/${selectedBusinessId}`);
       if (response.ok) {
         const businessData = await response.json();
         setBusiness(businessData);
@@ -58,21 +88,22 @@ export default function SubmitReview() {
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+
     if (images.length + imageFiles.length > 5) {
       setError("Maximum 5 images allowed");
       return;
     }
-    
-    setImages(prev => [...prev, ...imageFiles]);
+
+    setImages((prev) => [...prev, ...imageFiles]);
     setError("");
   };
 
   const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith('video/')) {
-      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+    if (file && file.type.startsWith("video/")) {
+      if (file.size > 50 * 1024 * 1024) {
+        // 50MB limit
         setError("Video must be less than 50MB");
         return;
       }
@@ -82,7 +113,7 @@ export default function SubmitReview() {
   };
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeVideo = () => {
@@ -91,8 +122,8 @@ export default function SubmitReview() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!businessId || !rating || !content.trim()) {
+
+    if (!selectedBusinessId || !rating || !content.trim()) {
       setError("Please fill in all required fields");
       return;
     }
@@ -110,17 +141,29 @@ export default function SubmitReview() {
       const imageUrls: string[] = [];
       for (const image of images) {
         const formData = new FormData();
-        formData.append('file', image);
-        formData.append('type', 'image');
-        
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
+        formData.append("files", image);
+        formData.append("type", "image");
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
           body: formData,
         });
-        
+
         if (uploadResponse.ok) {
-          const { url } = await uploadResponse.json();
-          imageUrls.push(url);
+          const { data } = await uploadResponse.json();
+          if (data.files && data.files.length > 0) {
+            imageUrls.push(data.files[0]);
+          } else {
+            console.error("Upload response missing files:", data);
+            setError("Failed to upload image: Invalid response");
+            return;
+          }
+        } else {
+          const errorData = await uploadResponse.json();
+          setError(
+            `Failed to upload image: ${errorData.error || "Upload failed"}`,
+          );
+          return;
         }
       }
 
@@ -128,23 +171,35 @@ export default function SubmitReview() {
       let videoUrl: string | null = null;
       if (video) {
         const formData = new FormData();
-        formData.append('file', video);
-        formData.append('type', 'video');
-        
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
+        formData.append("files", video);
+        formData.append("type", "video");
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
           body: formData,
         });
-        
+
         if (uploadResponse.ok) {
-          const { url } = await uploadResponse.json();
-          videoUrl = url;
+          const { data } = await uploadResponse.json();
+          if (data.files && data.files.length > 0) {
+            videoUrl = data.files[0];
+          } else {
+            console.error("Upload response missing files:", data);
+            setError("Failed to upload video: Invalid response");
+            return;
+          }
+        } else {
+          const errorData = await uploadResponse.json();
+          setError(
+            `Failed to upload video: ${errorData.error || "Upload failed"}`,
+          );
+          return;
         }
       }
 
       // Submit review
       const reviewData = {
-        businessId,
+        businessId: selectedBusinessId,
         rating,
         content: content.trim(),
         images: imageUrls,
@@ -152,10 +207,10 @@ export default function SubmitReview() {
         isAnonymous,
       };
 
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
+      const response = await fetch("/api/reviews", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(reviewData),
       });
@@ -163,7 +218,7 @@ export default function SubmitReview() {
       if (response.ok) {
         setSuccess("Review submitted successfully! You've earned ₦50.");
         setTimeout(() => {
-          router.push('/reviewer/dashboard');
+          router.push("/reviewer/dashboard");
         }, 2000);
       } else {
         const errorData = await response.json();
@@ -206,8 +261,12 @@ export default function SubmitReview() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Submit Review</h1>
-              <p className="text-gray-600">Share your experience and earn ₦50</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Submit Review
+              </h1>
+              <p className="text-gray-600">
+                Share your experience and earn ₦50
+              </p>
             </div>
           </div>
         </div>
@@ -223,16 +282,26 @@ export default function SubmitReview() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">Business Name</Label>
+                  <Label className="text-sm font-medium text-gray-700">
+                    Business Name
+                  </Label>
                   <p className="text-lg font-semibold">{business.name}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-gray-700">Category</Label>
-                  <Badge variant="secondary">{business.category.replace(/_/g, " ")}</Badge>
+                  <Label className="text-sm font-medium text-gray-700">
+                    Category
+                  </Label>
+                  <Badge variant="secondary">
+                    {business.category.replace(/_/g, " ")}
+                  </Badge>
                 </div>
                 <div className="md:col-span-2">
-                  <Label className="text-sm font-medium text-gray-700">Address</Label>
-                  <p className="text-gray-600">{business.address}, {business.city}, {business.state}</p>
+                  <Label className="text-sm font-medium text-gray-700">
+                    Address
+                  </Label>
+                  <p className="text-gray-600">
+                    {business.address}, {business.city}, {business.state}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -246,6 +315,35 @@ export default function SubmitReview() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Business Selection */}
+              {!businessId && (
+                <div>
+                  <Label htmlFor="business" className="text-sm font-medium">
+                    Select Business *
+                  </Label>
+                  <Select
+                    value={selectedBusinessId}
+                    onValueChange={setSelectedBusinessId}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Choose a business to review" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {businesses.map((business) => (
+                        <SelectItem key={business.id} value={business.id}>
+                          {business.name} -{" "}
+                          {business.category.replace(/_/g, " ")} (
+                          {business.city}, {business.state})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Select the business you want to review
+                  </p>
+                </div>
+              )}
+
               {/* Rating */}
               <div>
                 <Label className="text-sm font-medium">Rating *</Label>
@@ -295,7 +393,9 @@ export default function SubmitReview() {
 
               {/* Image Upload */}
               <div>
-                <Label className="text-sm font-medium">Upload Images (Optional)</Label>
+                <Label className="text-sm font-medium">
+                  Upload Images (Optional)
+                </Label>
                 <p className="text-sm text-gray-500 mb-2">
                   Add photos to support your review. Maximum 5 images.
                 </p>
@@ -334,7 +434,9 @@ export default function SubmitReview() {
 
               {/* Video Upload */}
               <div>
-                <Label className="text-sm font-medium">Upload Video (Optional)</Label>
+                <Label className="text-sm font-medium">
+                  Upload Video (Optional)
+                </Label>
                 <p className="text-sm text-gray-500 mb-2">
                   Add a video review. Maximum 50MB.
                 </p>
@@ -384,13 +486,17 @@ export default function SubmitReview() {
               {/* Error/Success Messages */}
               {error && (
                 <Alert className="border-red-500 bg-red-50">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                  <AlertDescription className="text-red-700">
+                    {error}
+                  </AlertDescription>
                 </Alert>
               )}
 
               {success && (
                 <Alert className="border-green-500 bg-green-50">
-                  <AlertDescription className="text-green-700">{success}</AlertDescription>
+                  <AlertDescription className="text-green-700">
+                    {success}
+                  </AlertDescription>
                 </Alert>
               )}
 
