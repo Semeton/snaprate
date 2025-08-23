@@ -130,6 +130,7 @@ model User {
   emailVerificationExpiry DateTime?
   passwordResetToken      String?
   passwordResetExpiry     DateTime?
+  lastLoginAt             DateTime?                 // Last login timestamp
   deletedAt               DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -148,6 +149,8 @@ model User {
   agentApplications       AgentApplication[]
   adminInvitations       AdminInvitation[] @relation("AdminInvitations")
   adminActions            AdminAction[] @relation("AdminActions")
+  reportedContent        ReportedContent[] @relation("UserReports")
+  resolvedReports        ReportedContent[] @relation("AdminResolutions")
   
   @@map("users")
 }
@@ -208,6 +211,8 @@ model Business {
   latitude              Float?
   longitude             Float?
   verificationStatus    BusinessVerificationStatus @default(PENDING)
+  verificationNotes     String?                   // Admin notes for verification
+  verifiedAt            DateTime?                 // When business was verified
   verificationDocuments String[]                  // Array of document URLs
   averageRating         Float                     @default(0)
   totalReviews          Int                       @default(0)
@@ -489,4 +494,46 @@ enum InvitationStatus {
   PENDING
   ACCEPTED
   EXPIRED
+}
+
+model ReportedContent {
+  id          String              @id @default(cuid())
+  contentType ContentType         // REVIEW, BUSINESS, USER
+  contentId   String              // ID of the reported content
+  reporterId  String              // User who reported the content
+  reason      ReportReason        // Why the content was reported
+  description String?             // Additional details about the report
+  status      ReportStatus        @default(PENDING) // PENDING, INVESTIGATED, RESOLVED, DISMISSED
+  adminNotes  String?             // Admin's notes about the investigation
+  resolvedBy  String?             // Admin who resolved the report
+  resolvedAt  DateTime?           // When the report was resolved
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  reporter    User                @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver    User?               @relation("AdminResolutions", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@map("reported_content")
+}
+
+enum ContentType {
+  REVIEW
+  BUSINESS
+  USER
+}
+
+enum ReportReason {
+  INAPPROPRIATE_CONTENT
+  SPAM
+  HARASSMENT
+  FALSE_INFORMATION
+  COPYRIGHT_VIOLATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATED
+  RESOLVED
+  DISMISSED
 }
