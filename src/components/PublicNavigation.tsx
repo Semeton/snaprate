@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/user-avatar";
 import { Star, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useState } from "react";
@@ -91,11 +92,13 @@ export default function PublicNavigation() {
               <div className="flex items-center space-x-3">
                 {/* User Info */}
                 <div className="hidden sm:flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
-                      {session.user.name?.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  <Avatar
+                    user={{
+                      name: session.user.name,
+                      avatar: session.user.avatar,
+                    }}
+                    size="sm"
+                  />
                   <div className="text-sm">
                     <p className="font-medium text-gray-900 dark:text-white">
                       {session.user.name}
@@ -202,11 +205,13 @@ export default function PublicNavigation() {
               {session?.user && (
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
                   <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">
-                        {session.user.name?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <Avatar
+                      user={{
+                        name: session.user.name,
+                        avatar: session.user.avatar,
+                      }}
+                      size="md"
+                    />
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">
                         {session.user.name}

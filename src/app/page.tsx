@@ -19,7 +19,7 @@ import {
   CreditCard,
   ChevronRight,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 // Types for our dynamic data
 interface FeaturedBusiness {
@@ -52,7 +52,9 @@ interface Testimonial {
 }
 
 export default function LandingPage() {
-  const [featuredBusinesses, setFeaturedBusinesses] = useState<FeaturedBusiness[]>([]);
+  const [featuredBusinesses, setFeaturedBusinesses] = useState<
+    FeaturedBusiness[]
+  >([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -61,8 +63,8 @@ export default function LandingPage() {
       try {
         // Fetch featured businesses and testimonials in parallel
         const [businessesResponse, testimonialsResponse] = await Promise.all([
-          fetch('/api/businesses/featured'),
-          fetch('/api/reviews/testimonials')
+          fetch("/api/businesses/featured"),
+          fetch("/api/reviews/testimonials"),
         ]);
 
         if (businessesResponse.ok) {
@@ -75,7 +77,7 @@ export default function LandingPage() {
           setTestimonials(testimonialsData.testimonials || []);
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       } finally {
         setIsLoading(false);
       }
@@ -84,95 +86,56 @@ export default function LandingPage() {
     fetchData();
   }, []);
 
-  // Fallback data if API fails or no data
-  const fallbackBusinesses = [
-    {
-      id: "1",
-      name: "Taste of Lagos",
-      description: "Authentic Nigerian cuisine with a modern twist. Famous for our jollof rice and suya.",
-      category: "RESTAURANT",
-      averageRating: 4.8,
-      totalReviews: 127,
-      totalVisits: 500,
-      address: "Victoria Island, Lagos",
-      city: "Lagos",
-      state: "LAGOS",
-      logo: null,
-      coverImage: null,
-    },
-    {
-      id: "2",
-      name: "TechHub Nigeria",
-      description: "Leading software development company specializing in web and mobile applications.",
-      category: "TECHNOLOGY",
-      averageRating: 4.9,
-      totalReviews: 89,
-      totalVisits: 300,
-      address: "Ikeja, Lagos",
-      city: "Lagos",
-      state: "LAGOS",
-      logo: null,
-      coverImage: null,
-    },
-    {
-      id: "3",
-      name: "Style Studio",
-      description: "Premium fashion boutique offering the latest trends in African and international fashion.",
-      category: "FASHION",
-      averageRating: 4.7,
-      totalReviews: 156,
-      totalVisits: 400,
-      address: "Lekki, Lagos",
-      city: "Lagos",
-      state: "LAGOS",
-      logo: null,
-      coverImage: null,
-    },
-  ];
+  // Track business view when card is clicked
+  const handleBusinessCardClick = useCallback(async (businessId: string) => {
+    try {
+      const params = new URLSearchParams({
+        source: "FEATURED",
+        viewType: "FEATURED_LIST",
+      });
 
-  const fallbackTestimonials = [
-    {
-      id: "1",
-      rating: 5,
-      content: "SnapRate has completely changed how I discover businesses. I've earned over ₦15,000 just by sharing my honest experiences!",
-      reviewer: { name: "Aisha Bello", role: "Verified Reviewer" },
-      business: { name: "Taste of Lagos", category: "RESTAURANT" },
-    },
-    {
-      id: "2",
-      rating: 5,
-      content: "The platform is so easy to use. I love how I can upload photos and videos with my reviews. Great way to earn extra income!",
-      reviewer: { name: "Kemi Adebayo", role: "Top Reviewer" },
-      business: { name: "TechHub Nigeria", category: "TECHNOLOGY" },
-    },
-    {
-      id: "3",
-      rating: 5,
-      content: "As a business owner, I appreciate the quality reviews from SnapRate users. It's helped me improve my services significantly.",
-      reviewer: { name: "Oluwaseun Oke", role: "Business Owner" },
-      business: { name: "Style Studio", category: "FASHION" },
-    },
-  ];
+      await fetch(
+        `/api/businesses/${businessId}/track-view?${params.toString()}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    } catch (error) {
+      console.warn("Failed to track featured business view:", error);
+    }
+  }, []);
 
   // Use dynamic data if available, otherwise fallback
-  const displayBusinesses = featuredBusinesses.length > 0 ? featuredBusinesses : fallbackBusinesses;
-  const displayTestimonials = testimonials.length > 0 ? testimonials : fallbackTestimonials;
+  const displayBusinesses = featuredBusinesses;
+  const displayTestimonials = testimonials;
 
   const getCategoryColor = (category: string) => {
     const colors: { [key: string]: string } = {
-      RESTAURANT: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-      TECHNOLOGY: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-      FASHION: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      RESTAURANT:
+        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      TECHNOLOGY:
+        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      FASHION:
+        "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
       HEALTHCARE: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-      EDUCATION: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-      ENTERTAINMENT: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
-      FINANCE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-      REAL_ESTATE: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
-      AUTOMOTIVE: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      EDUCATION:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      ENTERTAINMENT:
+        "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      FINANCE:
+        "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
+      REAL_ESTATE:
+        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+      AUTOMOTIVE:
+        "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
       BEAUTY: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200",
       FITNESS: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
       TRAVEL: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
-      RETAIL: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+      RETAIL:
+        "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
       OTHER: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
     };
     return colors[category] || colors.OTHER;
@@ -314,7 +277,10 @@ export default function LandingPage() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
               {[...Array(3)].map((_, i) => (
-                <Card key={i} className="animate-pulse bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                <Card
+                  key={i}
+                  className="animate-pulse bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                >
                   <CardContent className="p-6">
                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-20"></div>
                     <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
@@ -327,8 +293,41 @@ export default function LandingPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
               {displayBusinesses.map((business) => (
-                <Card key={business.id} className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-                  <CardContent className="p-6">
+                <Card
+                  key={business.id}
+                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 cursor-pointer overflow-hidden"
+                  onClick={() => handleBusinessCardClick(business.id)}
+                >
+                  {/* Business Cover Image */}
+                  <div className="relative h-48 bg-gradient-to-r from-blue-500 to-purple-600">
+                    {business.coverImage ? (
+                      <img
+                        src={business.coverImage}
+                        alt={`${business.name} cover`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Building2 className="w-16 h-16 text-white opacity-50" />
+                      </div>
+                    )}
+                    {/* Logo Overlay */}
+                    <div className="absolute -bottom-8 left-4">
+                      <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-xl border-4 border-white dark:border-gray-800 shadow-lg flex items-center justify-center overflow-hidden">
+                        {business.logo ? (
+                          <img
+                            src={business.logo}
+                            alt={`${business.name} logo`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Building2 className="w-8 h-8 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <CardContent className="pt-12 pb-6 px-6">
                     <div className="flex items-center justify-between mb-4">
                       <Badge
                         variant="secondary"
@@ -338,14 +337,17 @@ export default function LandingPage() {
                       </Badge>
                       <div className="flex items-center space-x-1">
                         <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span className="text-sm font-medium">{business.averageRating.toFixed(1)}</span>
+                        <span className="text-sm font-medium">
+                          {business.averageRating.toFixed(1)}
+                        </span>
                       </div>
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {business.name}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">
-                      {business.description || "Experience the best service and quality."}
+                    <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
+                      {business.description ||
+                        "Experience the best service and quality."}
                     </p>
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -460,11 +462,17 @@ export default function LandingPage() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(3)].map((_, i) => (
-                <Card key={i} className="animate-pulse bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                <Card
+                  key={i}
+                  className="animate-pulse bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-1 mb-4">
                       {[...Array(5)].map((_, j) => (
-                        <div key={j} className="h-5 w-5 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div
+                          key={j}
+                          className="h-5 w-5 bg-gray-200 dark:bg-gray-700 rounded"
+                        ></div>
                       ))}
                     </div>
                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-6"></div>
@@ -483,7 +491,10 @@ export default function LandingPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayTestimonials.map((testimonial) => (
-                <Card key={testimonial.id} className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                <Card
+                  key={testimonial.id}
+                  className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                >
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-1 mb-4">
                       {[...Array(5)].map((_, i) => (

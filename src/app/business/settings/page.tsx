@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
+import { Avatar } from "@/components/ui/user-avatar";
 import {
   Settings,
   User,
@@ -20,6 +21,7 @@ import {
   EyeOff,
   AlertTriangle,
   CheckCircle,
+  Camera,
 } from "lucide-react";
 
 interface UserProfile {
@@ -29,6 +31,7 @@ interface UserProfile {
   state: string;
   city: string;
   address: string;
+  avatar?: string;
 }
 
 export default function BusinessSettingsPage() {
@@ -89,6 +92,7 @@ function BusinessSettingsContent() {
             state: "", // Will be fetched from user profile
             city: "", // Will be fetched from user profile
             address: "", // Will be fetched from user profile
+            avatar: session.user.avatar || "", // Include avatar from session
           });
         }
 
@@ -105,6 +109,7 @@ function BusinessSettingsContent() {
               state: profileData.state || "",
               city: profileData.city || "",
               address: profileData.address || "",
+              avatar: profileData.avatar || "", // Include avatar from profile
             };
           });
         } else if (response.status === 404) {
@@ -128,6 +133,69 @@ function BusinessSettingsContent() {
       fetchProfile();
     }
   }, [session]);
+
+  const handleProfilePictureChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+
+      // Validate file
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        setMessage({
+          type: "error",
+          text: "File size must be less than 5MB",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        setMessage({
+          type: "error",
+          text: "Please select an image file",
+        });
+        return;
+      }
+
+      // Create FormData
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      // Upload avatar
+      const response = await fetch("/api/user/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload profile picture");
+      }
+
+      const responseData = await response.json();
+
+      setMessage({
+        type: "success",
+        text: "Profile picture updated successfully",
+      });
+
+      // Update local profile state with new avatar
+      setProfile((prev) =>
+        prev ? { ...prev, avatar: responseData.data.avatarUrl } : prev,
+      );
+    } catch (error) {
+      console.error("Failed to upload profile picture:", error);
+      setMessage({
+        type: "error",
+        text: "Failed to upload profile picture",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleProfileUpdate = async () => {
     if (!profile) return;
@@ -366,6 +434,46 @@ function BusinessSettingsContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Profile Picture Section */}
+              <div className="flex items-center space-x-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-4">
+                  <Avatar
+                    user={{
+                      name: profile.name,
+                      avatar: profile.avatar || session?.user?.avatar,
+                    }}
+                    size="xl"
+                  />
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                      Profile Picture
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Update your profile picture for better recognition
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      document.getElementById("profile-picture-input")?.click()
+                    }
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Change Picture
+                  </Button>
+                  <input
+                    id="profile-picture-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfilePictureChange}
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Full Name</Label>

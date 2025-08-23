@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import BusinessImageUpload from "@/components/BusinessImageUpload";
 import {
   Select,
   SelectContent,
@@ -422,7 +423,7 @@ function BusinessProfileContent() {
                         className="w-full h-full object-cover rounded-t-lg"
                       />
                     ) : (
-                      <div className="text-white text-center hidden">
+                      <div className="text-white text-center">
                         <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
                         <p className="opacity-75">Add cover image</p>
                       </div>
@@ -516,6 +517,31 @@ function BusinessProfileContent() {
                           }
                           className="mt-1"
                           rows={3}
+                        />
+                      </div>
+
+                      {/* Image Upload Section */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                        <BusinessImageUpload
+                          businessId={profile.id}
+                          currentImage={profile.logo}
+                          imageType="logo"
+                          onImageUpdate={(imageUrl) => {
+                            setProfile((prev) =>
+                              prev ? { ...prev, logo: imageUrl } : null,
+                            );
+                          }}
+                        />
+
+                        <BusinessImageUpload
+                          businessId={profile.id}
+                          currentImage={profile.coverImage}
+                          imageType="coverImage"
+                          onImageUpdate={(imageUrl) => {
+                            setProfile((prev) =>
+                              prev ? { ...prev, coverImage: imageUrl } : null,
+                            );
+                          }}
                         />
                       </div>
                     </div>

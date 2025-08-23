@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: UserRole;
       status: AccountStatus;
       referralCode: string;
+      avatar?: string;
     } & DefaultSession["user"];
   }
 
@@ -15,6 +16,7 @@ declare module "next-auth" {
     role: UserRole;
     status: AccountStatus;
     referralCode: string;
+    avatar?: string;
   }
 }
 
@@ -24,5 +26,6 @@ declare module "next-auth/jwt" {
     role: UserRole;
     status: AccountStatus;
     referralCode: string;
+    avatar?: string;
   }
 }

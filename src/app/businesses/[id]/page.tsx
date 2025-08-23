@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar } from "@/components/ui/user-avatar";
+import { useBusinessViewTracking } from "@/hooks/useBusinessViewTracking";
 import {
   ArrowLeft,
   Star,
@@ -17,6 +19,7 @@ import {
   Clock,
   MessageSquare,
   Plus,
+  Building2,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 
@@ -70,6 +73,14 @@ export default function BusinessViewPage() {
   const [error, setError] = useState("");
 
   const businessId = params.id as string;
+
+  // Track business view
+  useBusinessViewTracking({
+    businessId,
+    source: "DIRECT",
+    viewType: "PROFILE",
+    autoTrack: true,
+  });
 
   useEffect(() => {
     if (businessId) {
@@ -165,36 +176,95 @@ export default function BusinessViewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.back()}
-                className="p-2"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {business.name}
-                </h1>
-                <p className="text-gray-600">
-                  {formatCategory(business.category)}
-                </p>
+      {/* Hero Section with Cover Image */}
+      <div className="relative">
+        {/* Cover Image */}
+        <div className="h-64 md:h-80 bg-gradient-to-r from-blue-500 to-purple-600">
+          {business.coverImage ? (
+            <img
+              src={business.coverImage}
+              alt={`${business.name} cover`}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Building2 className="w-24 h-24 text-white opacity-50" />
+            </div>
+          )}
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+        </div>
+
+        {/* Business Info Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/50 to-transparent">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-end space-x-6">
+              {/* Logo */}
+              <div className="w-24 h-24 md:w-32 md:h-32 bg-white dark:bg-gray-800 rounded-2xl border-4 border-white dark:border-gray-800 shadow-xl flex items-center justify-center overflow-hidden">
+                {business.logo ? (
+                  <img
+                    src={business.logo}
+                    alt={`${business.name} logo`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Building2 className="w-12 h-12 md:w-16 md:h-16 text-gray-400" />
+                )}
+              </div>
+
+              {/* Business Details */}
+              <div className="flex-1 text-white">
+                <div className="flex items-center space-x-4 mb-2">
+                  <h1 className="text-3xl md:text-4xl font-bold">
+                    {business.name}
+                  </h1>
+                  <Badge
+                    variant="secondary"
+                    className="bg-white/20 text-white border-white/30"
+                  >
+                    {formatCategory(business.category)}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-6 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <Star className="h-5 w-5 text-yellow-400 fill-current" />
+                    <span className="font-medium">
+                      {business.averageRating.toFixed(1)}
+                    </span>
+                    <span className="opacity-80">
+                      ({business.totalReviews} reviews)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4" />
+                    <span>
+                      {business.city}, {formatState(business.state)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.back()}
+                  className="text-white hover:bg-white/20 border-white/30"
+                >
+                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  Back
+                </Button>
+                {session?.user && (
+                  <Button
+                    onClick={handleAddReview}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Review
+                  </Button>
+                )}
               </div>
             </div>
-            {session?.user && (
-              <Button
-                onClick={handleAddReview}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Review
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -300,19 +370,13 @@ export default function BusinessViewPage() {
                       <div key={review.id} className="border rounded-lg p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3">
-                            {review.reviewer.avatar ? (
-                              <img
-                                src={review.reviewer.avatar}
-                                alt={review.reviewer.name}
-                                className="w-10 h-10 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                <span className="text-gray-500 text-sm font-medium">
-                                  {review.reviewer.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
+                            <Avatar
+                              user={{
+                                name: review.reviewer.name,
+                                avatar: review.reviewer.avatar,
+                              }}
+                              size="md"
+                            />
                             <div>
                               <p className="font-medium text-gray-900">
                                 {review.reviewer.name}

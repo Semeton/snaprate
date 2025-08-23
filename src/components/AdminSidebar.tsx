@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   LayoutDashboard,
@@ -108,7 +109,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:fixed lg:left-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -159,24 +160,18 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
           {/* User Info */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                  {session?.user?.name?.charAt(0) || "A"}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {session?.user?.name}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  {session?.user?.email}
-                </p>
-                <Badge variant="outline" className="mt-1 text-xs">
-                  {isSuperAdmin ? "Super Admin" : "Admin"}
-                </Badge>
-              </div>
-            </div>
+            <UserAvatar
+              user={{
+                name: session?.user?.name,
+                email: session?.user?.email,
+                avatar: session?.user?.avatar,
+              }}
+              size="md"
+              showName={true}
+              showEmail={true}
+              showRole={true}
+              role={isSuperAdmin ? "SUPER_ADMIN" : "ADMIN"}
+            />
           </div>
 
           {/* Navigation */}

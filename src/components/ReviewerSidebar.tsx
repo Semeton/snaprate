@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   Home,
   User,
@@ -98,7 +99,7 @@ export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+          fixed inset-y-0 left-0 z-50 bg-white shadow-lg border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:fixed lg:left-0
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -128,42 +129,18 @@ export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
 
           {/* User Profile */}
           <div className="p-6 border-b">
-            <div className="flex items-center space-x-3">
-              {session?.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt={session.user.name || "User"}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                  <span className="text-gray-500 font-medium text-lg">
-                    {session?.user?.name?.charAt(0).toUpperCase() || "U"}
-                  </span>
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {session?.user?.name || "User"}
-                </p>
-                <p className="text-sm text-gray-500 truncate">
-                  {session?.user?.email || "user@example.com"}
-                </p>
-                <div className="flex items-center space-x-2 mt-1">
-                  {isAgent ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      <Shield className="h-3 w-3 mr-1" />
-                      Agent
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      <MessageSquare className="h-3 w-3 mr-1" />
-                      Reviewer
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <UserAvatar
+              user={{
+                name: session?.user?.name,
+                email: session?.user?.email,
+                avatar: session?.user?.avatar,
+              }}
+              size="lg"
+              showName={true}
+              showEmail={true}
+              showRole={true}
+              role={isAgent ? "AGENT" : "REVIEWER"}
+            />
           </div>
 
           {/* Navigation */}

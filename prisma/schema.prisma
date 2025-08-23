@@ -151,6 +151,7 @@ model User {
   adminActions            AdminAction[] @relation("AdminActions")
   reportedContent        ReportedContent[] @relation("UserReports")
   resolvedReports        ReportedContent[] @relation("AdminResolutions")
+  businessViews           BusinessView[] @relation("UserBusinessViews")
   
   @@map("users")
 }
@@ -228,6 +229,7 @@ model Business {
   businessHours         BusinessHours[]
   businessSettings      BusinessSettings?
   analytics             BusinessAnalytics[]
+  views                 BusinessView[]
   
   @@map("businesses")
 }
@@ -407,6 +409,29 @@ model BusinessAnalytics {
 
   @@unique([businessId, date])
   @@map("business_analytics")
+}
+
+model BusinessView {
+  id          String   @id @default(cuid())
+  businessId  String
+  viewerId    String?  // Can be null for anonymous views
+  ipAddress   String?
+  userAgent   String?
+  referrer    String?
+  source      String   @default("DIRECT") // DIRECT, SEARCH, SOCIAL, REFERRAL, FEATURED
+  viewType    String   @default("PROFILE") // PROFILE, SEARCH_RESULT, FEATURED_LIST, RECOMMENDATION
+  sessionId   String?
+  duration    Int?     // Time spent in seconds
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  viewer      User?    @relation("UserBusinessViews", fields: [viewerId], references: [id], onDelete: SetNull)
+  
+  @@index([businessId, createdAt])
+  @@index([viewerId, createdAt])
+  @@index([source, createdAt])
+  @@map("business_views")
 }
 
 model BusinessRecommendation {

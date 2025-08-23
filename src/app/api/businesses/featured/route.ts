@@ -10,12 +10,12 @@ export async function GET(request: NextRequest) {
       where: {
         verificationStatus: "VERIFIED",
         isActive: true,
-        averageRating: {
-          gte: 4.0, // Only businesses with 4+ star rating
-        },
-        totalReviews: {
-          gte: 5, // At least 5 reviews
-        },
+        // averageRating: {
+        //   gte: 4.0, // Only businesses with 4+ star rating
+        // },
+        // // totalReviews: {
+        // //   gte: 5, // At least 5 reviews
+        // // },
       },
       orderBy: [
         { averageRating: "desc" },

@@ -245,12 +245,41 @@ export default function BusinessesPage() {
               {sortedBusinesses.map((business) => (
                 <Card
                   key={business.id}
-                  className={`group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
+                  className={`group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
                     viewMode === "list" ? "flex" : ""
                   }`}
                 >
+                  {/* Business Cover Image */}
+                  <div className="relative h-48 bg-gradient-to-r from-blue-500 to-purple-600">
+                    {business.coverImage ? (
+                      <img
+                        src={business.coverImage}
+                        alt={`${business.name} cover`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Building2 className="w-16 h-16 text-white opacity-50" />
+                      </div>
+                    )}
+                    {/* Logo Overlay */}
+                    <div className="absolute -bottom-8 left-4">
+                      <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-xl border-4 border-white dark:border-gray-800 shadow-lg flex items-center justify-center overflow-hidden">
+                        {business.logo ? (
+                          <img
+                            src={business.logo}
+                            alt={`${business.name} logo`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Building2 className="w-8 h-8 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
                   <CardContent
-                    className={`p-6 ${viewMode === "list" ? "flex-1" : ""}`}
+                    className={`pt-12 pb-6 px-6 ${viewMode === "list" ? "flex-1" : ""}`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <Badge

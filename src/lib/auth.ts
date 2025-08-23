@@ -58,6 +58,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role as UserRole,
             status: user.status as AccountStatus,
             referralCode: user.referralCode,
+            avatar: user.avatar,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -76,6 +77,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.status = user.status;
         token.referralCode = user.referralCode;
+        token.avatar = user.avatar;
       }
       return token;
     },
@@ -85,6 +87,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as UserRole;
         session.user.status = token.status as AccountStatus;
         session.user.referralCode = token.referralCode as string;
+        session.user.avatar = token.avatar as string;
       }
       return session;
     },
