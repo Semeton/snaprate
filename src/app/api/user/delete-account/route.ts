@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import logger from "@/lib/logger";
 
-const prisma = new PrismaClient();
-
-export async function POST(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
@@ -20,55 +19,67 @@ export async function POST(request: NextRequest) {
 
     if (!password) {
       return NextResponse.json(
-        { error: "Password is required to delete account" },
+        { success: false, error: "Password is required to delete account" },
         { status: 400 },
       );
     }
 
-    // Get current user with password hash
+    // Get user with password hash
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { email: session.user.email },
       select: {
         id: true,
         password: true,
-        email: true,
+        role: true,
       },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 },
+      );
     }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: "Password is incorrect" },
+        { success: false, error: "Password is incorrect" },
         { status: 400 },
       );
     }
 
     // Soft delete the user account
     await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: {
         status: "DELETED",
-        email: `deleted_${Date.now()}_${user.email}`,
         deletedAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 
-    logger.info("User account soft deleted successfully", { userId: user.id });
+    // If user has a business, soft delete it too
+    if (user.role === "BUSINESS_OWNER") {
+      await prisma.business.updateMany({
+        where: { ownerId: user.id },
+        data: {
+          isActive: false,
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       message: "Account deleted successfully",
     });
   } catch (error) {
-    logger.error("Failed to delete user account", { error });
+    console.error("Account deletion error:", error);
     return NextResponse.json(
-      { error: "Failed to delete account" },
+      { success: false, error: "Failed to delete account" },
       { status: 500 },
     );
   }

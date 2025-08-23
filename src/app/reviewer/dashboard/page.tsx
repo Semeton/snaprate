@@ -2,52 +2,54 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Star,
-  DollarSign,
-  Users,
   TrendingUp,
-  Search,
-  Plus,
-  Share2,
+  Star,
   Gift,
-  Eye,
+  Users,
   MessageSquare,
-  Camera,
-  Video,
+  Calendar,
+  MapPin,
+  ArrowRight,
+  Plus,
+  User,
+  Shield,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { BusinessCategory } from "@/types";
+import ReviewerSidebar from "@/components/ReviewerSidebar";
 
 interface DashboardStats {
   totalReviews: number;
-  totalEarnings: number;
+  totalRewards: number;
   totalReferrals: number;
-  totalBusinessesRecommended: number;
-  pendingRewards: number;
   averageRating: number;
+  currentStreak: number;
+  monthlyReviews: number;
+  monthlyRewards: number;
+  rewardBreakdown: {
+    reviewReward: number;
+    referralReward: number;
+    businessRecommendationReward: number;
+  };
+  userRole: string;
 }
 
 interface RecentReview {
   id: string;
+  content: string;
+  rating: number;
+  createdAt: string;
   business: {
+    id: string;
     name: string;
     category: string;
     state: string;
     city: string;
+    logo: string | null;
   };
-  rating: number;
-  content: string;
-  status: string;
-  createdAt: string;
-  // earnings will be calculated from the reward amount
 }
 
 interface RecentReward {
@@ -59,27 +61,29 @@ interface RecentReward {
   createdAt: string;
 }
 
+interface RecentBusiness {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  state: string;
+  logo: string | null;
+  averageRating: number;
+  totalReviews: number;
+}
+
 export default function ReviewerDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
   const [recentRewards, setRecentRewards] = useState<RecentReward[]>([]);
-  const [recentBusinesses, setRecentBusinesses] = useState<
-    {
-      id: string;
-      name: string;
-      category: string;
-      state: string;
-      city: string;
-      averageRating: number;
-      totalReviews: number;
-      logo?: string;
-    }[]
-  >([]);
+  const [recentBusinesses, setRecentBusinesses] = useState<RecentBusiness[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
@@ -91,11 +95,18 @@ export default function ReviewerDashboard() {
     try {
       setLoading(true);
 
-      // Fetch dashboard stats
+      // Fetch dashboard stats from the correct API
       const statsResponse = await fetch("/api/reviewer/stats");
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
-        setStats(statsData);
+        console.log("Dashboard received stats:", statsData);
+        setStats(statsData.data);
+      } else {
+        console.error(
+          "Failed to fetch stats:",
+          statsResponse.status,
+          statsResponse.statusText,
+        );
       }
 
       // Fetch recent reviews
@@ -127,35 +138,24 @@ export default function ReviewerDashboard() {
     }
   };
 
-  const handleSearchBusinesses = () => {
-    const params = new URLSearchParams();
-    if (searchQuery) params.append("search", searchQuery);
-    if (selectedCategory) params.append("category", selectedCategory);
-
-    router.push(`/reviewer/businesses?${params.toString()}`);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
-  const handleSubmitReview = () => {
-    router.push("/reviewer/submit-review");
+  const formatState = (state: string) => {
+    return state.replace(/_/g, " ");
   };
 
-  const handleViewRewards = () => {
-    router.push("/reviewer/rewards");
-  };
-
-  const handleShareReferral = () => {
-    const referralCode = session?.user?.referralCode || "N/A";
-    const referralLink = `${window.location.origin}/auth/signup?ref=${referralCode}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: "Join SnapRate and earn rewards!",
-        text: `Use my referral code: ${referralCode}`,
-        url: referralLink,
-      });
-    } else {
-      navigator.clipboard.writeText(referralLink);
-      alert("Referral link copied to clipboard!");
+  const getRewardTypeColor = (type: string) => {
+    switch (type) {
+      case "REVIEW":
+        return "bg-blue-100 text-blue-800";
+      case "REFERRAL":
+        return "bg-green-100 text-green-800";
+      case "BUSINESS_RECOMMENDATION":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -176,294 +176,307 @@ export default function ReviewerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <ReviewerSidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {session?.user?.name}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Your reviewer dashboard - earn rewards by reviewing businesses
-              </p>
-            </div>
-            <div className="flex space-x-3">
-              <Button
-                onClick={handleSubmitReview}
-                className="bg-blue-600 hover:bg-blue-700"
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Submit Review
-              </Button>
-              <Button onClick={handleViewRewards} variant="outline">
-                <Gift className="h-4 w-4 mr-2" />
-                View Rewards
-              </Button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </Button>
+            <h1 className="text-lg font-semibold text-gray-900">Dashboard</h1>
+            <div className="w-6"></div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Reviews
+        {/* Dashboard Content */}
+        <div className="flex-1 p-6">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back, {session?.user?.name || "Reviewer"}! 👋
+            </h1>
+            <p className="text-gray-600">
+              Here&apos;s what&apos;s happening with your reviews and rewards
+              today.
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Total Reviews
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats?.totalReviews || 0}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-blue-100 rounded-full">
+                    <MessageSquare className="h-6 w-6 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Total Rewards
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      ₦{stats?.totalRewards || 0}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-100 rounded-full">
+                    <Gift className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Average Rating
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats?.averageRating?.toFixed(1) || "0.0"}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-yellow-100 rounded-full">
+                    <Star className="h-6 w-6 text-yellow-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Current Streak
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {stats?.currentStreak || 0} days
+                    </p>
+                  </div>
+                  <div className="p-3 bg-purple-100 rounded-full">
+                    <TrendingUp className="h-6 w-6 text-purple-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Reward Breakdown */}
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Gift className="h-5 w-5 text-green-600" />
+                <span>Reward Breakdown</span>
               </CardTitle>
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {stats?.totalReviews || 0}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border rounded-lg bg-blue-50">
+                  <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-blue-900">
+                    ₦{stats?.rewardBreakdown?.reviewReward || 0}
+                  </p>
+                  <p className="text-sm text-blue-700">From Reviews</p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    ₦
+                    {stats?.rewardBreakdown?.reviewReward && stats?.totalReviews
+                      ? Math.round(
+                          stats.rewardBreakdown.reviewReward /
+                            stats.totalReviews,
+                        )
+                      : 50}{" "}
+                    × {stats?.totalReviews || 0} reviews
+                  </p>
+                </div>
+
+                <div className="text-center p-4 border rounded-lg bg-green-50">
+                  <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-green-900">
+                    ₦{stats?.rewardBreakdown?.referralReward || 0}
+                  </p>
+                  <p className="text-sm text-green-700">From Referrals</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    ₦
+                    {stats?.rewardBreakdown?.referralReward &&
+                    stats?.totalReferrals
+                      ? Math.round(
+                          stats.rewardBreakdown.referralReward /
+                            stats.totalReferrals,
+                        )
+                      : 20}{" "}
+                    × {stats?.totalReferrals || 0} referrals
+                  </p>
+                </div>
+
+                <div className="text-center p-4 border rounded-lg bg-purple-50">
+                  <TrendingUp className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                  <p className="text-2xl font-bold text-purple-900">
+                    ₦{stats?.rewardBreakdown?.businessRecommendationReward || 0}
+                  </p>
+                  <p className="text-sm text-purple-700">From Business Recs</p>
+                  <p className="text-xs text-purple-600 mt-1">
+                    ₦100 × approved businesses
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Reviews submitted</p>
+
+              {stats?.userRole === "AGENT" && (
+                <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+                  <p className="text-sm text-purple-800 text-center">
+                    🎉 As an Agent, you can earn ₦100 for each approved business
+                    recommendation!
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Quick Actions */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Earnings
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ₦{stats?.totalEarnings || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                From reviews & referrals
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Referrals</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats?.totalReferrals || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">Friends invited</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Rating</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats?.averageRating?.toFixed(1) || "0.0"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Your review rating
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <Button
-                  onClick={handleSubmitReview}
-                  className="w-full bg-blue-600 hover:bg-blue-700 mb-2"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Submit Review
-                </Button>
-                <p className="text-sm text-gray-600">Earn ₦50 per review</p>
-              </div>
-
-              <div className="text-center">
-                <Button
-                  onClick={handleShareReferral}
-                  className="w-full bg-green-600 hover:bg-green-700 mb-2"
-                >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share Referral
-                </Button>
-                <p className="text-sm text-gray-600">Earn ₦20 per signup</p>
-              </div>
-
-              <div className="text-center">
+            <CardContent className="space-y-3">
+              <Button
+                onClick={() => router.push("/reviewer/settings")}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <User className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+              <Button
+                onClick={() => router.push("/reviewer/submit-review")}
+                className="w-full justify-start"
+                variant="outline"
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Write Review
+              </Button>
+              {session?.user?.role === "AGENT" ? (
                 <Button
                   onClick={() => router.push("/reviewer/recommend-business")}
-                  className="w-full bg-purple-600 hover:bg-purple-700 mb-2"
+                  className="w-full justify-start"
+                  variant="outline"
                 >
                   <TrendingUp className="h-4 w-4 mr-2" />
                   Recommend Business
                 </Button>
-                <p className="text-sm text-gray-600">Earn ₦100 per approval</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Search Businesses */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Find Businesses to Review</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <Label htmlFor="search">Search businesses</Label>
-                <Input
-                  id="search"
-                  placeholder="Search by name, category, or location..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div className="w-full sm:w-48">
-                <Label htmlFor="category">Category</Label>
-                <div className="mt-1">
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      console.log("Category selected:", e.target.value);
-                      setSelectedCategory(e.target.value);
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All categories</option>
-                    {Object.values(BusinessCategory).map((category) => (
-                      <option key={category} value={category}>
-                        {category.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-end">
+              ) : (
                 <Button
-                  onClick={handleSearchBusinesses}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push("/reviewer/apply-agent")}
+                  className="w-full justify-start"
+                  variant="outline"
                 >
-                  <Search className="h-4 w-4 mr-2" />
-                  Search
+                  <Shield className="h-4 w-4 mr-2" />
+                  Apply to be Agent
                 </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Recent Businesses */}
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent Businesses</CardTitle>
-            <Button
-              onClick={() => router.push("/reviewer/businesses")}
-              variant="outline"
-              size="sm"
-            >
-              See All
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {recentBusinesses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {recentBusinesses.map((business) => (
-                  <div
-                    key={business.id}
-                    className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => router.push(`/businesses/${business.id}`)}
-                  >
-                    <div className="flex items-center space-x-3 mb-3">
-                      {business.logo ? (
-                        <img
-                          src={business.logo}
-                          alt={business.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                          <span className="text-gray-500 text-sm font-medium">
-                            {business.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 truncate">
-                          {business.name}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          {business.category.replace(/_/g, " ")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
-                          {business.city}, {business.state}
-                        </span>
-                        <div className="flex items-center space-x-1">
-                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                          <span className="font-medium">
-                            {business.averageRating.toFixed(1)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {business.totalReviews} reviews
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No businesses found</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tabs for Recent Activity */}
-        <Tabs defaultValue="reviews" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="reviews">Recent Reviews</TabsTrigger>
-            <TabsTrigger value="rewards">Recent Rewards</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="reviews" className="space-y-4">
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Recent Reviews */}
             <Card>
-              <CardHeader>
-                <CardTitle>Recent Reviews</CardTitle>
+              <CardHeader className="flex items-center justify-between">
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageSquare className="h-5 w-5" />
+                  <span>Recent Reviews</span>
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/reviewer/reviews")}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  View All
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
               </CardHeader>
               <CardContent>
-                {recentReviews.length > 0 ? (
+                {recentReviews.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 mb-4">No reviews yet</p>
+                    <Button
+                      onClick={() => router.push("/reviewer/submit-review")}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Write Review
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     {recentReviews.map((review) => (
                       <div
                         key={review.id}
-                        className="flex items-start space-x-4 p-4 border rounded-lg"
+                        className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h4 className="font-medium">
-                              {review.business?.name || "Unknown Business"}
+                        {review.business.logo ? (
+                          <img
+                            src={review.business.logo}
+                            alt={review.business.name}
+                            className="w-10 h-10 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center">
+                            <span className="text-gray-500 font-medium text-sm">
+                              {review.business.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h4 className="font-medium text-gray-900 truncate">
+                              {review.business.name}
                             </h4>
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`h-4 w-4 ${
+                                  className={`h-3 w-3 ${
                                     i < review.rating
                                       ? "text-yellow-400 fill-current"
                                       : "text-gray-300"
@@ -471,91 +484,195 @@ export default function ReviewerDashboard() {
                                 />
                               ))}
                             </div>
-                            <Badge
-                              variant={
-                                review.status === "APPROVED"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {review.status}
-                            </Badge>
                           </div>
-                          <p className="text-gray-600 text-sm mb-2">
+                          <p className="text-sm text-gray-600 line-clamp-2">
                             {review.content}
                           </p>
-                          <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center space-x-3 mt-2 text-xs text-gray-500">
+                            <span>{formatDate(review.createdAt)}</span>
+                            <span>•</span>
+                            <span>{review.business.category}</span>
+                            <span>•</span>
+                            <MapPin className="h-3 w-3" />
                             <span>
-                              {new Date(review.createdAt).toLocaleDateString()}
-                            </span>
-                            <span className="text-green-600 font-medium">
-                              +₦50
+                              {review.business.city},{" "}
+                              {formatState(review.business.state)}
                             </span>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>
-                      No reviews yet. Start reviewing businesses to earn
-                      rewards!
-                    </p>
-                  </div>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="rewards" className="space-y-4">
+            {/* Recent Rewards */}
             <Card>
-              <CardHeader>
-                <CardTitle>Recent Rewards</CardTitle>
+              <CardHeader className="flex items-center justify-between">
+                <CardTitle className="flex items-center space-x-2">
+                  <Gift className="h-5 w-5" />
+                  <span>Recent Rewards</span>
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/reviewer/rewards")}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  View All
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
               </CardHeader>
               <CardContent>
-                {recentRewards.length > 0 ? (
+                {recentRewards.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Gift className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 mb-4">No rewards yet</p>
+                    <p className="text-sm text-gray-500">
+                      Start reviewing businesses to earn rewards!
+                    </p>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     {recentRewards.map((reward) => (
                       <div
                         key={reward.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50"
                       >
                         <div className="flex items-center space-x-3">
-                          <Gift className="h-5 w-5 text-green-600" />
+                          <div className="p-2 bg-green-100 rounded-full">
+                            <Gift className="h-4 w-4 text-green-600" />
+                          </div>
                           <div>
-                            <p className="font-medium">{reward.description}</p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(reward.createdAt).toLocaleDateString()}
+                            <p className="font-medium text-gray-900">
+                              {reward.description}
                             </p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Badge
+                                className={getRewardTypeColor(reward.type)}
+                              >
+                                {reward.type.replace(/_/g, " ")}
+                              </Badge>
+                              <span className="text-sm text-gray-500">
+                                {formatDate(reward.createdAt)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-green-600">
-                            +₦{reward.amount}
+                            ₦{reward.amount}
                           </p>
-                          <Badge
-                            variant={
-                              reward.isRedeemed ? "default" : "secondary"
-                            }
-                          >
-                            {reward.isRedeemed ? "REDEEMED" : "PENDING"}
-                          </Badge>
+                          {reward.isRedeemed && (
+                            <Badge variant="secondary" className="text-xs">
+                              Redeemed
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Gift className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>No rewards yet. Submit reviews to start earning!</p>
-                  </div>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {/* Recent Businesses */}
+          <Card className="mt-8">
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5" />
+                <span>Recent Businesses</span>
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/businesses")}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                See All
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {recentBusinesses.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-600">No businesses found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {recentBusinesses.map((business) => (
+                    <div
+                      key={business.id}
+                      className="group cursor-pointer"
+                      onClick={() => router.push(`/businesses/${business.id}`)}
+                    >
+                      <div className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                        <div className="flex items-center space-x-3 mb-3">
+                          {business.logo ? (
+                            <img
+                              src={business.logo}
+                              alt={business.name}
+                              className="w-12 h-12 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-gray-500 font-medium text-lg">
+                                {business.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 truncate group-hover:text-blue-600">
+                              {business.name}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              {business.category}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="h-3 w-3" />
+                            <span>
+                              {business.city}, {formatState(business.state)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1">
+                            <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                            <span className="text-sm font-medium">
+                              {business.averageRating?.toFixed(1) || "0.0"}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({business.totalReviews} reviews)
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(
+                                `/reviewer/submit-review?businessId=${business.id}`,
+                              );
+                            }}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            Review
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

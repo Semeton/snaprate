@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
-import logger from "@/lib/logger";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
-    // Get full user profile from database
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { email: session.user.email },
       select: {
         id: true,
         name: true,
@@ -25,22 +24,31 @@ export async function GET(request: NextRequest) {
         state: true,
         city: true,
         address: true,
-        role: true,
-        status: true,
+        avatar: true,
+        dateOfBirth: true,
+        gender: true,
+        referralCode: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: "User not found" },
+        { status: 404 },
+      );
     }
 
-    logger.info("User profile retrieved successfully", { userId: user.id });
-
-    return NextResponse.json(user);
+    return NextResponse.json({
+      success: true,
+      data: user,
+    });
   } catch (error) {
-    logger.error("Failed to get user profile", { error });
+    console.error("Profile fetch error:", error);
     return NextResponse.json(
-      { error: "Failed to get user profile" },
+      { success: false, error: "Failed to fetch profile" },
       { status: 500 },
     );
   }
@@ -49,31 +57,36 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
-    const { name, phone, state, city, address } = body;
+    const { name, phone, state, city, address, dateOfBirth, gender } = body;
 
     // Validate required fields
     if (!name || !state || !city || !address) {
       return NextResponse.json(
-        { error: "Missing required fields: name, state, city, address" },
+        { success: false, error: "Missing required fields" },
         { status: 400 },
       );
     }
 
     // Update user profile
     const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { email: session.user.email },
       data: {
         name,
-        phone: phone || null,
+        phone,
         state,
         city,
         address,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        gender,
+        updatedAt: new Date(),
       },
       select: {
         id: true,
@@ -83,20 +96,25 @@ export async function PUT(request: NextRequest) {
         state: true,
         city: true,
         address: true,
-        role: true,
-        status: true,
+        avatar: true,
+        dateOfBirth: true,
+        gender: true,
+        referralCode: true,
+        isVerified: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    logger.info("User profile updated successfully", {
-      userId: updatedUser.id,
+    return NextResponse.json({
+      success: true,
+      data: updatedUser,
+      message: "Profile updated successfully",
     });
-
-    return NextResponse.json(updatedUser);
   } catch (error) {
-    logger.error("Failed to update user profile", { error });
+    console.error("Profile update error:", error);
     return NextResponse.json(
-      { error: "Failed to update user profile" },
+      { success: false, error: "Failed to update profile" },
       { status: 500 },
     );
   }

@@ -134,6 +134,133 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 },
+      );
+    }
+
+    const body = await request.json();
+    const { reviewId, rating, title, content, images, video, isAnonymous } =
+      body;
+
+    // Validation
+    if (!reviewId || !rating || !content) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Review ID, rating, and content are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (rating < 1 || rating > 5) {
+      return NextResponse.json(
+        { success: false, error: "Rating must be between 1 and 5" },
+        { status: 400 },
+      );
+    }
+
+    if (content.length < 10) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Review content must be at least 10 characters long",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Check if the review exists and belongs to the user
+    const existingReview = await prisma.review.findFirst({
+      where: {
+        id: reviewId,
+        reviewerId: session.user.id,
+      },
+      include: {
+        business: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!existingReview) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Review not found or you don't have permission to edit it",
+        },
+        { status: 404 },
+      );
+    }
+
+    // Update the review
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        rating,
+        content,
+        images: images || [],
+        video: video || null,
+        updatedAt: new Date(),
+      },
+      include: {
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+          },
+        },
+      },
+    });
+
+    // Update business metrics (recalculate average rating)
+    const businessReviews = await prisma.review.findMany({
+      where: { businessId: existingReview.business.id },
+      select: { rating: true },
+    });
+
+    const newAverageRating =
+      businessReviews.reduce((sum, review) => sum + review.rating, 0) /
+      businessReviews.length;
+
+    await prisma.business.update({
+      where: { id: existingReview.business.id },
+      data: {
+        averageRating: newAverageRating,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Review updated successfully",
+      data: updatedReview,
+    });
+  } catch (error) {
+    console.error("Review update error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to update review" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -147,15 +274,15 @@ export async function GET(request: NextRequest) {
       try {
         console.log("Fetching reviews for businessId:", businessId);
         const skip = (page - 1) * limit;
-        const where: any = { businessId };
+        const where: { businessId: string; status?: string } = { businessId };
         if (status) {
-          where.status = status;
+          where.status = status as any;
         }
         console.log("Where clause:", where);
 
         const [reviews, total] = await Promise.all([
           prisma.review.findMany({
-            where,
+            where: where as any,
             include: {
               reviewer: {
                 select: {

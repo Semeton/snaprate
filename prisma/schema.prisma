@@ -133,7 +133,7 @@ model User {
   deletedAt               DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
-
+  
   // Relations
   referredByUser          User?     @relation("UserReferrals", fields: [referredBy], references: [id])
   referrals               User[]    @relation("UserReferrals")
@@ -145,7 +145,10 @@ model User {
   business                Business?
   agentProfile            Agent?
   businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
-
+  agentApplications       AgentApplication[]
+  adminInvitations       AdminInvitation[] @relation("AdminInvitations")
+  adminActions            AdminAction[] @relation("AdminActions")
+  
   @@map("users")
 }
 
@@ -212,7 +215,7 @@ model Business {
   isActive              Boolean                   @default(true)
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
-
+  
   // Relations
   owner                 User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   reviews               Review[]
@@ -220,7 +223,7 @@ model Business {
   businessHours         BusinessHours[]
   businessSettings      BusinessSettings?
   analytics             BusinessAnalytics[]
-
+  
   @@map("businesses")
 }
 
@@ -232,7 +235,7 @@ model BusinessHours {
   closeTime   String   // Format: "17:00"
   isOpen      Boolean  @default(true)
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
+  
   @@unique([businessId, dayOfWeek])
   @@map("business_hours")
 }
@@ -280,11 +283,11 @@ model Review {
   businessResponseDate DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-
+  
   // Relations
   business          Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewer          User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
-
+  
   @@map("reviews")
 }
 
@@ -362,7 +365,7 @@ model Reward {
   createdAt   DateTime @default(now())
 
   referrer    User     @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
-
+  
   @@map("rewards")
 }
 
@@ -420,4 +423,70 @@ model BusinessRecommendation {
   recommendedByUser User @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
 
   @@map("business_recommendations")
+}
+
+model AgentApplication {
+  id                String    @id @default(cuid())
+  userId            String
+  motivation        String
+  experience        String
+  businessKnowledge String
+  commitment        String
+  status            String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNotes        String?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_applications")
+}
+
+model PlatformSettings {
+  id                                    String   @id
+  minimumRedemptionAmount               Int      @default(5000)
+  reviewRewardAmount                    Int      @default(50)
+  referralRewardAmount                  Int      @default(20)
+  businessRecommendationRewardAmount    Int      @default(100)
+  createdAt                             DateTime @default(now())
+  updatedAt                             DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+model AdminInvitation {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  role            UserRole         // ADMIN or SUPER_ADMIN
+  invitedBy       String
+  invitationToken String           @unique
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+
+  invitedByUser   User             @relation("AdminInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("admin_invitations")
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String   // "USER_APPROVED", "BUSINESS_VERIFIED", "AGENT_APPROVED", etc.
+  targetType String   // "USER", "BUSINESS", "AGENT", "REVIEW"
+  targetId   String
+  details    Json?    // Additional action details
+  createdAt  DateTime @default(now())
+
+  admin      User     @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_actions")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
 }
