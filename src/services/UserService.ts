@@ -1,316 +1,316 @@
-import { prisma } from '@/lib/prisma';
-import { IUserService } from './interfaces';
-import { User, UserRole, AccountStatus } from '@/types';
-import bcrypt from 'bcryptjs';
-import { generateReferralCode } from '@/lib/utils';
+import { prisma } from "@/lib/prisma";
+import { User, UserRole, AccountStatus, State } from "@prisma/client";
 
-export class UserService implements IUserService {
-  // Single Responsibility: This service only handles user-related operations
-  
-  async createUser(userData: {
-    name: string;
-    email: string;
-    phone: string;
-    password?: string;
-    role?: UserRole;
-    referredBy?: string;
-    state?: string;
-    city?: string;
-    address?: string;
-  }): Promise<User> {
+export interface UserCreateData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role?: UserRole;
+  referralCode?: string;
+  referredBy?: string;
+  state: State;
+  city: string;
+  address: string;
+}
+
+export interface UserUpdateData {
+  name?: string;
+  email?: string;
+  phone?: string;
+  state?: State;
+  city?: string;
+  address?: string;
+  avatar?: string;
+  bio?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+}
+
+export interface UserFilterData {
+  role?: UserRole;
+  status?: AccountStatus;
+  state?: State;
+  city?: string;
+  isVerified?: boolean;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export class UserService {
+  async createUser(data: UserCreateData): Promise<User> {
     try {
-      // Check if user already exists
-      const existingUser = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: userData.email },
-            { phone: userData.phone }
-          ]
-        }
-      });
-
-      if (existingUser) {
-        throw new Error('User with this email or phone already exists');
-      }
-
-      // Hash password if provided
-      let hashedPassword: string | undefined;
-      if (userData.password) {
-        hashedPassword = await bcrypt.hash(userData.password, 12);
-      }
-
-      // Generate unique referral code
-      const referralCode = await generateReferralCode();
-
-      // Create user
       const user = await prisma.user.create({
         data: {
-          name: userData.name,
-          email: userData.email,
-          phone: userData.phone,
-          password: hashedPassword,
-          role: userData.role || UserRole.REVIEWER,
-          status: AccountStatus.PENDING,
-          state: userData.state as any,
-          city: userData.city,
-          address: userData.address,
-          referralCode,
-          referredBy: userData.referredBy,
+          ...data,
+          role: data.role || UserRole.REVIEWER,
+          status: AccountStatus.ACTIVE,
         },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
       });
 
-      return user as User;
+      return user;
     } catch (error) {
-      throw new Error(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async findById(id: string): Promise<User | null> {
+  async getUserById(id: string): Promise<User | null> {
     try {
-      const user = await prisma.user.findUnique({
+      return await prisma.user.findUnique({
         where: { id },
         include: {
           business: true,
           agentProfile: true,
-          reviews: {
-            include: {
-              business: true,
-              reward: true,
-            }
-          },
+          reviews: true,
           rewards: true,
-        }
+        },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+  async getUserByEmail(email: string): Promise<User | null> {
     try {
-      const user = await prisma.user.findUnique({
+      return await prisma.user.findUnique({
         where: { email },
         include: {
-          business: true,
-          agentProfile: true,
-        }
+          profile: true,
+        },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user by email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user by email: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async findByPhone(phone: string): Promise<User | null> {
+  async getUserByPhone(phone: string): Promise<User | null> {
     try {
-      const user = await prisma.user.findUnique({
+      return await prisma.user.findFirst({
         where: { phone },
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user by phone: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user by phone: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async updateUser(id: string, data: Partial<User>): Promise<User> {
+  async updateUser(id: string, data: UserUpdateData): Promise<User> {
     try {
-      // Hash password if it's being updated
-      if (data.password) {
-        data.password = await bcrypt.hash(data.password, 12);
-      }
-
-      const user = await prisma.user.update({
+      return await prisma.user.update({
         where: { id },
         data,
         include: {
-          business: true,
-          agentProfile: true,
-        }
+          profile: true,
+        },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
   async deleteUser(id: string): Promise<void> {
     try {
       await prisma.user.delete({
-        where: { id }
-      });
-    } catch (error) {
-      throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async verifyEmail(userId: string): Promise<User> {
-    try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          emailVerified: new Date(),
-          isVerified: true,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
-      });
-
-      return user as User;
-    } catch (error) {
-      throw new Error(`Failed to verify email: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async verifyPhone(userId: string): Promise<User> {
-    try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          phoneVerified: new Date(),
-          isVerified: true,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
-      });
-
-      return user as User;
-    } catch (error) {
-      throw new Error(`Failed to verify phone: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async updateProfile(id: string, data: Partial<User>): Promise<User> {
-    try {
-      // Remove sensitive fields that shouldn't be updated via profile update
-      const { password, email, phone, role, status, ...profileData } = data;
-
-      const user = await prisma.user.update({
         where: { id },
-        data: profileData,
-        include: {
-          business: true,
-          agentProfile: true,
-        }
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async getReferrals(userId: string): Promise<User[]> {
+  async getUsers(
+    options: {
+      page: number;
+      limit: number;
+      filter?: UserFilterData;
+      search?: string;
+      sortBy?: "name" | "email" | "createdAt" | "lastLoginAt";
+      sortOrder?: "asc" | "desc";
+    } = { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc" },
+  ): Promise<{
+    users: User[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
     try {
-      const referrals = await prisma.user.findMany({
-        where: { referredBy: userId },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
-      });
+      const { page, limit, filter, search, sortBy, sortOrder } = options;
+      const skip = (page - 1) * limit;
 
-      return referrals as User[];
-    } catch (error) {
-      throw new Error(`Failed to get referrals: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
+      const where: Record<string, unknown> = {};
 
-  async getReferralStats(userId: string): Promise<{ count: number; earnings: number }> {
-    try {
-      const referrals = await prisma.user.count({
-        where: { referredBy: userId }
-      });
+      if (filter?.role) where.role = filter.role;
+      if (filter?.status) where.status = filter.status;
+      if (filter?.state) where.state = filter.state;
+      if (filter?.city) where.city = filter.city;
+      if (filter?.isVerified !== undefined)
+        where.isVerified = filter.isVerified;
+      if (filter?.dateFrom && filter?.dateTo) {
+        where.createdAt = { gte: filter.dateFrom, lte: filter.dateTo };
+      } else if (filter?.dateFrom) {
+        where.createdAt = { gte: filter.dateFrom };
+      } else if (filter?.dateTo) {
+        where.createdAt = { lte: filter.dateTo };
+      }
 
-      const referralEarnings = await prisma.reward.aggregate({
-        where: {
-          userId,
-          type: 'REFERRAL_BONUS'
-        },
-        _sum: {
-          amount: true
-        }
-      });
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          { phone: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          include: {
+            profile: true,
+          },
+          orderBy: { [sortBy || "createdAt"]: sortOrder || "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.user.count({ where }),
+      ]);
 
       return {
-        count: referrals,
-        earnings: referralEarnings._sum.amount || 0
+        users,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
-      throw new Error(`Failed to get referral stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get users: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async activateAccount(userId: string): Promise<User> {
+  async suspendUser(id: string): Promise<User> {
     try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          status: AccountStatus.ACTIVE,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
+      return await prisma.user.update({
+        where: { id },
+        data: { status: UserStatus.SUSPENDED },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to activate account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to suspend user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async suspendAccount(userId: string, reason?: string): Promise<User> {
+  async banUser(id: string): Promise<User> {
     try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          status: AccountStatus.SUSPENDED,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
+      return await prisma.user.update({
+        where: { id },
+        data: { status: UserStatus.BANNED },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to suspend account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to ban user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async banAccount(userId: string, reason?: string): Promise<User> {
+  async activateUser(id: string): Promise<User> {
     try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          status: AccountStatus.BANNED,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        }
+      return await prisma.user.update({
+        where: { id },
+        data: { status: UserStatus.ACTIVE },
       });
-
-      return user as User;
     } catch (error) {
-      throw new Error(`Failed to ban account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to activate user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getUserStats(): Promise<{
+    totalUsers: number;
+    activeUsers: number;
+    suspendedUsers: number;
+    bannedUsers: number;
+    verifiedUsers: number;
+    newUsersThisMonth: number;
+  }> {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        totalUsers,
+        activeUsers,
+        suspendedUsers,
+        bannedUsers,
+        verifiedUsers,
+        newUsersThisMonth,
+      ] = await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
+        prisma.user.count({ where: { status: UserStatus.SUSPENDED } }),
+        prisma.user.count({ where: { status: UserStatus.BANNED } }),
+        prisma.user.count({ where: { isVerified: true } }),
+        prisma.user.count({
+          where: { createdAt: { gte: startOfMonth } },
+        }),
+      ]);
+
+      return {
+        totalUsers,
+        activeUsers,
+        suspendedUsers,
+        bannedUsers,
+        verifiedUsers,
+        newUsersThisMonth,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get user stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 }

@@ -4,11 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
-import {
-  validateFileUpload,
-  getMaxSizeForType,
-  getAllowedTypesForType,
-} from "@/utils/uploadValidation";
+import { validateFile } from "@/utils/uploadValidation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,13 +20,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll("files") as File[];
     const type = formData.get("type") as string; // "image" or "video"
 
-    console.log("Upload request received:");
-    console.log("Files count:", files.length);
-    console.log("Type:", type);
-    console.log(
-      "File names:",
-      files.map((f) => f.name),
-    );
+    // Upload request received
 
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -51,13 +41,9 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       try {
         // Validate file using utility
-        const validation = validateFileUpload(file, {
-          maxSize: getMaxSizeForType(type as "image" | "video"),
-          allowedTypes: getAllowedTypesForType(type as "image" | "video"),
-          type: type as "image" | "video",
-        });
+        const validation = validateFile(file);
 
-        if (!validation.valid) {
+        if (!validation.isValid) {
           return NextResponse.json(
             { success: false, error: validation.error },
             { status: 400 },
@@ -88,9 +74,7 @@ export async function POST(request: NextRequest) {
         const publicUrl = `/uploads/${type}/${filename}`;
         uploadedFiles.push(publicUrl);
 
-        console.log(`File uploaded successfully: ${filePath}`);
-        console.log(`Public URL: ${publicUrl}`);
-        console.log(`File size: ${file.size} bytes`);
+        // File details logged
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
         return NextResponse.json(

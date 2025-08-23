@@ -1,58 +1,72 @@
 import { prisma } from "@/lib/prisma";
-import { Review, ReviewStatus, Business } from "@/types";
-import { RewardService } from "./RewardService";
+import { Review, ReviewStatus } from "@prisma/client";
+
+export interface ReviewCreateData {
+  businessId: string;
+  reviewerId: string;
+  rating: number;
+  content: string;
+  images: string[];
+  video?: string;
+}
+
+export interface ReviewUpdateData {
+  rating?: number;
+  content?: string;
+  images?: string[];
+  video?: string;
+  status?: ReviewStatus;
+}
+
+export interface ReviewFilterData {
+  businessId?: string;
+  reviewerId?: string;
+  status?: ReviewStatus;
+  minRating?: number;
+  maxRating?: number;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export interface ReviewSearchData {
+  query: string;
+  businessId?: string;
+  status?: ReviewStatus;
+  minRating?: number;
+  maxRating?: number;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
 
 export class ReviewService {
-  private rewardService: RewardService;
-
-  constructor() {
-    this.rewardService = new RewardService();
-  }
-
-  async createReview(reviewData: {
-    userId: string;
-    businessId: string;
-    rating: number;
-    content: string;
-    images: string[];
-    video?: string | null;
-  }): Promise<Review> {
+  async createReview(data: ReviewCreateData): Promise<Review> {
     try {
-      // Start a transaction to create review and update business metrics
-      const result = await prisma.$transaction(async (tx) => {
-        // Create the review
-        const review = await tx.review.create({
-          data: {
-            rating: reviewData.rating,
-            content: reviewData.content,
-            images: reviewData.images,
-            video: reviewData.video,
-            status: ReviewStatus.PENDING,
-            reviewerId: reviewData.userId,
-            businessId: reviewData.businessId,
+      const review = await prisma.review.create({
+        data: {
+          ...data,
+          status: ReviewStatus.PENDING,
+        },
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              state: true,
+              city: true,
+            },
           },
-          include: {
-            reviewer: true,
-            business: true,
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
           },
-        });
-
-        // Update business rating and review count
-        await this.updateBusinessMetrics(reviewData.businessId, tx);
-
-        return review;
+        },
       });
 
-      // Create reward for the review (NGN 50)
-      await this.rewardService.createReward({
-        type: "REVIEW" as any,
-        amount: 50,
-        description: `Review reward for ${result.business?.name || "business"}`,
-        userId: reviewData.userId,
-        reviewId: result.id,
-      });
-
-      return result as Review;
+      return review;
     } catch (error) {
       throw new Error(
         `Failed to create review: ${
@@ -62,26 +76,32 @@ export class ReviewService {
     }
   }
 
-  async getUserReviewForBusiness(
-    userId: string,
-    businessId: string,
-  ): Promise<Review | null> {
+  async getReviewById(id: string): Promise<Review | null> {
     try {
-      const review = await prisma.review.findFirst({
-        where: {
-          reviewerId: userId,
-          businessId,
-        },
+      return await prisma.review.findUnique({
+        where: { id },
         include: {
-          reviewer: true,
-          business: true,
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              state: true,
+              city: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
         },
       });
-
-      return review as Review;
     } catch (error) {
       throw new Error(
-        `Failed to get user review: ${
+        `Failed to get review: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
@@ -94,15 +114,34 @@ export class ReviewService {
       page: number;
       limit: number;
       status?: ReviewStatus;
-    },
-  ) {
+      minRating?: number;
+      maxRating?: number;
+      sortBy?: "rating" | "createdAt" | "helpfulCount";
+      sortOrder?: "asc" | "desc";
+    } = { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc" },
+  ): Promise<{
+    reviews: Review[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
     try {
-      const { page, limit, status } = options;
+      const { page, limit, status, minRating, maxRating, sortBy, sortOrder } =
+        options;
       const skip = (page - 1) * limit;
 
-      const where: any = { businessId };
-      if (status) {
-        where.status = status;
+      const where: Record<string, unknown> = { businessId };
+
+      if (status) where.status = status;
+      if (minRating && maxRating) {
+        where.rating = { gte: minRating, lte: maxRating };
+      } else if (minRating) {
+        where.rating = { gte: minRating };
+      } else if (maxRating) {
+        where.rating = { lte: maxRating };
       }
 
       const [reviews, total] = await Promise.all([
@@ -116,15 +155,8 @@ export class ReviewService {
                 avatar: true,
               },
             },
-            business: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-              },
-            },
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: { [sortBy || "createdAt"]: sortOrder || "desc" },
           skip,
           take: limit,
         }),
@@ -132,7 +164,7 @@ export class ReviewService {
       ]);
 
       return {
-        reviews: reviews as Review[],
+        reviews,
         pagination: {
           page,
           limit,
@@ -155,28 +187,28 @@ export class ReviewService {
       page: number;
       limit: number;
       status?: ReviewStatus;
-    },
-  ) {
+    } = { page: 1, limit: 10 },
+  ): Promise<{
+    reviews: Review[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
     try {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where: any = { reviewerId: userId };
-      if (status) {
-        where.status = status;
-      }
+      const where: Record<string, unknown> = { reviewerId: userId };
+
+      if (status) where.status = status;
 
       const [reviews, total] = await Promise.all([
         prisma.review.findMany({
           where,
           include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
-              },
-            },
             business: {
               select: {
                 id: true,
@@ -195,7 +227,7 @@ export class ReviewService {
       ]);
 
       return {
-        reviews: reviews as Review[],
+        reviews,
         pagination: {
           page,
           limit,
@@ -212,130 +244,42 @@ export class ReviewService {
     }
   }
 
-  async approveReview(reviewId: string, adminId: string): Promise<Review> {
+  async updateReview(id: string, data: ReviewUpdateData): Promise<Review> {
     try {
-      const review = await prisma.review.update({
-        where: { id: reviewId },
-        data: {
-          status: ReviewStatus.APPROVED,
-        },
+      return await prisma.review.update({
+        where: { id },
+        data,
         include: {
-          user: true,
-          business: true,
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
         },
       });
-
-      // Update business metrics after approval
-      await this.updateBusinessMetrics(review.businessId);
-
-      // Log admin action
-      await prisma.adminAction.create({
-        data: {
-          action: "APPROVE_REVIEW",
-          targetType: "REVIEW",
-          targetId: reviewId,
-          adminId,
-          adminName: "Admin", // You'd get this from the session
-        },
-      });
-
-      return review as Review;
     } catch (error) {
       throw new Error(
-        `Failed to approve review: ${
+        `Failed to update review: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async rejectReview(
-    reviewId: string,
-    adminId: string,
-    reason: string,
-  ): Promise<Review> {
+  async deleteReview(id: string): Promise<void> {
     try {
-      const review = await prisma.review.update({
-        where: { id: reviewId },
-        data: {
-          status: ReviewStatus.REJECTED,
-        },
-        include: {
-          user: true,
-          business: true,
-        },
-      });
-
-      // Log admin action
-      await prisma.adminAction.create({
-        data: {
-          action: "REJECT_REVIEW",
-          targetType: "REVIEW",
-          targetId: reviewId,
-          adminId,
-          adminName: "Admin",
-          details: { reason },
-        },
-      });
-
-      return review as Review;
-    } catch (error) {
-      throw new Error(
-        `Failed to reject review: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async reportReview(
-    reviewId: string,
-    reason: string,
-    reporterId: string,
-  ): Promise<Review> {
-    try {
-      const review = await prisma.review.update({
-        where: { id: reviewId },
-        data: {
-          reported: true,
-          reportReason: reason,
-        },
-        include: {
-          user: true,
-          business: true,
-        },
-      });
-
-      return review as Review;
-    } catch (error) {
-      throw new Error(
-        `Failed to report review: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async deleteReview(reviewId: string, userId: string): Promise<void> {
-    try {
-      const review = await prisma.review.findUnique({
-        where: { id: reviewId },
-      });
-
-      if (!review) {
-        throw new Error("Review not found");
-      }
-
-      if (review.userId !== userId) {
-        throw new Error("You can only delete your own reviews");
-      }
-
       await prisma.review.delete({
-        where: { id: reviewId },
+        where: { id },
       });
-
-      // Update business metrics after deletion
-      await this.updateBusinessMetrics(review.businessId);
     } catch (error) {
       throw new Error(
         `Failed to delete review: ${
@@ -345,82 +289,146 @@ export class ReviewService {
     }
   }
 
-  private async updateBusinessMetrics(
-    businessId: string,
-    tx?: any,
-  ): Promise<void> {
+  async approveReview(id: string): Promise<Review> {
     try {
-      const prismaClient = tx || prisma;
-
-      // Get all approved reviews for the business
-      const reviews = await prismaClient.review.findMany({
-        where: {
-          businessId,
-          status: ReviewStatus.APPROVED,
-        },
-        select: {
-          rating: true,
-        },
-      });
-
-      if (reviews.length === 0) {
-        // No approved reviews, reset to defaults
-        await prismaClient.business.update({
-          where: { id: businessId },
-          data: {
-            rating: 0,
-            reviewCount: 0,
-          },
-        });
-        return;
-      }
-
-      // Calculate new rating and review count
-      const totalRating = reviews.reduce(
-        (sum, review) => sum + review.rating,
-        0,
-      );
-      const averageRating = totalRating / reviews.length;
-      const reviewCount = reviews.length;
-
-      await prismaClient.business.update({
-        where: { id: businessId },
-        data: {
-          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-          reviewCount,
-        },
+      return await prisma.review.update({
+        where: { id },
+        data: { status: ReviewStatus.APPROVED },
       });
     } catch (error) {
-      console.error("Failed to update business metrics:", error);
+      throw new Error(
+        `Failed to approve review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async getReviewStats(userId: string) {
+  async rejectReview(id: string): Promise<Review> {
     try {
-      const [totalReviews, approvedReviews, pendingReviews, totalEarnings] =
-        await Promise.all([
-          prisma.review.count({ where: { userId } }),
-          prisma.review.count({
-            where: { userId, status: ReviewStatus.APPROVED },
-          }),
-          prisma.review.count({
-            where: { userId, status: ReviewStatus.PENDING },
-          }),
-          prisma.reward.aggregate({
-            where: {
-              userId,
-              reviewId: { not: null },
-              isRedeemed: false,
+      return await prisma.review.update({
+        where: { id },
+        data: {
+          status: ReviewStatus.REJECTED,
+        },
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to reject review: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async searchReviews(searchData: ReviewSearchData): Promise<Review[]> {
+    try {
+      const {
+        query,
+        businessId,
+        status,
+        minRating,
+        maxRating,
+        dateFrom,
+        dateTo,
+      } = searchData;
+
+      const where: Record<string, unknown> = {
+        OR: [{ content: { contains: query, mode: "insensitive" } }],
+      };
+
+      if (businessId) where.businessId = businessId;
+      if (status) where.status = status;
+      if (minRating && maxRating) {
+        where.rating = { gte: minRating, lte: maxRating };
+      } else if (minRating) {
+        where.rating = { gte: minRating };
+      } else if (maxRating) {
+        where.rating = { lte: maxRating };
+      }
+      if (dateFrom && dateTo) {
+        where.createdAt = { gte: dateFrom, lte: dateTo };
+      } else if (dateFrom) {
+        where.createdAt = { gte: dateFrom };
+      } else if (dateTo) {
+        where.createdAt = { lte: dateTo };
+      }
+
+      return await prisma.review.findMany({
+        where,
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
             },
-            _sum: { amount: true },
-          }),
-        ]);
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to search reviews: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getReviewStats(businessId: string): Promise<{
+    totalReviews: number;
+    averageRating: number;
+    ratingDistribution: Record<number, number>;
+    statusDistribution: Record<string, number>;
+  }> {
+    try {
+      const [
+        totalReviews,
+        averageRating,
+        ratingDistribution,
+        statusDistribution,
+      ] = await Promise.all([
+        prisma.review.count({ where: { businessId } }),
+        prisma.review.aggregate({
+          where: { businessId },
+          _avg: { rating: true },
+        }),
+        prisma.review.groupBy({
+          by: ["rating"],
+          where: { businessId },
+          _count: { rating: true },
+        }),
+        prisma.review.groupBy({
+          by: ["status"],
+          where: { businessId },
+          _count: { status: true },
+        }),
+      ]);
+
+      const ratingDist: Record<number, number> = {};
+      ratingDistribution.forEach((item) => {
+        ratingDist[item.rating] = item._count.rating;
+      });
+
+      const statusDist: Record<string, number> = {};
+      statusDistribution.forEach((item) => {
+        statusDist[item.status] = item._count.status;
+      });
 
       return {
         totalReviews,
-        approvedReviews,
-        pendingReviews,
-        totalEarnings: totalEarnings._sum.amount || 0,
+        averageRating: averageRating._avg.rating || 0,
+        ratingDistribution: ratingDist,
+        statusDistribution: statusDist,
       };
     } catch (error) {
       throw new Error(

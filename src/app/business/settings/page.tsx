@@ -114,7 +114,7 @@ function BusinessSettingsContent() {
           });
         } else if (response.status === 404) {
           // Profile not found, keep basic info from session
-          console.log("User profile not found, using session data only");
+          // User profile not found, using session data only
         } else {
           throw new Error(`Failed to fetch profile: ${response.statusText}`);
         }

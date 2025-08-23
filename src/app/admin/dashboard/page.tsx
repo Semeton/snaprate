@@ -39,9 +39,29 @@ interface AdminDashboardData {
     adminInvitations: number;
   };
   recent: {
-    adminActions: any[];
-    pendingBusinesses: any[];
-    pendingAgents: any[];
+    adminActions: Array<{
+      id: string;
+      action: string;
+      timestamp: string;
+      adminName: string;
+      admin: {
+        name: string;
+      };
+      createdAt: string;
+      targetType: string;
+    }>;
+    pendingBusinesses: Array<{
+      id: string;
+      name: string;
+      status: string;
+      createdAt: string;
+    }>;
+    pendingAgents: Array<{
+      id: string;
+      name: string;
+      status: string;
+      createdAt: string;
+    }>;
   };
   platformSettings: {
     minimumRedemptionAmount: number;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ReviewStatus } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { businessId, rating, title, content, images, video, isAnonymous } =
-      body;
+    const { businessId, rating, content, images, video } = body;
 
     // Validation
     if (!businessId || !rating || !content) {
@@ -145,8 +145,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reviewId, rating, title, content, images, video, isAnonymous } =
-      body;
+    const { reviewId, rating, content, images, video } = body;
 
     // Validation
     if (!reviewId || !rating || !content) {
@@ -272,17 +271,19 @@ export async function GET(request: NextRequest) {
 
     if (businessId) {
       try {
-        console.log("Fetching reviews for businessId:", businessId);
+        // Fetching reviews for businessId
         const skip = (page - 1) * limit;
-        const where: { businessId: string; status?: string } = { businessId };
+        const where: { businessId: string; status?: ReviewStatus } = {
+          businessId,
+        };
         if (status) {
-          where.status = status as any;
+          where.status = status as ReviewStatus;
         }
-        console.log("Where clause:", where);
+        // Where clause applied
 
         const [reviews, total] = await Promise.all([
           prisma.review.findMany({
-            where: where as any,
+            where,
             include: {
               reviewer: {
                 select: {
@@ -308,16 +309,6 @@ export async function GET(request: NextRequest) {
           prisma.review.count({ where }),
         ]);
 
-        const result = {
-          reviews,
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-          },
-        };
-
         return NextResponse.json({
           success: true,
           data: {
@@ -342,9 +333,11 @@ export async function GET(request: NextRequest) {
     if (userId) {
       try {
         const skip = (page - 1) * limit;
-        const where: any = { reviewerId: userId };
+        const where: { reviewerId: string; status?: ReviewStatus } = {
+          reviewerId: userId,
+        };
         if (status) {
-          where.status = status;
+          where.status = status as ReviewStatus;
         }
 
         const [reviews, total] = await Promise.all([

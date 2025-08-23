@@ -1,309 +1,319 @@
 // Service interfaces following SOLID principles
 // Interface Segregation Principle: Clients should not be forced to depend on interfaces they don't use
 
-import {
-  User,
-  BusinessServiceData,
-  Review,
-  Reward,
-  Coupon,
-  AgentProfile,
-  AdminAction,
-  Notification,
-  ApiResponse,
-  PaginatedResponse,
-  BusinessSearchFilters,
-  ReviewSearchFilters,
-  DashboardStats,
-  BusinessDashboardStats,
-  AgentDashboardStats,
-} from "@/types";
-
-// Base service interface for common CRUD operations
-export interface IBaseService<T> {
-  create(data: any): Promise<T>;
-  findById(id: string): Promise<T | null>;
-  update(id: string, data: Partial<T>): Promise<T>;
-  delete(id: string): Promise<void>;
+// Base user interface
+export interface BaseUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// User service interface
-export interface IUserService {
-  createUser(userData: any): Promise<User>;
-  findById(id: string): Promise<User | null>;
-  findByEmail(email: string): Promise<User | null>;
-  findByPhone(phone: string): Promise<User | null>;
-  updateUser(id: string, data: Partial<User>): Promise<User>;
-  deleteUser(id: string): Promise<void>;
-  verifyEmail(userId: string): Promise<User>;
-  verifyPhone(userId: string): Promise<User>;
-  updateProfile(id: string, data: Partial<User>): Promise<User>;
-  getReferrals(userId: string): Promise<User[]>;
-  getReferralStats(
-    userId: string,
-  ): Promise<{ count: number; earnings: number }>;
+// User profile interface
+export interface UserProfile extends BaseUser {
+  avatar?: string;
+  bio?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  referralCode?: string;
+  referredBy?: string;
+  lastLoginAt?: Date;
 }
 
-// Business service interface
-export interface IBusinessService {
-  createBusiness(
-    businessData: any,
-    ownerId: string,
-  ): Promise<BusinessServiceData>;
-  findById(id: string): Promise<BusinessServiceData | null>;
-  findByOwner(ownerId: string): Promise<BusinessServiceData | null>;
-  updateBusiness(
-    id: string,
-    data: Partial<BusinessServiceData>,
-  ): Promise<BusinessServiceData>;
-  deleteBusiness(id: string): Promise<void>;
-  verifyBusiness(id: string, adminId: string): Promise<BusinessServiceData>;
-  rejectBusiness(
-    id: string,
-    adminId: string,
-    reason: string,
-  ): Promise<BusinessServiceData>;
-  searchBusinesses(
-    filters: BusinessSearchFilters,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<BusinessServiceData>>;
-  getBusinessStats(businessId: string): Promise<BusinessDashboardStats>;
-  addStaffMember(businessId: string, staffData: any): Promise<any>;
-  removeStaffMember(businessId: string, staffId: string): Promise<void>;
+// Business interface
+export interface BusinessData {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  phone: string;
+  email: string;
+  website?: string;
+  address: string;
+  city: string;
+  state: string;
+  isActive: boolean;
+  ownerId: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Review service interface
-export interface IReviewService {
-  createReview(
-    reviewData: any,
-    userId: string,
-    businessId: string,
-  ): Promise<Review>;
-  findById(id: string): Promise<Review | null>;
-  findByUser(
-    userId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Review>>;
-  findByBusiness(
-    businessId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Review>>;
-  updateReview(id: string, data: Partial<Review>): Promise<Review>;
-  deleteReview(id: string): Promise<void>;
-  approveReview(id: string, adminId: string): Promise<Review>;
-  rejectReview(id: string, adminId: string, reason: string): Promise<Review>;
-  reportReview(id: string, reason: string): Promise<Review>;
-  searchReviews(
-    filters: ReviewSearchFilters,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Review>>;
-  getReviewStats(businessId: string): Promise<{
-    averageRating: number;
-    totalReviews: number;
-    ratingDistribution: any;
-  }>;
+// Review interface
+export interface ReviewData {
+  id: string;
+  content: string;
+  rating: number;
+  businessId: string;
+  reviewerId: string;
+  status: string;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Reward service interface
-export interface IRewardService {
-  createReward(rewardData: any): Promise<Reward>;
-  findById(id: string): Promise<Reward | null>;
-  findByUser(
-    userId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Reward>>;
-  updateReward(id: string, data: Partial<Reward>): Promise<Reward>;
-  deleteReward(id: string): Promise<void>;
-  redeemReward(id: string, type: "AIRTIME" | "COUPON"): Promise<Reward>;
-  calculateReviewReward(reviewId: string): Promise<number>;
-  processReferralBonus(referrerId: string, referredId: string): Promise<Reward>;
-  processBusinessOnboardingBonus(
-    agentId: string,
-    businessId: string,
-  ): Promise<Reward>;
-  getUserRewardStats(userId: string): Promise<DashboardStats>;
+// Reward interface
+export interface RewardData {
+  id: string;
+  userId: string;
+  amount: number;
+  type: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Coupon service interface
-export interface ICouponService {
-  createCoupon(couponData: any, businessId: string): Promise<Coupon>;
-  findById(id: string): Promise<Coupon | null>;
-  findByCode(code: string): Promise<Coupon | null>;
-  findByBusiness(
-    businessId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Coupon>>;
-  updateCoupon(id: string, data: Partial<Coupon>): Promise<Coupon>;
-  deleteCoupon(id: string): Promise<void>;
-  validateCoupon(code: string, businessId: string): Promise<boolean>;
-  useCoupon(code: string, userId: string): Promise<Coupon>;
-  generateCouponCode(): Promise<string>;
-  getCouponStats(
-    businessId: string,
-  ): Promise<{ active: number; used: number; expired: number; total: number }>;
+// Coupon interface
+export interface CouponData {
+  id: string;
+  code: string;
+  businessId: string;
+  discountType: string;
+  discountValue: number;
+  maxUses: number;
+  currentUses: number;
+  status: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Agent service interface
-export interface IAgentService {
-  createAgentProfile(userId: string, agentData: any): Promise<AgentProfile>;
-  findById(id: string): Promise<AgentProfile | null>;
-  findByUser(userId: string): Promise<AgentProfile | null>;
-  updateAgentProfile(
-    id: string,
-    data: Partial<AgentProfile>,
-  ): Promise<AgentProfile>;
-  deleteAgentProfile(id: string): Promise<void>;
-  approveAgent(id: string, adminId: string): Promise<AgentProfile>;
-  rejectAgent(
-    id: string,
-    adminId: string,
-    reason: string,
-  ): Promise<AgentProfile>;
-  onboardBusiness(agentId: string, businessData: any): Promise<Business>;
-  getAgentStats(agentId: string): Promise<AgentDashboardStats>;
-  getOnboardedBusinesses(
-    agentId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Business>>;
-  updateBankDetails(agentId: string, bankData: any): Promise<AgentProfile>;
+// Auth service interfaces
+export interface SignupData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  referralCode?: string;
 }
 
-// Admin service interface
-export interface IAdminService {
-  getDashboardStats(): Promise<{
-    totalUsers: number;
-    totalBusinesses: number;
-    totalReviews: number;
-    totalRewards: number;
-    pendingApprovals: number;
-  }>;
-  getUsers(
-    page?: number,
-    limit?: number,
-    filters?: any,
-  ): Promise<PaginatedResponse<User>>;
-  getBusinesses(
-    page?: number,
-    limit?: number,
-    filters?: any,
-  ): Promise<PaginatedResponse<Business>>;
-  getAgents(
-    page?: number,
-    limit?: number,
-    filters?: any,
-  ): Promise<PaginatedResponse<AgentProfile>>;
-  getReviews(
-    page?: number,
-    limit?: number,
-    filters?: any,
-  ): Promise<PaginatedResponse<Review>>;
-  suspendUser(userId: string, reason: string, adminId: string): Promise<User>;
-  banUser(userId: string, reason: string, adminId: string): Promise<User>;
-  logAdminAction(
-    action: string,
-    targetType: string,
-    targetId: string,
-    adminId: string,
-    adminName: string,
-    details?: any,
-  ): Promise<AdminAction>;
-  getAdminActions(
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<AdminAction>>;
+export interface SigninData {
+  email: string;
+  password: string;
 }
 
-// Notification service interface
-export interface INotificationService {
-  createNotification(
-    userId: string,
-    title: string,
-    message: string,
-    type: "INFO" | "SUCCESS" | "WARNING" | "ERROR",
-  ): Promise<Notification>;
-  findById(id: string): Promise<Notification | null>;
-  findByUser(
-    userId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<Notification>>;
-  markAsRead(id: string): Promise<Notification>;
-  markAllAsRead(userId: string): Promise<void>;
-  deleteNotification(id: string): Promise<void>;
-  getUnreadCount(userId: string): Promise<number>;
+export interface AuthResponse {
+  user: BaseUser;
+  token: string;
 }
 
-// Authentication service interface
-export interface IAuthService {
-  signUp(userData: {
-    name: string;
-    email: string;
-    phone: string;
-    password: string;
-    role?: string;
-    referralCode?: string;
-    state: string;
-    city: string;
-    address: string;
-  }): Promise<{ user: any; token: string }>;
-  signIn(credentials: {
-    email: string;
-    password: string;
-  }): Promise<{ user: any; token: string }>;
-  signOut(): Promise<void>;
-  verifyEmail(token: string): Promise<boolean>;
-  sendVerificationEmail(
-    email: string,
-    name: string,
-    token: string,
-  ): Promise<void>;
-  resendVerificationEmail(email: string): Promise<boolean>;
-  resetPassword(email: string): Promise<void>;
-  verifyAndResetPassword(token: string, newPassword: string): Promise<boolean>;
-  changePassword(
-    userId: string,
-    oldPassword: string,
-    newPassword: string,
-  ): Promise<void>;
+export interface EmailVerificationData {
+  email: string;
+  token: string;
 }
 
-// File upload service interface
-export interface IFileUploadService {
-  uploadImage(file: File, folder?: string): Promise<string>;
-  uploadVideo(file: File, folder?: string): Promise<string>;
-  deleteFile(fileUrl: string): Promise<void>;
-  validateFile(
-    file: File,
-    maxSize?: number,
-    allowedTypes?: string[],
-  ): Promise<boolean>;
+export interface PasswordResetData {
+  email: string;
+  token: string;
+  newPassword: string;
 }
 
-// Payment service interface
-export interface IPaymentService {
-  processAirtimePurchase(
-    userId: string,
-    amount: number,
-    phoneNumber: string,
-  ): Promise<{ success: boolean; transactionId?: string; error?: string }>;
-  processCouponRedemption(
-    userId: string,
-    couponId: string,
-  ): Promise<{ success: boolean; error?: string }>;
-  processAgentPayout(
-    agentId: string,
-    amount: number,
-  ): Promise<{ success: boolean; transactionId?: string; error?: string }>;
-  getTransactionHistory(
-    userId: string,
-    page?: number,
-    limit?: number,
-  ): Promise<PaginatedResponse<any>>;
+export interface ChangePasswordData {
+  userId: string;
+  oldPassword: string;
+  newPassword: string;
+}
+
+// Business service interfaces
+export interface BusinessCreateData {
+  name: string;
+  description?: string;
+  category: string;
+  phone: string;
+  email: string;
+  website?: string;
+  address: string;
+  city: string;
+  state: string;
+  ownerId: string;
+}
+
+export interface BusinessUpdateData {
+  name?: string;
+  description?: string;
+  category?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
+// Review service interfaces
+export interface ReviewCreateData {
+  content: string;
+  rating: number;
+  businessId: string;
+  reviewerId: string;
+  isAnonymous?: boolean;
+}
+
+export interface ReviewUpdateData {
+  content?: string;
+  rating?: number;
+  isAnonymous?: boolean;
+}
+
+export interface ReviewFilterData {
+  businessId?: string;
+  reviewerId?: string;
+  status?: string;
+  rating?: number;
+  page?: number;
+  limit?: number;
+}
+
+// Reward service interfaces
+export interface RewardCreateData {
+  userId: string;
+  amount: number;
+  type: string;
+  description?: string;
+}
+
+export interface RewardFilterData {
+  userId?: string;
+  type?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Coupon service interfaces
+export interface CouponCreateData {
+  code: string;
+  businessId: string;
+  discountType: string;
+  discountValue: number;
+  maxUses: number;
+  expiresAt: Date;
+}
+
+export interface CouponUpdateData {
+  code?: string;
+  discountType?: string;
+  discountValue?: number;
+  maxUses?: number;
+  status?: string;
+  expiresAt?: Date;
+}
+
+export interface CouponFilterData {
+  businessId?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Admin service interfaces
+export interface AdminActionData {
+  action: string;
+  targetType: string;
+  targetId: string;
+  adminId: string;
+  adminName: string;
+  details?: Record<string, unknown>;
+  ipAddress?: string;
+}
+
+export interface UserFilterData {
+  role?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface BusinessFilterData {
+  category?: string;
+  state?: string;
+  isActive?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ReviewFilterDataAdmin {
+  businessId?: string;
+  reviewerId?: string;
+  status?: string;
+  rating?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+// Email service interfaces
+export interface EmailData {
+  to: string;
+  subject: string;
+  template: string;
+  data: Record<string, unknown>;
+}
+
+export interface EmailTemplateData {
+  name: string;
+  email: string;
+  verificationUrl?: string;
+  resetUrl?: string;
+  businessName?: string;
+  amount?: number;
+  [key: string]: unknown;
+}
+
+// SMS service interfaces
+export interface SMSData {
+  to: string;
+  message: string;
+  template?: string;
+  data?: Record<string, unknown>;
+}
+
+// File upload interfaces
+export interface FileUploadData {
+  file: File;
+  type: "image" | "video";
+  businessId?: string;
+  userId?: string;
+}
+
+export interface FileValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+// Pagination interfaces
+export interface PaginationData {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationData;
+}
+
+// Search interfaces
+export interface SearchData {
+  query: string;
+  type?: string;
+  filters?: Record<string, unknown>;
+  page?: number;
+  limit?: number;
+}
+
+export interface SearchResult<T> {
+  results: T[];
+  total: number;
+  query: string;
+  pagination: PaginationData;
 }

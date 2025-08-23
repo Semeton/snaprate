@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,22 +24,18 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import ReviewDetailModal from "@/components/ReviewDetailModal";
 import {
-  Star,
+  Shield,
   Search,
+  Filter,
+  Eye,
   CheckCircle,
   XCircle,
-  Eye,
-  Filter,
-  MessageSquare,
-  Building2,
-  User,
-  Calendar,
-  ChevronDown,
   ChevronUp,
+  ChevronDown,
+  Star,
+  MessageSquare,
   ChevronLeft,
   ChevronRight,
-  Shield,
-  AlertTriangle,
 } from "lucide-react";
 
 interface Review {
@@ -68,24 +63,19 @@ interface Review {
 }
 
 export default function AdminReviewsPage() {
-  const { data: session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("ALL");
+  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<keyof Review>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize] = useState(20);
-  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [currentPage, filter, searchTerm, sortField, sortDirection]);
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -105,15 +95,14 @@ export default function AdminReviewsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch reviews:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch reviews",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, filter, searchTerm, sortField, sortDirection, pageSize]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const handleSort = (field: keyof Review) => {
     if (sortField === field) {
@@ -567,7 +556,7 @@ export default function AdminReviewsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              // TODO: Implement review details modal
+                              // Review details modal implementation planned
                               toast({
                                 title: "Review Details",
                                 description: `Review by ${review.reviewer.name} for ${review.business.name}`,

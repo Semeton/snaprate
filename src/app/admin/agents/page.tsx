@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,21 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/components/ui/use-toast";
 import {
-  Shield,
   Search,
-  CheckCircle,
-  XCircle,
+  Filter,
   Eye,
   Clock,
-  User,
-  Mail,
+  CheckCircle,
+  XCircle,
   MapPin,
-  Filter,
-  Star,
+  User,
   FileText,
 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 interface AgentApplication {
   id: string;
@@ -49,7 +44,6 @@ interface AgentApplication {
 }
 
 export default function AdminAgentsPage() {
-  const { data: session } = useSession();
   const [applications, setApplications] = useState<AgentApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
@@ -203,7 +197,7 @@ export default function AdminAgentsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center space-x-3">
             <div className="p-3 bg-purple-100 rounded-full">
-              <Shield className="h-8 w-8 text-purple-600" />
+              {/* Shield icon removed */}
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -325,7 +319,7 @@ export default function AdminAgentsPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 bg-purple-100 rounded-full">
-                          <Shield className="h-5 w-5 text-purple-600" />
+                          {/* Shield icon removed */}
                         </div>
                         <div>
                           <h3 className="font-medium text-gray-900">
@@ -404,7 +398,7 @@ export default function AdminAgentsPage() {
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500">
-                <Shield className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                {/* Shield icon removed */}
                 <p className="text-lg font-medium mb-2">
                   No applications found
                 </p>
@@ -531,10 +525,12 @@ export default function AdminAgentsPage() {
                     <Label className="text-sm font-medium text-gray-700">
                       Admin Notes (Required for rejection)
                     </Label>
-                    <Textarea
+                    <textarea
                       placeholder="Enter your notes..."
                       value={approvalNotes}
-                      onChange={(e) => setApprovalNotes(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                        setApprovalNotes(e.target.value)
+                      }
                       className="mt-2"
                       rows={3}
                     />

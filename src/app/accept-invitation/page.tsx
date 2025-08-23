@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import {
-  Shield,
-  Mail,
-  Lock,
-  User,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import { Shield, Loader2 } from "lucide-react";
 
 interface InvitationData {
   email: string;
@@ -39,15 +32,7 @@ export default function AcceptInvitationPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (token) {
-      fetchInvitation();
-    } else {
-      setLoading(false);
-    }
-  }, [token]);
-
-  const fetchInvitation = async () => {
+  const fetchInvitation = useCallback(async () => {
     try {
       const response = await fetch(
         `/api/admin/accept-invitation?token=${token}`,
@@ -76,7 +61,13 @@ export default function AcceptInvitationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, router]);
+
+  useEffect(() => {
+    if (token) {
+      fetchInvitation();
+    }
+  }, [token, fetchInvitation]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -238,7 +229,21 @@ export default function AcceptInvitationPage() {
           {/* Invitation Details */}
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <div className="flex items-center space-x-3 mb-3">
-              <Mail className="h-5 w-5 text-blue-600" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5 text-blue-600"
+              >
+                <path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0Z" />
+                <path d="M22 4s-3 9-3 10a8 8 0 0 0 16 0c0-1-3-10-3-10Z" />
+              </svg>
               <span className="font-medium text-blue-900">
                 {invitation.email}
               </span>

@@ -12,7 +12,6 @@ import {
   Heart,
   Star,
   MapPin,
-  Users,
   TrendingUp,
   Award,
   ArrowRight,
@@ -41,14 +40,6 @@ export default function HomePageContent() {
   const handleWatchDemo = () => {
     setIsVideoPlaying(!isVideoPlaying);
     // You can add actual video functionality here
-  };
-
-  const handleBrowseBusinesses = () => {
-    router.push("/businesses");
-  };
-
-  const handleViewDashboard = () => {
-    router.push("/dashboard");
   };
 
   return (

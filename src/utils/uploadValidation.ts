@@ -1,101 +1,126 @@
-export interface UploadValidationOptions {
-  maxSize?: number;
-  allowedTypes?: string[];
-  type?: "image" | "video" | "document";
+import { z } from "zod";
+
+// File validation schemas
+export const imageFileSchema = z.object({
+  name: z.string().min(1, "File name is required"),
+  size: z.number().max(5 * 1024 * 1024, "File size must be less than 5MB"),
+  type: z
+    .string()
+    .refine((type) => type.startsWith("image/"), "File must be an image"),
+});
+
+export const documentFileSchema = z.object({
+  name: z.string().min(1, "File name is required"),
+  size: z.number().max(10 * 1024 * 1024, "File size must be less than 10MB"),
+  type: z
+    .string()
+    .refine(
+      (type) =>
+        type === "application/pdf" ||
+        type === "application/msword" ||
+        type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "File must be a PDF or Word document",
+    ),
+});
+
+export const videoFileSchema = z.object({
+  name: z.string().min(1, "File name is required"),
+  size: z.number().max(50 * 1024 * 1024, "File size must be less than 50MB"),
+  type: z
+    .string()
+    .refine((type) => type.startsWith("video/"), "File must be a video"),
+});
+
+// Validation functions
+export function validateImageFile(file: File): {
+  isValid: boolean;
+  error?: string;
+} {
+  try {
+    imageFileSchema.parse(file);
+    return { isValid: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { isValid: false, error: error.issues[0].message };
+    }
+    return { isValid: false, error: "Invalid file" };
+  }
 }
 
-export const DEFAULT_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-export const DEFAULT_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
-export const DEFAULT_DOCUMENT_SIZE = 10 * 1024 * 1024; // 10MB
+export function validateDocumentFile(file: File): {
+  isValid: boolean;
+  error?: string;
+} {
+  try {
+    documentFileSchema.parse(file);
+    return { isValid: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { isValid: false, error: error.errors[0].message };
+    }
+    return { isValid: false, error: "Invalid file" };
+  }
+}
 
-export const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-];
+export function validateVideoFile(file: File): {
+  isValid: boolean;
+  error?: string;
+} {
+  try {
+    videoFileSchema.parse(file);
+    return { isValid: true };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { isValid: false, error: error.errors[0].message };
+    }
+    return { isValid: false, error: "Invalid file" };
+  }
+}
 
-export const ALLOWED_VIDEO_TYPES = [
-  "video/mp4",
-  "video/webm",
-  "video/ogg",
-  "video/avi",
-];
-
-export const ALLOWED_DOCUMENT_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-];
-
-export function validateFileUpload(
+// Generic file validation
+export function validateFile(
   file: File,
-  options: UploadValidationOptions = {},
-) {
+  options: {
+    maxSize?: number;
+    allowedTypes?: string[];
+    allowedExtensions?: string[];
+  } = {},
+): { isValid: boolean; error?: string } {
   const {
-    maxSize = DEFAULT_IMAGE_SIZE,
-    allowedTypes = ALLOWED_IMAGE_TYPES,
-    type = "image",
+    maxSize = 5 * 1024 * 1024,
+    allowedTypes = [],
+    allowedExtensions = [],
   } = options;
 
-  // Check if file exists
-  if (!file) {
-    return { valid: false, error: "No file provided" };
-  }
-
-  // Validate file size
+  // Check file size
   if (file.size > maxSize) {
-    const maxSizeMB = Math.round(maxSize / (1024 * 1024));
     return {
-      valid: false,
-      error: `File size must be less than ${maxSizeMB}MB`,
+      isValid: false,
+      error: `File size must be less than ${Math.round(
+        maxSize / (1024 * 1024),
+      )}MB`,
     };
   }
 
-  // Validate file type
-  if (!allowedTypes.includes(file.type)) {
-    const allowedExtensions = allowedTypes
-      .map((t) => t.split("/")[1]?.toUpperCase())
-      .filter(Boolean)
-      .join(", ");
-
+  // Check file type
+  if (allowedTypes.length > 0 && !allowedTypes.includes(file.type)) {
     return {
-      valid: false,
-      error: `Invalid file type. Allowed: ${allowedExtensions}`,
+      isValid: false,
+      error: `File type ${file.type} is not allowed`,
     };
   }
 
-  return { valid: true, error: null };
-}
-
-export function getMaxSizeForType(
-  type: "image" | "video" | "document",
-): number {
-  switch (type) {
-    case "image":
-      return DEFAULT_IMAGE_SIZE;
-    case "video":
-      return DEFAULT_VIDEO_SIZE;
-    case "document":
-      return DEFAULT_DOCUMENT_SIZE;
-    default:
-      return DEFAULT_IMAGE_SIZE;
+  // Check file extension
+  if (allowedExtensions.length > 0) {
+    const fileExtension = file.name.split(".").pop()?.toLowerCase();
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      return {
+        isValid: false,
+        error: `File extension .${fileExtension} is not allowed`,
+      };
+    }
   }
-}
 
-export function getAllowedTypesForType(
-  type: "image" | "video" | "document",
-): string[] {
-  switch (type) {
-    case "image":
-      return ALLOWED_IMAGE_TYPES;
-    case "video":
-      return ALLOWED_VIDEO_TYPES;
-    case "document":
-      return ALLOWED_DOCUMENT_TYPES;
-    default:
-      return ALLOWED_IMAGE_TYPES;
-  }
+  return { isValid: true };
 }

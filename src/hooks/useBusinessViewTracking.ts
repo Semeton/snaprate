@@ -1,88 +1,49 @@
-import { useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 
-interface UseBusinessViewTrackingOptions {
+interface BusinessViewTrackingProps {
   businessId: string;
-  source?: "DIRECT" | "SEARCH" | "SOCIAL" | "REFERRAL" | "FEATURED";
-  viewType?: "PROFILE" | "SEARCH_RESULT" | "FEATURED_LIST" | "RECOMMENDATION";
-  autoTrack?: boolean;
-  sessionId?: string;
+  onViewTracked?: () => void;
 }
 
-export function useBusinessViewTracking({
+export const useBusinessViewTracking = ({
   businessId,
-  source = "DIRECT",
-  viewType = "PROFILE",
-  autoTrack = true,
-  sessionId,
-}: UseBusinessViewTrackingOptions) {
-  const { data: session } = useSession();
+  onViewTracked,
+}: BusinessViewTrackingProps) => {
+  const [isTracking, setIsTracking] = useState(false);
 
-  const trackView = useCallback(async () => {
-    try {
-      // Generate a unique session ID if not provided
-      const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      const params = new URLSearchParams({
-        source,
-        viewType,
-        sessionId: currentSessionId,
-      });
-
-      const response = await fetch(`/api/businesses/${businessId}/track-view?${params.toString()}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        console.warn("Failed to track business view");
-      }
-    } catch (error) {
-      console.warn("Error tracking business view:", error);
-    }
-  }, [businessId, source, viewType, sessionId]);
-
-  // Auto-track view when component mounts
   useEffect(() => {
-    if (autoTrack && businessId) {
-      trackView();
-    }
-  }, [businessId, autoTrack, trackView]);
+    if (!businessId || isTracking) return;
 
-  return {
-    trackView,
-  };
-}
+    const trackView = async () => {
+      try {
+        setIsTracking(true);
 
-// Hook for tracking views from different sources
-export function useBusinessViewSourceTracking(businessId: string) {
-  const { trackView: baseTrackView } = useBusinessViewTracking({
-    businessId,
-    autoTrack: false, // Don't auto-track, let us control when
-  });
+        const response = await fetch("/api/business-views", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            businessId,
+            metadata: {
+              source: "PROFILE_VIEW",
+              viewType: "PROFILE",
+            },
+          }),
+        });
 
-  const trackSearchView = useCallback(() => {
-    baseTrackView();
-  }, [baseTrackView]);
+        if (response.ok) {
+          onViewTracked?.();
+        }
+      } catch (error) {
+        console.error("Failed to track business view:", error);
+      } finally {
+        setIsTracking(false);
+      }
+    };
 
-  const trackFeaturedView = useCallback(() => {
-    baseTrackView();
-  }, [baseTrackView]);
+    trackView();
+  }, [businessId, isTracking, onViewTracked]);
 
-  const trackReferralView = useCallback(() => {
-    baseTrackView();
-  }, [baseTrackView]);
-
-  const trackSocialView = useCallback(() => {
-    baseTrackView();
-  }, [baseTrackView]);
-
-  return {
-    trackSearchView,
-    trackFeaturedView,
-    trackReferralView,
-    trackSocialView,
-  };
-}
+  return { isTracking };
+};

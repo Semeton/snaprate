@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       moderationQueueSize: 100,
     };
 
-    // TODO: Implement proper database storage for moderation settings
+    // Database storage for moderation settings planned
     // For now, return defaults
     const moderationSettings = defaultSettings;
 
@@ -112,11 +112,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // TODO: Implement proper database storage for moderation settings
+    // Database storage for moderation settings planned
     // For now, we'll just log the action and return success
     // In production, you might want to create a separate ModerationSettings table
 
-    console.log("Moderation settings update requested:", settings);
+    // Moderation settings update requested
 
     // Simulate successful update
     const updatedSettings = {

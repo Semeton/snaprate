@@ -4,7 +4,6 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import {
@@ -16,7 +15,6 @@ import {
   Mail,
   LogOut,
   Crown,
-  UserCheck,
   MessageSquare,
   Sun,
   Moon,

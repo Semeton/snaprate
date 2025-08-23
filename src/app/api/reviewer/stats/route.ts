@@ -51,13 +51,7 @@ export async function GET(request: NextRequest) {
     const businessRecommendationRewardAmount =
       platformSettings.businessRecommendationRewardAmount;
 
-    // Debug log to see what rates we're getting
-    console.log("Platform settings fetched:", {
-      reviewRewardAmount,
-      referralRewardAmount,
-      businessRecommendationRewardAmount,
-      platformSettings,
-    });
+    // Platform settings fetched
 
     // Calculate rewards dynamically based on activities
     const reviewReward = totalReviews * reviewRewardAmount;
@@ -145,14 +139,7 @@ export async function GET(request: NextRequest) {
       canRedeem: totalRewards >= platformSettings.minimumRedemptionAmount,
     };
 
-    // Log the calculated values for debugging
-    console.log("Stats calculation:", {
-      userId: user.id,
-      reviewRewardAmount,
-      referralRewardAmount,
-      businessRecommendationRewardAmount,
-      ...validatedStats,
-    });
+    // Stats calculation completed
 
     return NextResponse.json({
       success: true,

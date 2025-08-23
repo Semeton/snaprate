@@ -2,33 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import {
-  Settings,
-  User,
-  Shield,
-  Key,
-  Save,
-  Eye,
-  EyeOff,
-  Camera,
-  Trash2,
-  AlertTriangle,
-  CheckCircle,
-} from "lucide-react";
+import { Settings, Save, Shield, Users, Crown, Loader2 } from "lucide-react";
 
 interface AdminProfile {
   id: string;
@@ -322,7 +310,7 @@ export default function AdminSettingsPage() {
     return (
       <div className="container mx-auto py-6 px-4">
         <div className="text-center py-12">
-          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <Shield className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Profile Not Found
           </h1>
@@ -359,7 +347,7 @@ export default function AdminSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <User className="h-5 w-5" />
+              <Users className="h-5 w-5" />
               <span>Profile Settings</span>
             </CardTitle>
           </CardHeader>
@@ -375,11 +363,11 @@ export default function AdminSettingsPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="h-10 w-10 text-gray-400" />
+                    <Users className="h-10 w-10 text-gray-400" />
                   )}
                 </div>
                 <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-1 rounded-full cursor-pointer hover:bg-blue-700">
-                  <Camera className="h-3 w-3" />
+                  <Crown className="h-3 w-3" />
                   <input
                     type="file"
                     accept="image/*"
@@ -494,9 +482,9 @@ export default function AdminSettingsPage() {
                   className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <Loader2 className="h-4 w-4" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Loader2 className="h-4 w-4" />
                   )}
                 </button>
               </div>
@@ -521,9 +509,9 @@ export default function AdminSettingsPage() {
                   className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <Loader2 className="h-4 w-4" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Loader2 className="h-4 w-4" />
                   )}
                 </button>
               </div>
@@ -548,7 +536,7 @@ export default function AdminSettingsPage() {
               disabled={saving}
               className="w-full bg-green-600 hover:bg-green-700"
             >
-              <Key className="h-4 w-4 mr-2" />
+              <Loader2 className="h-4 w-4 mr-2" />
               {saving ? "Changing..." : "Change Password"}
             </Button>
           </CardContent>

@@ -1,20 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { IAdminService } from "./interfaces";
+import { AdminAction, User, Business, Review } from "@prisma/client";
 import {
-  User,
-  Business,
-  AgentProfile,
-  Review,
-  AdminAction,
-  UserRole,
-  AccountStatus,
-  BusinessVerificationStatus,
-  ReviewStatus,
-} from "@/types";
+  UserFilterData,
+  BusinessFilterData,
+  ReviewFilterDataAdmin,
+} from "./interfaces";
 
-export class AdminService implements IAdminService {
-  // Single Responsibility: This service only handles admin-related operations
-
+export class AdminService {
   async getDashboardStats(): Promise<{
     totalUsers: number;
     totalBusinesses: number;
@@ -28,27 +20,16 @@ export class AdminService implements IAdminService {
         totalBusinesses,
         totalReviews,
         totalRewards,
-        pendingBusinesses,
-        pendingAgents,
-        pendingReviews,
+        pendingApprovals,
       ] = await Promise.all([
         prisma.user.count(),
         prisma.business.count(),
         prisma.review.count(),
         prisma.reward.count(),
         prisma.business.count({
-          where: { verificationStatus: BusinessVerificationStatus.PENDING },
-        }),
-        prisma.agentProfile.count({
-          where: { isApproved: false },
-        }),
-        prisma.review.count({
-          where: { status: ReviewStatus.PENDING },
+          where: { isActive: false },
         }),
       ]);
-
-      const pendingApprovals =
-        pendingBusinesses + pendingAgents + pendingReviews;
 
       return {
         totalUsers,
@@ -69,12 +50,7 @@ export class AdminService implements IAdminService {
   async getUsers(
     page: number = 1,
     limit: number = 10,
-    filters?: {
-      role?: UserRole;
-      status?: AccountStatus;
-      state?: string;
-      search?: string;
-    },
+    filters?: UserFilterData,
   ): Promise<{
     data: User[];
     pagination: {
@@ -85,6 +61,7 @@ export class AdminService implements IAdminService {
     };
   }> {
     try {
+      const skip = (page - 1) * limit;
       const where: Record<string, unknown> = {};
 
       if (filters?.role) {
@@ -95,10 +72,6 @@ export class AdminService implements IAdminService {
         where.status = filters.status;
       }
 
-      if (filters?.state) {
-        where.state = filters.state;
-      }
-
       if (filters?.search) {
         where.OR = [
           { name: { contains: filters.search, mode: "insensitive" } },
@@ -107,18 +80,12 @@ export class AdminService implements IAdminService {
         ];
       }
 
-      const skip = (page - 1) * limit;
-
       const [users, total] = await Promise.all([
         prisma.user.findMany({
-          where,
           skip,
           take: limit,
+          where,
           orderBy: { createdAt: "desc" },
-          include: {
-            business: true,
-            agentProfile: true,
-          },
         }),
         prisma.user.count({ where }),
       ]);
@@ -126,7 +93,7 @@ export class AdminService implements IAdminService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: users as User[],
+        data: users,
         pagination: {
           page,
           limit,
@@ -146,12 +113,7 @@ export class AdminService implements IAdminService {
   async getBusinesses(
     page: number = 1,
     limit: number = 10,
-    filters?: {
-      verificationStatus?: BusinessVerificationStatus;
-      category?: string;
-      state?: string;
-      search?: string;
-    },
+    filters?: BusinessFilterData,
   ): Promise<{
     data: Business[];
     pagination: {
@@ -162,11 +124,8 @@ export class AdminService implements IAdminService {
     };
   }> {
     try {
+      const skip = (page - 1) * limit;
       const where: Record<string, unknown> = {};
-
-      if (filters?.verificationStatus) {
-        where.verificationStatus = filters.verificationStatus;
-      }
 
       if (filters?.category) {
         where.category = filters.category;
@@ -176,26 +135,24 @@ export class AdminService implements IAdminService {
         where.state = filters.state;
       }
 
+      if (filters?.isActive !== undefined) {
+        where.isActive = filters.isActive;
+      }
+
       if (filters?.search) {
         where.OR = [
           { name: { contains: filters.search, mode: "insensitive" } },
           { description: { contains: filters.search, mode: "insensitive" } },
-          { city: { contains: filters.search, mode: "insensitive" } },
+          { address: { contains: filters.search, mode: "insensitive" } },
         ];
       }
 
-      const skip = (page - 1) * limit;
-
       const [businesses, total] = await Promise.all([
         prisma.business.findMany({
-          where,
           skip,
           take: limit,
+          where,
           orderBy: { createdAt: "desc" },
-          include: {
-            owner: true,
-            onboardedByAgent: true,
-          },
         }),
         prisma.business.count({ where }),
       ]);
@@ -203,7 +160,7 @@ export class AdminService implements IAdminService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: businesses as Business[],
+        data: businesses,
         pagination: {
           page,
           limit,
@@ -220,90 +177,10 @@ export class AdminService implements IAdminService {
     }
   }
 
-  async getAgents(
-    page: number = 1,
-    limit: number = 10,
-    filters?: {
-      isApproved?: boolean;
-      state?: string;
-      search?: string;
-    },
-  ): Promise<{
-    data: AgentProfile[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
-    try {
-      const where: Record<string, unknown> = {};
-
-      if (filters?.isApproved !== undefined) {
-        where.isApproved = filters.isApproved;
-      }
-
-      if (filters?.state) {
-        where.user = {
-          state: filters.state,
-        };
-      }
-
-      if (filters?.search) {
-        where.user = {
-          ...(where.user as Record<string, unknown>),
-          OR: [
-            { name: { contains: filters.search, mode: "insensitive" } },
-            { email: { contains: filters.search, mode: "insensitive" } },
-          ],
-        };
-      }
-
-      const skip = (page - 1) * limit;
-
-      const [agents, total] = await Promise.all([
-        prisma.agentProfile.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { createdAt: "desc" },
-          include: {
-            user: true,
-          },
-        }),
-        prisma.agentProfile.count({ where }),
-      ]);
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data: agents as AgentProfile[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages,
-        },
-      };
-    } catch (error) {
-      throw new Error(
-        `Failed to get agents: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
   async getReviews(
     page: number = 1,
     limit: number = 10,
-    filters?: {
-      status?: ReviewStatus;
-      reported?: boolean;
-      businessId?: string;
-      userId?: string;
-    },
+    filters?: ReviewFilterDataAdmin,
   ): Promise<{
     data: Review[];
     pagination: {
@@ -314,36 +191,37 @@ export class AdminService implements IAdminService {
     };
   }> {
     try {
+      const skip = (page - 1) * limit;
       const where: Record<string, unknown> = {};
-
-      if (filters?.status) {
-        where.status = filters.status;
-      }
-
-      if (filters?.reported !== undefined) {
-        where.reported = filters.reported;
-      }
 
       if (filters?.businessId) {
         where.businessId = filters.businessId;
       }
 
-      if (filters?.userId) {
-        where.userId = filters.userId;
+      if (filters?.reviewerId) {
+        where.reviewerId = filters.reviewerId;
       }
 
-      const skip = (page - 1) * limit;
+      if (filters?.status) {
+        where.status = filters.status;
+      }
+
+      if (filters?.rating) {
+        where.rating = filters.rating;
+      }
+
+      if (filters?.search) {
+        where.OR = [
+          { content: { contains: filters.search, mode: "insensitive" } },
+        ];
+      }
 
       const [reviews, total] = await Promise.all([
         prisma.review.findMany({
-          where,
           skip,
           take: limit,
+          where,
           orderBy: { createdAt: "desc" },
-          include: {
-            user: true,
-            business: true,
-          },
         }),
         prisma.review.count({ where }),
       ]);
@@ -351,7 +229,7 @@ export class AdminService implements IAdminService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: reviews as Review[],
+        data: reviews,
         pagination: {
           page,
           limit,
@@ -376,26 +254,14 @@ export class AdminService implements IAdminService {
     try {
       const user = await prisma.user.update({
         where: { id: userId },
-        data: {
-          status: AccountStatus.SUSPENDED,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        },
+        data: { status: "SUSPENDED" },
       });
 
-      // Log admin action
-      await this.logAdminAction(
-        "SUSPEND_USER",
-        "USER",
-        userId,
-        adminId,
-        "Admin",
-        { reason, previousStatus: user.status },
-      );
+      await this.logAdminAction("SUSPEND_USER", "USER", userId, adminId, {
+        reason,
+      });
 
-      return user as User;
+      return user;
     } catch (error) {
       throw new Error(
         `Failed to suspend user: ${
@@ -413,58 +279,17 @@ export class AdminService implements IAdminService {
     try {
       const user = await prisma.user.update({
         where: { id: userId },
-        data: {
-          status: AccountStatus.BANNED,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        },
+        data: { status: "BANNED" },
       });
 
-      // Log admin action
-      await this.logAdminAction("BAN_USER", "USER", userId, adminId, "Admin", {
+      await this.logAdminAction("BAN_USER", "USER", userId, adminId, {
         reason,
-        previousStatus: user.status,
       });
 
-      return user as User;
+      return user;
     } catch (error) {
       throw new Error(
         `Failed to ban user: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async activateUser(userId: string, adminId: string): Promise<User> {
-    try {
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          status: AccountStatus.ACTIVE,
-        },
-        include: {
-          business: true,
-          agentProfile: true,
-        },
-      });
-
-      // Log admin action
-      await this.logAdminAction(
-        "ACTIVATE_USER",
-        "USER",
-        userId,
-        adminId,
-        "Admin",
-        { previousStatus: user.status },
-      );
-
-      return user as User;
-    } catch (error) {
-      throw new Error(
-        `Failed to activate user: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
@@ -476,8 +301,7 @@ export class AdminService implements IAdminService {
     targetType: string,
     targetId: string,
     adminId: string,
-    adminName: string,
-    details?: any,
+    details?: Record<string, unknown>,
   ): Promise<AdminAction> {
     try {
       const adminAction = await prisma.adminAction.create({
@@ -486,9 +310,7 @@ export class AdminService implements IAdminService {
           targetType,
           targetId,
           adminId,
-          adminName,
-          details,
-          ipAddress: "127.0.0.1", // In a real app, get from request
+          details: details ? JSON.parse(JSON.stringify(details)) : null,
         },
       });
 
@@ -589,18 +411,31 @@ export class AdminService implements IAdminService {
         }),
         // Average rating
         prisma.review.aggregate({
-          where: { status: ReviewStatus.APPROVED },
           _avg: { rating: true },
         }),
         // Top business categories
         prisma.business.groupBy({
           by: ["category"],
-          _count: { category: true },
-          orderBy: { _count: { category: "desc" } },
+          _count: {
+            category: true,
+          },
+          orderBy: {
+            _count: {
+              category: "desc",
+            },
+          },
           take: 5,
         }),
         // User growth over last 6 months
-        this.getUserGrowthData(),
+        prisma.$queryRaw<Array<{ month: string; count: number }>>`
+          SELECT 
+            TO_CHAR(DATE_TRUNC('month', "createdAt"), 'YYYY-MM') as month,
+            COUNT(*) as count
+          FROM "User"
+          WHERE "createdAt" >= NOW() - INTERVAL '6 months'
+          GROUP BY DATE_TRUNC('month', "createdAt")
+          ORDER BY month ASC
+        `,
       ]);
 
       return {
@@ -612,92 +447,11 @@ export class AdminService implements IAdminService {
           category: cat.category,
           count: cat._count.category,
         })),
-        userGrowth,
+        userGrowth: userGrowth || [],
       };
     } catch (error) {
       throw new Error(
         `Failed to get system metrics: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  private async getUserGrowthData(): Promise<
-    Array<{ month: string; count: number }>
-  > {
-    try {
-      const months = [];
-      const now = new Date();
-
-      for (let i = 5; i >= 0; i--) {
-        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const nextMonth = new Date(
-          month.getFullYear(),
-          month.getMonth() + 1,
-          1,
-        );
-
-        const count = await prisma.user.count({
-          where: {
-            createdAt: {
-              gte: month,
-              lt: nextMonth,
-            },
-          },
-        });
-
-        months.push({
-          month: month.toLocaleDateString("en-US", {
-            month: "short",
-            year: "numeric",
-          }),
-          count,
-        });
-      }
-
-      return months;
-    } catch (error) {
-      return [];
-    }
-  }
-
-  async getReportedContent(): Promise<{
-    reportedReviews: Review[];
-    reportedUsers: User[];
-  }> {
-    try {
-      const [reportedReviews, reportedUsers] = await Promise.all([
-        prisma.review.findMany({
-          where: { reported: true },
-          include: {
-            user: true,
-            business: true,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-        prisma.user.findMany({
-          where: {
-            OR: [
-              { status: AccountStatus.SUSPENDED },
-              { status: AccountStatus.BANNED },
-            ],
-          },
-          include: {
-            business: true,
-            agentProfile: true,
-          },
-          orderBy: { updatedAt: "desc" },
-        }),
-      ]);
-
-      return {
-        reportedReviews: reportedReviews as Review[],
-        reportedUsers: reportedUsers as User[],
-      };
-    } catch (error) {
-      throw new Error(
-        `Failed to get reported content: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );

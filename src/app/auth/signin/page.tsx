@@ -103,7 +103,7 @@ export default function SignInPage() {
         }
       } else if (result?.ok) {
         // Signin successful, redirect based on user role
-        console.log("Signin successful, redirecting...");
+        // Signin successful, redirecting...
 
         // Get user info from the session
         const response = await fetch("/api/auth/me");
@@ -131,7 +131,7 @@ export default function SignInPage() {
               redirectPath = "/dashboard";
           }
 
-          console.log("Redirecting to:", redirectPath);
+          // Redirecting to dashboard
           router.push(redirectPath);
         } else {
           // Fallback redirect

@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import BusinessSidebar from "@/components/BusinessSidebar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { Bell, Search, Sun, Moon } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 
 export default function BusinessLayout({
   children,
@@ -24,7 +23,7 @@ export default function BusinessLayout({
 }
 
 function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -152,13 +151,7 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
               )}
             </Button>
 
-            {/* Notifications */}
-            {/* <Button variant="ghost" size="sm" className="relative">
-              <Bell className="w-5 h-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
-                3
-              </Badge>
-            </Button> */}
+            {/* Notifications - Feature planned for future release */}
           </div>
         </div>
 

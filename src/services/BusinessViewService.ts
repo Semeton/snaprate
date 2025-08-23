@@ -1,300 +1,352 @@
 import { prisma } from "@/lib/prisma";
-import logger from "@/lib/logger";
-
-export interface BusinessViewData {
-  businessId: string;
-  viewerId?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  referrer?: string;
-  source?: "DIRECT" | "SEARCH" | "SOCIAL" | "REFERRAL" | "FEATURED";
-  viewType?: "PROFILE" | "SEARCH_RESULT" | "FEATURED_LIST" | "RECOMMENDATION";
-  sessionId?: string;
-}
-
-export interface BusinessViewStats {
-  totalViews: number;
-  uniqueVisitors: number;
-  todayViews: number;
-  thisWeekViews: number;
-  thisMonthViews: number;
-  viewsBySource: Record<string, number>;
-  viewsByType: Record<string, number>;
-}
+import { BusinessView } from "@prisma/client";
 
 export class BusinessViewService {
-  private static instance: BusinessViewService;
-
-  private constructor() {}
-
-  public static getInstance(): BusinessViewService {
-    if (!BusinessViewService.instance) {
-      BusinessViewService.instance = new BusinessViewService();
-    }
-    return BusinessViewService;
-  }
-
-  /**
-   * Track a business view
-   */
-  public async trackView(viewData: BusinessViewData): Promise<void> {
+  async trackView(
+    businessId: string,
+    viewerId?: string,
+    metadata?: {
+      ipAddress?: string;
+      userAgent?: string;
+      referrer?: string;
+      source?: string;
+      viewType?: string;
+      sessionId?: string;
+    },
+  ): Promise<BusinessView> {
     try {
-      // Create the view record
-      await prisma.businessView.create({
+      const view = await prisma.businessView.create({
         data: {
-          businessId: viewData.businessId,
-          viewerId: viewData.viewerId,
-          ipAddress: viewData.ipAddress,
-          userAgent: viewData.userAgent,
-          referrer: viewData.referrer,
-          source: viewData.source || "DIRECT",
-          viewType: viewData.viewType || "PROFILE",
-          sessionId: viewData.sessionId,
+          businessId,
+          viewerId,
+          ipAddress: metadata?.ipAddress,
+          userAgent: metadata?.userAgent,
+          referrer: metadata?.referrer,
+          source: metadata?.source || "DIRECT",
+          viewType: metadata?.viewType || "PROFILE",
+          sessionId: metadata?.sessionId,
         },
       });
 
-      // Update business total visits
-      await prisma.business.update({
-        where: { id: viewData.businessId },
-        data: {
-          totalVisits: {
-            increment: 1,
-          },
-        },
-      });
-
-      // Update daily analytics
-      await this.updateDailyAnalytics(viewData.businessId);
-
-      logger.info("Business view tracked successfully", { businessId: viewData.businessId });
+      return view;
     } catch (error) {
-      logger.error("Failed to track business view", { error, viewData });
-      throw error;
+      throw new Error(
+        `Failed to track business view: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  /**
-   * Update daily analytics for a business
-   */
-  private async updateDailyAnalytics(businessId: string): Promise<void> {
+  async getBusinessViews(
+    businessId: string,
+    page: number = 1,
+    limit: number = 50,
+    filters?: {
+      startDate?: Date;
+      endDate?: Date;
+      source?: string;
+      viewType?: string;
+    },
+  ): Promise<{
+    data: BusinessView[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const skip = (page - 1) * limit;
+      const where: Record<string, unknown> = { businessId };
 
-      // Get today's views
-      const todayViews = await prisma.businessView.count({
-        where: {
-          businessId,
-          createdAt: {
-            gte: today,
+      if (filters?.startDate || filters?.endDate) {
+        where.createdAt = {};
+        if (filters.startDate) {
+          (where.createdAt as Record<string, unknown>).gte = filters.startDate;
+        }
+        if (filters.endDate) {
+          (where.createdAt as Record<string, unknown>).lte = filters.endDate;
+        }
+      }
+
+      if (filters?.source) {
+        where.source = filters.source;
+      }
+
+      if (filters?.viewType) {
+        where.viewType = filters.viewType;
+      }
+
+      const [views, total] = await Promise.all([
+        prisma.businessView.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            viewer: true,
           },
-        },
-      });
+        }),
+        prisma.businessView.count({ where }),
+      ]);
 
-      // Get unique visitors today
-      const uniqueVisitors = await prisma.businessView.groupBy({
-        by: ["viewerId"],
-        where: {
-          businessId,
-          createdAt: {
-            gte: today,
-          },
-        },
-        _count: {
-          viewerId: true,
-        },
-      });
+      const totalPages = Math.ceil(total / limit);
 
-      // Get total page views today
-      const pageViews = await prisma.businessView.count({
-        where: {
-          businessId,
-          createdAt: {
-            gte: today,
-          },
+      return {
+        data: views,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
         },
-      });
-
-      // Get business data for rating
-      const business = await prisma.business.findUnique({
-        where: { id: businessId },
-        select: {
-          averageRating: true,
-          totalReviews: true,
-        },
-      });
-
-      // Upsert daily analytics
-      await prisma.businessAnalytics.upsert({
-        where: {
-          businessId_date: {
-            businessId,
-            date: today,
-          },
-        },
-        update: {
-          visits: todayViews,
-          uniqueVisitors: uniqueVisitors.length,
-          pageViews,
-          averageRating: business?.averageRating || 0,
-          reviews: business?.totalReviews || 0,
-        },
-        create: {
-          businessId,
-          date: today,
-          visits: todayViews,
-          uniqueVisitors: uniqueVisitors.length,
-          pageViews,
-          averageRating: business?.averageRating || 0,
-          reviews: business?.totalReviews || 0,
-        },
-      });
+      };
     } catch (error) {
-      logger.error("Failed to update daily analytics", { error, businessId });
+      throw new Error(
+        `Failed to get business views: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  /**
-   * Get business view statistics
-   */
-  public async getBusinessViewStats(businessId: string): Promise<BusinessViewStats> {
+  async getBusinessAnalytics(
+    businessId: string,
+    period: "day" | "week" | "month" | "year" = "month",
+  ): Promise<{
+    totalViews: number;
+    uniqueVisitors: number;
+    averageViewsPerDay: number;
+    topSources: Array<{ source: string; count: number }>;
+    topViewTypes: Array<{ viewType: string; count: number }>;
+    viewsByDate: Array<{ date: string; views: number }>;
+  }> {
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      let startDate: Date;
 
-      // Get total views
-      const totalViews = await prisma.businessView.count({
-        where: { businessId },
-      });
+      switch (period) {
+        case "day":
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "year":
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
 
-      // Get unique visitors
-      const uniqueVisitors = await prisma.businessView.groupBy({
-        by: ["viewerId"],
-        where: { businessId },
-        _count: {
-          viewerId: true,
-        },
-      });
+      const [
+        totalViews,
+        uniqueVisitors,
+        topSources,
+        topViewTypes,
+        viewsByDate,
+      ] = await Promise.all([
+        prisma.businessView.count({
+          where: {
+            businessId,
+            createdAt: { gte: startDate },
+          },
+        }),
+        prisma.businessView.groupBy({
+          by: ["viewerId"],
+          where: {
+            businessId,
+            createdAt: { gte: startDate },
+          },
+          _count: { viewerId: true },
+        }),
+        prisma.businessView.groupBy({
+          by: ["source"],
+          where: {
+            businessId,
+            createdAt: { gte: startDate },
+          },
+          _count: { source: true },
+          orderBy: { _count: { source: "desc" } },
+          take: 5,
+        }),
+        prisma.businessView.groupBy({
+          by: ["viewType"],
+          where: {
+            businessId,
+            createdAt: { gte: startDate },
+          },
+          _count: { viewType: true },
+          orderBy: { _count: { viewType: "desc" } },
+          take: 5,
+        }),
+        prisma.businessView.groupBy({
+          by: ["createdAt"],
+          where: {
+            businessId,
+            createdAt: { gte: startDate },
+          },
+          _count: { createdAt: true },
+          orderBy: { createdAt: "asc" },
+        }),
+      ]);
 
-      // Get today's views
-      const todayViews = await prisma.businessView.count({
-        where: {
-          businessId,
-          createdAt: { gte: today },
-        },
-      });
-
-      // Get this week's views
-      const thisWeekViews = await prisma.businessView.count({
-        where: {
-          businessId,
-          createdAt: { gte: thisWeek },
-        },
-      });
-
-      // Get this month's views
-      const thisMonthViews = await prisma.businessView.count({
-        where: {
-          businessId,
-          createdAt: { gte: thisMonth },
-        },
-      });
-
-      // Get views by source
-      const viewsBySource = await prisma.businessView.groupBy({
-        by: ["source"],
-        where: { businessId },
-        _count: {
-          source: true,
-        },
-      });
-
-      // Get views by type
-      const viewsByType = await prisma.businessView.groupBy({
-        by: ["viewType"],
-        where: { businessId },
-        _count: {
-          viewType: true,
-        },
-      });
+      const daysDiff = Math.ceil(
+        (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      const averageViewsPerDay = daysDiff > 0 ? totalViews / daysDiff : 0;
 
       return {
         totalViews,
         uniqueVisitors: uniqueVisitors.length,
-        todayViews,
-        thisWeekViews,
-        thisMonthViews,
-        viewsBySource: viewsBySource.reduce((acc, item) => {
-          acc[item.source] = item._count.source;
-          return acc;
-        }, {} as Record<string, number>),
-        viewsByType: viewsByType.reduce((acc, item) => {
-          acc[item.viewType] = item._count.viewType;
-          return acc;
-        }, {} as Record<string, number>),
+        averageViewsPerDay: Math.round(averageViewsPerDay * 100) / 100,
+        topSources: topSources.map((source) => ({
+          source: source.source,
+          count: source._count.source,
+        })),
+        topViewTypes: topViewTypes.map((viewType) => ({
+          viewType: viewType.viewType,
+          count: viewType._count.viewType,
+        })),
+        viewsByDate: viewsByDate.map((view) => ({
+          date: view.createdAt.toISOString().split("T")[0],
+          views: view._count.createdAt,
+        })),
       };
     } catch (error) {
-      logger.error("Failed to get business view stats", { error, businessId });
-      throw error;
+      throw new Error(
+        `Failed to get business analytics: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  /**
-   * Get recent views for a business
-   */
-  public async getRecentViews(businessId: string, limit: number = 10): Promise<any[]> {
-    try {
-      return await prisma.businessView.findMany({
-        where: { businessId },
-        include: {
-          viewer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatar: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      });
-    } catch (error) {
-      logger.error("Failed to get recent views", { error, businessId });
-      throw error;
-    }
-  }
-
-  /**
-   * Get platform-wide view statistics
-   */
-  public async getPlatformViewStats(): Promise<any> {
+  async getPopularBusinesses(
+    limit: number = 10,
+    period: "day" | "week" | "month" = "month",
+  ): Promise<
+    Array<{
+      businessId: string;
+      businessName: string;
+      totalViews: number;
+      uniqueVisitors: number;
+    }>
+  > {
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      let startDate: Date;
 
-      const [totalViews, todayViews, thisWeekViews, thisMonthViews] = await Promise.all([
-        prisma.businessView.count(),
-        prisma.businessView.count({ where: { createdAt: { gte: today } } }),
-        prisma.businessView.count({ where: { createdAt: { gte: thisWeek } } }),
-        prisma.businessView.count({ where: { createdAt: { gte: thisMonth } } }),
-      ]);
+      switch (period) {
+        case "day":
+          startDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+          );
+          break;
+        case "week":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
 
-      return {
-        totalViews,
-        todayViews,
-        thisWeekViews,
-        thisMonthViews,
-      };
+      const popularBusinesses = await prisma.businessView.groupBy({
+        by: ["businessId"],
+        where: {
+          createdAt: { gte: startDate },
+        },
+        _count: { businessId: true },
+        orderBy: { _count: { businessId: "desc" } },
+        take: limit,
+      });
+
+      const businessDetails = await Promise.all(
+        popularBusinesses.map(async (business) => {
+          const businessInfo = await prisma.business.findUnique({
+            where: { id: business.businessId },
+            select: { name: true },
+          });
+
+          const uniqueVisitors = await prisma.businessView.groupBy({
+            by: ["viewerId"],
+            where: {
+              businessId: business.businessId,
+              createdAt: { gte: startDate },
+            },
+            _count: { viewerId: true },
+          });
+
+          return {
+            businessId: business.businessId,
+            businessName: businessInfo?.name || "Unknown Business",
+            totalViews: business._count.businessId,
+            uniqueVisitors: uniqueVisitors.length,
+          };
+        }),
+      );
+
+      return businessDetails;
     } catch (error) {
-      logger.error("Failed to get platform view stats", { error });
-      throw error;
+      throw new Error(
+        `Failed to get popular businesses: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async updateViewDuration(
+    viewId: string,
+    duration: number,
+  ): Promise<BusinessView> {
+    try {
+      const view = await prisma.businessView.update({
+        where: { id: viewId },
+        data: { duration },
+      });
+
+      return view;
+    } catch (error) {
+      throw new Error(
+        `Failed to update view duration: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async deleteOldViews(olderThanDays: number = 90): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+
+      const result = await prisma.businessView.deleteMany({
+        where: {
+          createdAt: { lt: cutoffDate },
+        },
+      });
+
+      return result.count;
+    } catch (error) {
+      throw new Error(
+        `Failed to delete old views: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 }
-
-export default BusinessViewService;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import {
   Star,
   Settings,
   User,
-  Menu,
   X,
   LogOut,
 } from "lucide-react";

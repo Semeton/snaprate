@@ -2,27 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
-import {
-  Shield,
-  Users,
-  Settings,
-  Save,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Trash2,
-  UserCheck,
-  UserX,
-  Crown,
-} from "lucide-react";
+import { Shield, Crown, Save, Users, XCircle } from "lucide-react";
 
 interface AdminPermissions {
   id: string;
@@ -315,11 +302,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-reviews`}
                         checked={admin.permissions.canModerateReviews}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canModerateReviews",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -334,11 +321,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-businesses`}
                         checked={admin.permissions.canModerateBusinesses}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canModerateBusinesses",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -353,11 +340,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-users`}
                         checked={admin.permissions.canModerateUsers}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canModerateUsers",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -369,11 +356,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-content`}
                         checked={admin.permissions.canModerateContent}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canModerateContent",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -388,11 +375,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-agents`}
                         checked={admin.permissions.canManageAgents}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canManageAgents",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -404,11 +391,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-analytics`}
                         checked={admin.permissions.canViewAnalytics}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canViewAnalytics",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -423,11 +410,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-settings`}
                         checked={admin.permissions.canManageSettings}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canManageSettings",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -442,11 +429,11 @@ export default function ContentModerationPage() {
                       <Checkbox
                         id={`${admin.id}-invite`}
                         checked={admin.permissions.canInviteAdmins}
-                        onCheckedChange={(checked) =>
+                        onCheckedChange={(checked: boolean | "indeterminate") =>
                           handlePermissionChange(
                             admin.id,
                             "canInviteAdmins",
-                            checked as boolean,
+                            checked === true,
                           )
                         }
                       />
@@ -575,10 +562,10 @@ export default function ContentModerationPage() {
                 </div>
                 <Checkbox
                   checked={moderationSettings.requireReviewForNewUsers}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked: boolean | "indeterminate") =>
                     setModerationSettings({
                       ...moderationSettings,
-                      requireReviewForNewUsers: checked as boolean,
+                      requireReviewForNewUsers: checked === true,
                     })
                   }
                 />
@@ -594,10 +581,10 @@ export default function ContentModerationPage() {
                 </div>
                 <Checkbox
                   checked={moderationSettings.requireReviewForNewBusinesses}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked: boolean | "indeterminate") =>
                     setModerationSettings({
                       ...moderationSettings,
-                      requireReviewForNewBusinesses: checked as boolean,
+                      requireReviewForNewBusinesses: checked === true,
                     })
                   }
                 />
@@ -613,10 +600,10 @@ export default function ContentModerationPage() {
                 </div>
                 <Checkbox
                   checked={moderationSettings.requireReviewForReviews}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked: boolean | "indeterminate") =>
                     setModerationSettings({
                       ...moderationSettings,
-                      requireReviewForReviews: checked as boolean,
+                      requireReviewForReviews: checked === true,
                     })
                   }
                 />

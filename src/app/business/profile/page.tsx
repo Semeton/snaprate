@@ -166,8 +166,7 @@ function BusinessProfileContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Log the data being sent for debugging
-      console.log("Sending business update data:", formData);
+      // Business update data prepared
 
       const response = await fetch("/api/business/update", {
         method: "PUT",

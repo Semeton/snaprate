@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import ReviewerSidebar from "@/components/ReviewerSidebar";
 
 export default function ReviewerLayout({
   children,
@@ -15,6 +16,7 @@ export default function ReviewerLayout({
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   const toggleTheme = () => {
@@ -62,8 +64,48 @@ export default function ReviewerLayout({
   }
 
   return (
-    <>
-      {children}
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <ReviewerSidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      {/* Main Content */}
+      <div className="lg:ml-64 transition-all duration-300 ease-in-out">
+        {/* Mobile Header */}
+        <div className="lg:hidden bg-white border-b px-4 py-3 sticky top-0 z-40">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </Button>
+            <h1 className="text-lg font-semibold text-gray-900">
+              Reviewer Portal
+            </h1>
+            <div className="w-6"></div>
+          </div>
+        </div>
+
+        {/* Page Content */}
+        <div className="min-h-screen p-4 lg:p-6">{children}</div>
+      </div>
+
       {/* Floating theme toggle */}
       <div className="fixed bottom-6 right-6 z-50">
         <Button
@@ -84,6 +126,6 @@ export default function ReviewerLayout({
           )}
         </Button>
       </div>
-    </>
+    </div>
   );
 }

@@ -210,7 +210,7 @@ export class EmailService {
         code: code.substring(0, 3) + "...", // Log partial code for security
       });
 
-      // TODO: Integrate with actual SMS service like Twilio
+      // SMS service integration planned for future release
       // For now, just log the SMS
       logger.info("SMS would be sent in production", {
         phone,

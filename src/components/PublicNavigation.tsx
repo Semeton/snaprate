@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/user-avatar";
-import { Star, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
+import { Star, LogOut, Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useState } from "react";
 

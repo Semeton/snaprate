@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user by email since session doesn't have ID
-    const user = await userService.findByEmail(session.user.email);
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
     if (!user) {
       return NextResponse.json(
         { success: false, error: "User not found" },

@@ -1,50 +1,50 @@
 import { prisma } from "@/lib/prisma";
-import { Coupon, CouponStatus } from "@/types";
-import { generateCouponCode } from "@/lib/utils";
+import { Coupon } from "@prisma/client";
+
+export interface CouponCreateData {
+  code: string;
+  businessId: string;
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT";
+  discountValue: number;
+  minimumSpend?: number;
+  maximumDiscount?: number;
+  validFrom: Date;
+  validUntil: Date;
+  maxUses?: number;
+  isActive?: boolean;
+}
+
+export interface CouponUpdateData {
+  code?: string;
+  discountType?: "PERCENTAGE" | "FIXED_AMOUNT";
+  discountValue?: number;
+  minimumSpend?: number;
+  maximumDiscount?: number;
+  validFrom?: Date;
+  validUntil?: Date;
+  maxUses?: number;
+  isActive?: boolean;
+}
+
+export interface CouponUsageData {
+  couponId: string;
+  userId: string;
+  businessId: string;
+  amount: number;
+  discountApplied: number;
+}
 
 export class CouponService {
-  async createCoupon(couponData: {
-    businessId: string;
-    title: string;
-    description?: string;
-    discountType: "PERCENTAGE" | "FIXED_AMOUNT";
-    discountValue: number;
-    minPurchase?: number;
-    maxDiscount?: number;
-    maxUses?: number;
-    validFrom: Date;
-    validUntil: Date;
-  }): Promise<Coupon> {
+  async createCoupon(data: CouponCreateData): Promise<Coupon> {
     try {
-      // Generate unique coupon code
-      const code = await generateCouponCode();
-
       const coupon = await prisma.coupon.create({
         data: {
-          code,
-          title: couponData.title,
-          description: couponData.description,
-          discountType: couponData.discountType,
-          discountValue: couponData.discountValue,
-          minPurchase: couponData.minPurchase,
-          maxDiscount: couponData.maxDiscount,
-          maxUses: couponData.maxUses,
-          validFrom: couponData.validFrom,
-          validUntil: couponData.validUntil,
-          businessId: couponData.businessId,
-        },
-        include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-            },
-          },
+          ...data,
+          currentUses: 0,
         },
       });
 
-      return coupon as Coupon;
+      return coupon;
     } catch (error) {
       throw new Error(
         `Failed to create coupon: ${
@@ -54,78 +54,42 @@ export class CouponService {
     }
   }
 
-  async getBusinessCoupons(
-    businessId: string,
-    options: {
-      page: number;
-      limit: number;
-      status?: CouponStatus;
-    },
-  ) {
+  async getCouponById(id: string): Promise<Coupon | null> {
     try {
-      const { page, limit, status } = options;
-      const skip = (page - 1) * limit;
-
-      const where: any = { businessId };
-      if (status) {
-        where.status = status;
-      }
-
-      const [coupons, total] = await Promise.all([
-        prisma.coupon.findMany({
-          where,
-          include: {
-            business: {
-              select: {
-                id: true,
-                name: true,
-                category: true,
-              },
+      return await prisma.coupon.findUnique({
+        where: { id },
+        include: {
+          business: true,
+          usages: {
+            include: {
+              user: true,
             },
           },
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: limit,
-        }),
-        prisma.coupon.count({ where }),
-      ]);
-
-      return {
-        coupons: coupons as Coupon[],
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
         },
-      };
+      });
     } catch (error) {
       throw new Error(
-        `Failed to get business coupons: ${
+        `Failed to get coupon: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async getCouponByCode(code: string): Promise<Coupon | null> {
+  async getCouponByCode(
+    code: string,
+    businessId: string,
+  ): Promise<Coupon | null> {
     try {
-      const coupon = await prisma.coupon.findUnique({
-        where: { code },
-        include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              state: true,
-              city: true,
-            },
-          },
+      return await prisma.coupon.findFirst({
+        where: {
+          code,
+          businessId,
+          isActive: true,
+          validFrom: { lte: new Date() },
+          validUntil: { gte: new Date() },
         },
       });
-
-      return coupon as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to get coupon by code: ${
@@ -135,108 +99,12 @@ export class CouponService {
     }
   }
 
-  async validateCoupon(
-    code: string,
-    purchaseAmount: number,
-  ): Promise<{
-    isValid: boolean;
-    coupon?: Coupon;
-    error?: string;
-  }> {
+  async updateCoupon(id: string, data: CouponUpdateData): Promise<Coupon> {
     try {
-      const coupon = await this.getCouponByCode(code);
-      if (!coupon) {
-        return { isValid: false, error: "Coupon not found" };
-      }
-
-      // Check if coupon is active
-      if (coupon.status !== "ACTIVE") {
-        return { isValid: false, error: "Coupon is not active" };
-      }
-
-      // Check validity dates
-      const now = new Date();
-      if (now < coupon.validFrom || now > coupon.validUntil) {
-        return { isValid: false, error: "Coupon is expired or not yet valid" };
-      }
-
-      // Check usage limits
-      if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) {
-        return { isValid: false, error: "Coupon usage limit reached" };
-      }
-
-      // Check minimum purchase requirement
-      if (coupon.minPurchase && purchaseAmount < coupon.minPurchase) {
-        return {
-          isValid: false,
-          error: `Minimum purchase amount of ₦${coupon.minPurchase} required`,
-        };
-      }
-
-      return { isValid: true, coupon };
-    } catch (error) {
-      return {
-        isValid: false,
-        error: "Failed to validate coupon",
-      };
-    }
-  }
-
-  async useCoupon(code: string): Promise<Coupon> {
-    try {
-      const coupon = await prisma.coupon.update({
-        where: { code },
-        data: {
-          currentUses: {
-            increment: 1,
-          },
-          status: "USED",
-        },
-        include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-            },
-          },
-        },
+      return await prisma.coupon.update({
+        where: { id },
+        data,
       });
-
-      return coupon as Coupon;
-    } catch (error) {
-      throw new Error(
-        `Failed to use coupon: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async updateCoupon(
-    couponId: string,
-    updateData: Partial<Coupon>,
-  ): Promise<Coupon> {
-    try {
-      // Remove fields that shouldn't be updated
-      const { id, code, businessId, currentUses, ...allowedUpdates } =
-        updateData;
-
-      const coupon = await prisma.coupon.update({
-        where: { id: couponId },
-        data: allowedUpdates,
-        include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-            },
-          },
-        },
-      });
-
-      return coupon as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to update coupon: ${
@@ -246,10 +114,10 @@ export class CouponService {
     }
   }
 
-  async deleteCoupon(couponId: string): Promise<void> {
+  async deleteCoupon(id: string): Promise<void> {
     try {
       await prisma.coupon.delete({
-        where: { id: couponId },
+        where: { id },
       });
     } catch (error) {
       throw new Error(
@@ -260,57 +128,152 @@ export class CouponService {
     }
   }
 
-  async getCouponStats(businessId: string) {
+  async getBusinessCoupons(businessId: string): Promise<Coupon[]> {
     try {
-      const [totalCoupons, activeCoupons, usedCoupons, expiredCoupons] =
-        await Promise.all([
-          prisma.coupon.count({ where: { businessId } }),
-          prisma.coupon.count({
-            where: { businessId, status: "ACTIVE" },
-          }),
-          prisma.coupon.count({
-            where: { businessId, status: "USED" },
-          }),
-          prisma.coupon.count({
-            where: { businessId, status: "EXPIRED" },
-          }),
-        ]);
-
-      return {
-        totalCoupons,
-        activeCoupons,
-        usedCoupons,
-        expiredCoupons,
-      };
+      return await prisma.coupon.findMany({
+        where: { businessId },
+        orderBy: { createdAt: "desc" },
+      });
     } catch (error) {
       throw new Error(
-        `Failed to get coupon stats: ${
+        `Failed to get business coupons: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
   }
 
-  async generateQRCode(couponId: string): Promise<string> {
+  async validateCoupon(
+    code: string,
+    businessId: string,
+    userId: string,
+    amount: number,
+  ): Promise<{
+    isValid: boolean;
+    coupon?: Coupon;
+    discountAmount?: number;
+    error?: string;
+  }> {
     try {
-      const coupon = await prisma.coupon.findUnique({
-        where: { id: couponId },
-        select: { code: true },
-      });
+      const coupon = await this.getCouponByCode(code, businessId);
 
       if (!coupon) {
-        throw new Error("Coupon not found");
+        return { isValid: false, error: "Coupon not found" };
       }
 
-      // In a real app, you'd generate an actual QR code
-      // For now, we'll return a data URL that represents the coupon code
-      const qrData = `https://snaprate.com/coupon/${coupon.code}`;
+      // Check if user has already used this coupon
+      const existingUsage = await prisma.couponUsage.findFirst({
+        where: {
+          couponId: coupon.id,
+          userId,
+        },
+      });
 
-      // This is a placeholder - in production you'd use a QR code library
-      return qrData;
+      if (existingUsage) {
+        return { isValid: false, error: "Coupon already used by this user" };
+      }
+
+      // Check minimum spend
+      if (coupon.minimumSpend && amount < coupon.minimumSpend) {
+        return {
+          isValid: false,
+          error: `Minimum spend of ${coupon.minimumSpend} required`,
+        };
+      }
+
+      // Check max uses
+      if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) {
+        return { isValid: false, error: "Coupon usage limit reached" };
+      }
+
+      // Calculate discount
+      let discountAmount = 0;
+      if (coupon.discountType === "PERCENTAGE") {
+        discountAmount = (amount * coupon.discountValue) / 100;
+        if (coupon.maximumDiscount) {
+          discountAmount = Math.min(discountAmount, coupon.maximumDiscount);
+        }
+      } else {
+        discountAmount = coupon.discountValue;
+      }
+
+      return {
+        isValid: true,
+        coupon,
+        discountAmount,
+      };
+    } catch (error) {
+      return {
+        isValid: false,
+        error: `Validation error: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
+    }
+  }
+
+  async useCoupon(data: CouponUsageData): Promise<void> {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Create usage record
+        await tx.couponUsage.create({
+          data: {
+            couponId: data.couponId,
+            userId: data.userId,
+            businessId: data.businessId,
+            amount: data.amount,
+            discountApplied: data.discountApplied,
+          },
+        });
+
+        // Increment usage count
+        await tx.coupon.update({
+          where: { id: data.couponId },
+          data: {
+            currentUses: {
+              increment: 1,
+            },
+          },
+        });
+      });
     } catch (error) {
       throw new Error(
-        `Failed to generate QR code: ${
+        `Failed to use coupon: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getCouponStats(businessId: string): Promise<{
+    totalCoupons: number;
+    activeCoupons: number;
+    totalUsage: number;
+    totalDiscount: number;
+  }> {
+    try {
+      const [totalCoupons, activeCoupons, totalUsage, totalDiscount] =
+        await Promise.all([
+          prisma.coupon.count({ where: { businessId } }),
+          prisma.coupon.count({
+            where: { businessId, isActive: true },
+          }),
+          prisma.couponUsage.count({ where: { businessId } }),
+          prisma.couponUsage.aggregate({
+            where: { businessId },
+            _sum: { discountApplied: true },
+          }),
+        ]);
+
+      return {
+        totalCoupons,
+        activeCoupons,
+        totalUsage,
+        totalDiscount: totalDiscount._sum.discountApplied || 0,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get coupon stats: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );
