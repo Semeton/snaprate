@@ -34,6 +34,11 @@ interface DashboardStats {
     referralReward: number;
     businessRecommendationReward: number;
   };
+  currentRates: {
+    reviewReward: number;
+    referralReward: number;
+    businessRecommendationReward: number;
+  };
   userRole: string;
 }
 
@@ -303,67 +308,62 @@ export default function ReviewerDashboard() {
           {/* Reward Breakdown */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
+              <CardTitle className="flex items-center space-x-2 dark:text-white">
                 <Gift className="h-5 w-5 text-green-600" />
                 <span>Reward Breakdown</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 border rounded-lg bg-blue-50">
+                <div className="text-center p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
                   <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-blue-900">
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                     ₦{stats?.rewardBreakdown?.reviewReward || 0}
                   </p>
-                  <p className="text-sm text-blue-700">From Reviews</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    From Reviews
+                  </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    ₦
-                    {stats?.rewardBreakdown?.reviewReward && stats?.totalReviews
-                      ? Math.round(
-                          stats.rewardBreakdown.reviewReward /
-                            stats.totalReviews,
-                        )
-                      : 50}{" "}
-                    × {stats?.totalReviews || 0} reviews
+                    ₦{stats?.currentRates?.reviewReward || 50} ×{" "}
+                    {stats?.totalReviews || 0} reviews
                   </p>
                 </div>
 
-                <div className="text-center p-4 border rounded-lg bg-green-50">
+                <div className="text-center p-4 border rounded-lg bg-green-50 dark:bg-green-950/20">
                   <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-green-900">
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-100">
                     ₦{stats?.rewardBreakdown?.referralReward || 0}
                   </p>
-                  <p className="text-sm text-green-700">From Referrals</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    From Referrals
+                  </p>
                   <p className="text-xs text-green-600 mt-1">
-                    ₦
-                    {stats?.rewardBreakdown?.referralReward &&
-                    stats?.totalReferrals
-                      ? Math.round(
-                          stats.rewardBreakdown.referralReward /
-                            stats.totalReferrals,
-                        )
-                      : 20}{" "}
-                    × {stats?.totalReferrals || 0} referrals
+                    ₦{stats?.currentRates?.referralReward || 20} ×{" "}
+                    {stats?.totalReferrals || 0} referrals
                   </p>
                 </div>
 
-                <div className="text-center p-4 border rounded-lg bg-purple-50">
+                <div className="text-center p-4 border rounded-lg bg-purple-50 dark:bg-purple-950/20">
                   <TrendingUp className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-900">
+                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                     ₦{stats?.rewardBreakdown?.businessRecommendationReward || 0}
                   </p>
-                  <p className="text-sm text-purple-700">From Business Recs</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    From Business Recs
+                  </p>
                   <p className="text-xs text-purple-600 mt-1">
-                    ₦100 × approved businesses
+                    ₦{stats?.currentRates?.businessRecommendationReward || 100}{" "}
+                    × approved businesses
                   </p>
                 </div>
               </div>
 
               {stats?.userRole === "AGENT" && (
-                <div className="mt-4 p-3 bg-purple-100 rounded-lg">
-                  <p className="text-sm text-purple-800 text-center">
-                    🎉 As an Agent, you can earn ₦100 for each approved business
-                    recommendation!
+                <div className="mt-4 p-3 bg-purple-100 dark:bg-purple-950/30 rounded-lg">
+                  <p className="text-sm text-purple-800 dark:text-purple-200 text-center">
+                    🎉 As an Agent, you can earn ₦
+                    {stats?.currentRates?.businessRecommendationReward || 100}{" "}
+                    for each approved business recommendation!
                   </p>
                 </div>
               )}
@@ -373,7 +373,7 @@ export default function ReviewerDashboard() {
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle className="dark:text-white">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button

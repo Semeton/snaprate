@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Reward, RewardType } from "@/types";
+import PlatformSettingsService from "@/services/PlatformSettingsService";
 
 export class RewardService {
   async createReward(rewardData: {
@@ -188,15 +189,20 @@ export class RewardService {
     referredUserId: string,
   ): Promise<Reward> {
     try {
+      // Get dynamic referral reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const referralAmount =
+        await platformSettingsService.getReferralRewardAmount();
+
       const reward = await prisma.reward.create({
         data: {
-          type: "REFERRAL_BONUS",
-          amount: 20, // NGN 20 for referral
+          type: "REFERRAL",
+          amount: referralAmount,
           description: "Referral bonus for new user signup",
-          userId,
+          referrerId: userId,
         },
         include: {
-          user: true,
+          referrer: true,
         },
       });
 
@@ -215,15 +221,20 @@ export class RewardService {
     businessName: string,
   ): Promise<Reward> {
     try {
+      // Get dynamic business recommendation reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const businessRecommendationAmount =
+        await platformSettingsService.getBusinessRecommendationRewardAmount();
+
       const reward = await prisma.reward.create({
         data: {
-          type: "BUSINESS_ONBOARDING",
-          amount: 100, // NGN 100 for business recommendation
+          type: "BUSINESS_RECOMMENDATION",
+          amount: businessRecommendationAmount,
           description: `Business onboarding bonus for ${businessName}`,
-          userId,
+          referrerId: userId,
         },
         include: {
-          user: true,
+          referrer: true,
         },
       });
 
@@ -231,6 +242,39 @@ export class RewardService {
     } catch (error) {
       throw new Error(
         `Failed to create business onboarding bonus: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async createReviewReward(
+    userId: string,
+    reviewId: string,
+    businessName: string,
+  ): Promise<Reward> {
+    try {
+      // Get dynamic review reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const reviewAmount =
+        await platformSettingsService.getReviewRewardAmount();
+
+      const reward = await prisma.reward.create({
+        data: {
+          type: "REVIEW",
+          amount: reviewAmount,
+          description: `Review reward for ${businessName}`,
+          referrerId: userId,
+        },
+        include: {
+          referrer: true,
+        },
+      });
+
+      return reward as Reward;
+    } catch (error) {
+      throw new Error(
+        `Failed to create review reward: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );

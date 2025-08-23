@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   TrendingUp,
   Star,
@@ -31,6 +32,8 @@ import {
   LogOut,
   User,
   Settings,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 interface DashboardStats {
@@ -92,6 +95,17 @@ function DashboardContent() {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
+  };
 
   useEffect(() => {
     // TODO: Replace with real API calls
@@ -669,6 +683,27 @@ function DashboardContent() {
             </Card>
           </TabsContent>
         </Tabs>
+      </div>
+
+      {/* Floating theme toggle */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          className="w-12 h-12 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+          title={`Current theme: ${theme}`}
+        >
+          {theme === "dark" ? (
+            <Moon className="h-5 w-5" />
+          ) : theme === "light" ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <div className="w-5 h-5 flex items-center justify-center">
+              <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+            </div>
+          )}
+        </Button>
       </div>
     </div>
   );

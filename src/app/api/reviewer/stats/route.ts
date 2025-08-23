@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import PlatformSettingsService from "@/services/PlatformSettingsService";
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,24 +42,22 @@ export async function GET(request: NextRequest) {
       where: { referredBy: user.id },
     });
 
-    // Get platform settings for reward amounts
-    let platformSettings = null;
-    try {
-      platformSettings = await prisma.platformSettings.findFirst({
-        where: { id: "main" },
-      });
-    } catch (error) {
-      console.log(
-        "PlatformSettings table not found, using default values:",
-        error,
-      );
-      // Table doesn't exist yet, use default values
-    }
+    // Get platform settings for reward amounts using the service
+    const platformSettingsService = PlatformSettingsService.getInstance();
+    const platformSettings = await platformSettingsService.getSettings();
 
-    const reviewRewardAmount = platformSettings?.reviewRewardAmount || 50;
-    const referralRewardAmount = platformSettings?.referralRewardAmount || 20;
+    const reviewRewardAmount = platformSettings.reviewRewardAmount;
+    const referralRewardAmount = platformSettings.referralRewardAmount;
     const businessRecommendationRewardAmount =
-      platformSettings?.businessRecommendationRewardAmount || 100;
+      platformSettings.businessRecommendationRewardAmount;
+
+    // Debug log to see what rates we're getting
+    console.log("Platform settings fetched:", {
+      reviewRewardAmount,
+      referralRewardAmount,
+      businessRecommendationRewardAmount,
+      platformSettings,
+    });
 
     // Calculate rewards dynamically based on activities
     const reviewReward = totalReviews * reviewRewardAmount;
@@ -136,12 +135,22 @@ export async function GET(request: NextRequest) {
         referralReward: Math.max(0, referralReward),
         businessRecommendationReward: Math.max(0, businessRecommendationReward),
       },
+      currentRates: {
+        reviewReward: reviewRewardAmount,
+        referralReward: referralRewardAmount,
+        businessRecommendationReward: businessRecommendationRewardAmount,
+      },
       userRole: user.role,
+      minimumRedemption: platformSettings.minimumRedemptionAmount,
+      canRedeem: totalRewards >= platformSettings.minimumRedemptionAmount,
     };
 
     // Log the calculated values for debugging
     console.log("Stats calculation:", {
       userId: user.id,
+      reviewRewardAmount,
+      referralRewardAmount,
+      businessRecommendationRewardAmount,
       ...validatedStats,
     });
 

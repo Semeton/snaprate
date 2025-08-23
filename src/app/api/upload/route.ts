@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import {
+  validateFileUpload,
+  getMaxSizeForType,
+  getAllowedTypesForType,
+} from "@/utils/uploadValidation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,45 +50,16 @@ export async function POST(request: NextRequest) {
 
     for (const file of files) {
       try {
-        // Validate file size (5MB for images, 50MB for videos)
-        const maxSize = type === "image" ? 5 * 1024 * 1024 : 50 * 1024 * 1024;
-        if (file.size > maxSize) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: `File size too large. Max size: ${
-                type === "image" ? "5MB" : "50MB"
-              }`,
-            },
-            { status: 400 },
-          );
-        }
+        // Validate file using utility
+        const validation = validateFileUpload(file, {
+          maxSize: getMaxSizeForType(type as "image" | "video"),
+          allowedTypes: getAllowedTypesForType(type as "image" | "video"),
+          type: type as "image" | "video",
+        });
 
-        // Validate file type
-        const allowedImageTypes = [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/webp",
-        ];
-        const allowedVideoTypes = ["video/mp4", "video/webm", "video/ogg"];
-
-        if (type === "image" && !allowedImageTypes.includes(file.type)) {
+        if (!validation.valid) {
           return NextResponse.json(
-            {
-              success: false,
-              error: "Invalid image format. Allowed: JPEG, PNG, WebP",
-            },
-            { status: 400 },
-          );
-        }
-
-        if (type === "video" && !allowedVideoTypes.includes(file.type)) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Invalid video format. Allowed: MP4, WebM, OGG",
-            },
+            { success: false, error: validation.error },
             { status: 400 },
           );
         }

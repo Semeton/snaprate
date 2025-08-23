@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   LayoutDashboard,
   Users,
@@ -16,6 +17,8 @@ import {
   Crown,
   UserCheck,
   MessageSquare,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -26,6 +29,17 @@ interface AdminSidebarProps {
 export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
+  };
 
   const navigation = [
     {
@@ -59,12 +73,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       icon: Shield,
       current: pathname === "/admin/agents",
     },
-    {
-      name: "Moderation",
-      href: "/admin/moderation",
-      icon: Shield,
-      current: pathname === "/admin/moderation",
-    },
+    // {
+    //   name: "Moderation",
+    //   href: "/admin/moderation",
+    //   icon: Shield,
+    //   current: pathname === "/admin/moderation",
+    //   superAdminOnly: true,
+    // },
     {
       name: "Reviews",
       href: "/admin/reviews",
@@ -93,45 +108,68 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Crown className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <Crown className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Admin</h1>
-                <p className="text-sm text-gray-500">SnapRate</p>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Admin
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  SnapRate
+                </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="lg:hidden"
-            >
-              ×
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                title={`Current theme: ${theme}`}
+              >
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5" />
+                ) : theme === "light" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+                  </div>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="lg:hidden"
+              >
+                ×
+              </Button>
+            </div>
           </div>
 
           {/* User Info */}
-          <div className="p-6 border-b">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-gray-600">
+              <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                   {session?.user?.name?.charAt(0) || "A"}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                   {session?.user?.name}
                 </p>
-                <p className="text-sm text-gray-500 truncate">
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {session?.user?.email}
                 </p>
                 <Badge variant="outline" className="mt-1 text-xs">
@@ -155,8 +193,8 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   href={item.href}
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     item.current
-                      ? "bg-blue-50 text-blue-700 border border-blue-200"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
                   }`}
                   onClick={onClose}
                 >
@@ -168,10 +206,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <Button
               variant="ghost"
-              className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+              className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
               onClick={() => signOut({ callbackUrl: "/" })}
             >
               <LogOut className="h-5 w-5 mr-3" />

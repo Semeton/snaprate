@@ -19,10 +19,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { State } from "@/types";
 import { Star, CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import PublicNavigation from "@/components/PublicNavigation";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -147,22 +147,8 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950">
-      {/* Simple Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-800/50">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-xl apple-gradient flex items-center justify-center">
-                <Star className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold apple-text-gradient">
-                SnapRate
-              </span>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      {/* Navigation */}
+      <PublicNavigation />
 
       <div className="max-w-2xl mx-auto px-4 pt-24 pb-16">
         {/* Simple Header */}

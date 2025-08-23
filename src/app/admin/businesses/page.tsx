@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/use-toast";
+import BusinessDetailModal from "@/components/BusinessDetailModal";
 import {
   Building2,
   Search,
@@ -66,6 +67,10 @@ export default function AdminBusinessesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<keyof Business>("createdAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(
+    null,
+  );
+  const [showBusinessModal, setShowBusinessModal] = useState(false);
 
   useEffect(() => {
     fetchBusinesses();
@@ -487,7 +492,8 @@ export default function AdminBusinessesPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                // View business details
+                                setSelectedBusiness(business);
+                                setShowBusinessModal(true);
                               }}
                             >
                               <Eye className="h-4 w-4 mr-1" />
@@ -513,6 +519,19 @@ export default function AdminBusinessesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Business Detail Modal */}
+      {selectedBusiness && (
+        <BusinessDetailModal
+          business={selectedBusiness}
+          isOpen={showBusinessModal}
+          onClose={() => {
+            setShowBusinessModal(false);
+            setSelectedBusiness(null);
+          }}
+          onVerification={handleVerification}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   Building2,
   BarChart3,
@@ -19,6 +20,8 @@ import {
   User,
   Bell,
   Search,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const navigation = [
@@ -79,6 +82,17 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/" });
@@ -287,6 +301,24 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-x-4 lg:gap-x-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleTheme}
+              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              title={`Current theme: ${theme}`}
+            >
+              {theme === "dark" ? (
+                <Moon className="h-5 w-5" />
+              ) : theme === "light" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+                </div>
+              )}
+            </Button>
+
             <Button variant="ghost" size="sm" className="relative">
               <Bell className="w-5 h-5" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">

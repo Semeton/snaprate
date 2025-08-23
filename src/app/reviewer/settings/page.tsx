@@ -7,10 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Lock, Trash2, AlertTriangle, CheckCircle } from "lucide-react";
+import {
+  User,
+  Lock,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  Camera,
+} from "lucide-react";
 import { State } from "@/types";
 import ReviewerSidebar from "@/components/ReviewerSidebar";
 
@@ -30,7 +43,7 @@ interface UserProfile {
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +86,7 @@ export default function SettingsPage() {
       if (response.ok) {
         const profileData = await response.json();
         setProfile(profileData.data);
-        
+
         // Populate form with current data
         setProfileForm({
           name: profileData.data.name || "",
@@ -81,7 +94,9 @@ export default function SettingsPage() {
           state: profileData.data.state || "",
           city: profileData.data.city || "",
           address: profileData.data.address || "",
-          dateOfBirth: profileData.data.dateOfBirth ? profileData.data.dateOfBirth.split('T')[0] : "",
+          dateOfBirth: profileData.data.dateOfBirth
+            ? profileData.data.dateOfBirth.split("T")[0]
+            : "",
           gender: profileData.data.gender || "",
         });
       }
@@ -90,6 +105,41 @@ export default function SettingsPage() {
       setError("Failed to load profile data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File size must be less than 5MB");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      setSaving(true);
+      const response = await fetch("/api/user/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        setSuccess("Avatar updated successfully");
+        fetchProfileData(); // Refresh profile data
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to update avatar");
+      }
+    } catch (error) {
+      setError("Failed to update avatar");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -192,7 +242,9 @@ export default function SettingsPage() {
       });
 
       if (response.ok) {
-        setSuccess("Account deleted successfully. You will be redirected to the home page.");
+        setSuccess(
+          "Account deleted successfully. You will be redirected to the home page.",
+        );
         setTimeout(() => {
           router.push("/");
         }, 3000);
@@ -209,10 +261,12 @@ export default function SettingsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading settings...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            Loading settings...
+          </p>
         </div>
       </div>
     );
@@ -224,7 +278,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
       <ReviewerSidebar
         isOpen={sidebarOpen}
@@ -234,18 +288,30 @@ export default function SettingsPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b px-4 py-3">
+        <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSidebarOpen(true)}
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">Settings</h1>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Settings
+            </h1>
             <div className="w-6"></div>
           </div>
         </div>
@@ -254,8 +320,12 @@ export default function SettingsPage() {
         <div className="flex-1 p-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
-            <p className="text-gray-600">Manage your profile, password, and account preferences</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Account Settings
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Manage your profile, password, and account preferences
+            </p>
           </div>
 
           <div className="max-w-4xl">
@@ -277,6 +347,40 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleProfileUpdate} className="space-y-6">
+                      {/* Avatar Upload */}
+                      <div className="flex items-center space-x-4">
+                        <div className="relative">
+                          <div className="w-20 h-20 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
+                            {profile?.avatar ? (
+                              <img
+                                src={profile.avatar}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="h-10 w-10 text-gray-400 dark:text-gray-300" />
+                            )}
+                          </div>
+                          <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-1 rounded-full cursor-pointer hover:bg-blue-700">
+                            <Camera className="h-3 w-3" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleAvatarUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Profile Picture
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            Click to upload new image
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <Label htmlFor="name" className="text-sm font-medium">
@@ -285,33 +389,54 @@ export default function SettingsPage() {
                           <Input
                             id="name"
                             value={profileForm.name}
-                            onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                name: e.target.value,
+                              }))
+                            }
                             className="mt-1"
                             required
                           />
                         </div>
 
                         <div>
-                          <Label htmlFor="phone" className="text-sm font-medium">
+                          <Label
+                            htmlFor="phone"
+                            className="text-sm font-medium"
+                          >
                             Phone Number
                           </Label>
                           <Input
                             id="phone"
                             type="tel"
                             value={profileForm.phone}
-                            onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                phone: e.target.value,
+                              }))
+                            }
                             className="mt-1"
                             placeholder="+234..."
                           />
                         </div>
 
                         <div>
-                          <Label htmlFor="state" className="text-sm font-medium">
+                          <Label
+                            htmlFor="state"
+                            className="text-sm font-medium"
+                          >
                             State *
                           </Label>
                           <Select
                             value={profileForm.state}
-                            onValueChange={(value) => setProfileForm(prev => ({ ...prev, state: value }))}
+                            onValueChange={(value) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                state: value,
+                              }))
+                            }
                           >
                             <SelectTrigger className="mt-1">
                               <SelectValue placeholder="Select state" />
@@ -333,45 +458,74 @@ export default function SettingsPage() {
                           <Input
                             id="city"
                             value={profileForm.city}
-                            onChange={(e) => setProfileForm(prev => ({ ...prev, city: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                city: e.target.value,
+                              }))
+                            }
                             className="mt-1"
                             required
                           />
                         </div>
 
                         <div className="md:col-span-2">
-                          <Label htmlFor="address" className="text-sm font-medium">
+                          <Label
+                            htmlFor="address"
+                            className="text-sm font-medium"
+                          >
                             Address *
                           </Label>
                           <Input
                             id="address"
                             value={profileForm.address}
-                            onChange={(e) => setProfileForm(prev => ({ ...prev, address: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                address: e.target.value,
+                              }))
+                            }
                             className="mt-1"
                             required
                           />
                         </div>
 
                         <div>
-                          <Label htmlFor="dateOfBirth" className="text-sm font-medium">
+                          <Label
+                            htmlFor="dateOfBirth"
+                            className="text-sm font-medium"
+                          >
                             Date of Birth
                           </Label>
                           <Input
                             id="dateOfBirth"
                             type="date"
                             value={profileForm.dateOfBirth}
-                            onChange={(e) => setProfileForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                            onChange={(e) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                dateOfBirth: e.target.value,
+                              }))
+                            }
                             className="mt-1"
                           />
                         </div>
 
                         <div>
-                          <Label htmlFor="gender" className="text-sm font-medium">
+                          <Label
+                            htmlFor="gender"
+                            className="text-sm font-medium"
+                          >
                             Gender
                           </Label>
                           <Select
                             value={profileForm.gender}
-                            onValueChange={(value) => setProfileForm(prev => ({ ...prev, gender: value }))}
+                            onValueChange={(value) =>
+                              setProfileForm((prev) => ({
+                                ...prev,
+                                gender: value,
+                              }))
+                            }
                           >
                             <SelectTrigger className="mt-1">
                               <SelectValue placeholder="Select gender" />
@@ -380,7 +534,9 @@ export default function SettingsPage() {
                               <SelectItem value="male">Male</SelectItem>
                               <SelectItem value="female">Female</SelectItem>
                               <SelectItem value="other">Other</SelectItem>
-                              <SelectItem value="prefer-not-to-say">Prefer not to say</SelectItem>
+                              <SelectItem value="prefer-not-to-say">
+                                Prefer not to say
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -412,28 +568,44 @@ export default function SettingsPage() {
                   <CardContent>
                     <form onSubmit={handlePasswordChange} className="space-y-6">
                       <div>
-                        <Label htmlFor="currentPassword" className="text-sm font-medium">
+                        <Label
+                          htmlFor="currentPassword"
+                          className="text-sm font-medium"
+                        >
                           Current Password *
                         </Label>
                         <Input
                           id="currentPassword"
                           type="password"
                           value={passwordForm.currentPassword}
-                          onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({
+                              ...prev,
+                              currentPassword: e.target.value,
+                            }))
+                          }
                           className="mt-1"
                           required
                         />
                       </div>
 
                       <div>
-                        <Label htmlFor="newPassword" className="text-sm font-medium">
+                        <Label
+                          htmlFor="newPassword"
+                          className="text-sm font-medium"
+                        >
                           New Password *
                         </Label>
                         <Input
                           id="newPassword"
                           type="password"
                           value={passwordForm.newPassword}
-                          onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({
+                              ...prev,
+                              newPassword: e.target.value,
+                            }))
+                          }
                           className="mt-1"
                           required
                           minLength={8}
@@ -444,14 +616,22 @@ export default function SettingsPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="confirmPassword" className="text-sm font-medium">
+                        <Label
+                          htmlFor="confirmPassword"
+                          className="text-sm font-medium"
+                        >
                           Confirm New Password *
                         </Label>
                         <Input
                           id="confirmPassword"
                           type="password"
                           value={passwordForm.confirmPassword}
-                          onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                          onChange={(e) =>
+                            setPasswordForm((prev) => ({
+                              ...prev,
+                              confirmPassword: e.target.value,
+                            }))
+                          }
                           className="mt-1"
                           required
                         />
@@ -485,9 +665,13 @@ export default function SettingsPage() {
                       <div className="flex items-start space-x-3">
                         <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
                         <div>
-                          <h3 className="text-sm font-medium text-red-800">Delete Account</h3>
+                          <h3 className="text-sm font-medium text-red-800">
+                            Delete Account
+                          </h3>
                           <p className="text-sm text-red-700 mt-1">
-                            This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                            This action cannot be undone. This will permanently
+                            delete your account and remove all your data from
+                            our servers.
                           </p>
                         </div>
                       </div>
@@ -505,7 +689,10 @@ export default function SettingsPage() {
                     ) : (
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="deleteConfirm" className="text-sm font-medium text-red-700">
+                          <Label
+                            htmlFor="deleteConfirm"
+                            className="text-sm font-medium text-red-700"
+                          >
                             Type DELETE to confirm
                           </Label>
                           <Input
@@ -524,7 +711,9 @@ export default function SettingsPage() {
                             disabled={saving || deleteConfirm !== "DELETE"}
                             className="flex-1"
                           >
-                            {saving ? "Deleting..." : "Permanently Delete Account"}
+                            {saving
+                              ? "Deleting..."
+                              : "Permanently Delete Account"}
                           </Button>
                           <Button
                             variant="outline"
@@ -547,7 +736,9 @@ export default function SettingsPage() {
             {/* Error and Success Messages */}
             {error && (
               <Alert className="border-red-500 bg-red-50">
-                <AlertDescription className="text-red-700">{error}</AlertDescription>
+                <AlertDescription className="text-red-700">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 

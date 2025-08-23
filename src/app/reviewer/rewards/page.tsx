@@ -62,6 +62,11 @@ interface RewardStats {
     referralReward: number;
     businessRecommendationReward: number;
   };
+  currentRates: {
+    reviewReward: number;
+    referralReward: number;
+    businessRecommendationReward: number;
+  };
   userRole: string;
   canRedeem: boolean;
   minimumRedemption: number;
@@ -230,22 +235,24 @@ export default function RewardsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200";
       case "PROCESSED":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200";
       case "FAILED":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200";
     }
   };
 
   if (status === "loading" || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading rewards...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 dark:border-green-400 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">
+            Loading rewards...
+          </p>
         </div>
       </div>
     );
@@ -257,7 +264,7 @@ export default function RewardsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
       <ReviewerSidebar
         isOpen={sidebarOpen}
@@ -267,7 +274,7 @@ export default function RewardsPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b px-4 py-3">
+        <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
@@ -288,7 +295,9 @@ export default function RewardsPage() {
                 />
               </svg>
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">My Rewards</h1>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+              My Rewards
+            </h1>
             <div className="w-6"></div>
           </div>
         </div>
@@ -297,8 +306,12 @@ export default function RewardsPage() {
         <div className="flex-1 p-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">My Rewards</h1>
-            <p className="text-gray-600">View and redeem your earned rewards</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              My Rewards
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              View and redeem your earned rewards
+            </p>
           </div>
 
           {/* Stats Cards */}
@@ -370,55 +383,111 @@ export default function RewardsPage() {
             </Card>
           </div>
 
+          {/* Current Reward Rates */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 dark:text-white">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                <span>Current Reward Rates</span>
+              </CardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                These rates are set by the platform and may change over time
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                  <MessageSquare className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                    ₦{stats?.currentRates?.reviewReward || 50}
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Per Review
+                  </p>
+                </div>
+
+                <div className="text-center p-3 border rounded-lg bg-green-50 dark:bg-green-950/20">
+                  <Users className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-green-900 dark:text-green-100">
+                    ₦{stats?.currentRates?.referralReward || 20}
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Per Referral
+                  </p>
+                </div>
+
+                <div className="text-center p-3 border rounded-lg bg-purple-50 dark:bg-purple-950/20">
+                  <TrendingUp className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                  <p className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+                    ₦{stats?.currentRates?.businessRecommendationReward || 100}
+                  </p>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    Per Business Rec.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Reward Breakdown */}
           <Card className="mb-8">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
+              <CardTitle className="flex items-center space-x-2 dark:text-white">
                 <Gift className="h-5 w-5 text-green-600" />
                 <span>Reward Breakdown</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 border rounded-lg bg-blue-50">
+                <div className="text-center p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
                   <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-blue-900">
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                     ₦{stats?.rewardBreakdown?.reviewReward || 0}
                   </p>
-                  <p className="text-sm text-blue-700">From Reviews</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    From Reviews
+                  </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    ₦50 × {stats?.totalReviews || 0} reviews
+                    ₦{stats?.currentRates?.reviewReward || 50} ×{" "}
+                    {stats?.totalReviews || 0} reviews
                   </p>
                 </div>
 
-                <div className="text-center p-4 border rounded-lg bg-green-50">
+                <div className="text-center p-4 border rounded-lg bg-green-50 dark:bg-green-950/20">
                   <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-green-900">
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-100">
                     ₦{stats?.rewardBreakdown?.referralReward || 0}
                   </p>
-                  <p className="text-sm text-green-700">From Referrals</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    From Referrals
+                  </p>
                   <p className="text-xs text-green-600 mt-1">
-                    ₦20 × {stats?.totalReferrals || 0} referrals
+                    ₦{stats?.currentRates?.referralReward || 20} ×{" "}
+                    {stats?.totalReferrals || 0} referrals
                   </p>
                 </div>
 
-                <div className="text-center p-4 border rounded-lg bg-purple-50">
+                <div className="text-center p-4 border rounded-lg bg-purple-50 dark:bg-purple-950/20">
                   <TrendingUp className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-purple-900">
+                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                     ₦{stats?.rewardBreakdown?.businessRecommendationReward || 0}
                   </p>
-                  <p className="text-sm text-purple-700">From Business Recs</p>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    From Business Recs
+                  </p>
                   <p className="text-xs text-purple-600 mt-1">
-                    ₦100 × approved businesses
+                    ₦{stats?.currentRates?.businessRecommendationReward || 100}{" "}
+                    × approved businesses
                   </p>
                 </div>
               </div>
 
               {stats?.userRole === "AGENT" && (
-                <div className="mt-4 p-3 bg-purple-100 rounded-lg">
-                  <p className="text-sm text-purple-800 text-center">
-                    🎉 As an Agent, you can earn ₦100 for each approved business
-                    recommendation!
+                <div className="mt-4 p-3 bg-purple-100 dark:bg-purple-950/30 rounded-lg">
+                  <p className="text-sm text-purple-800 dark:text-purple-200 text-center">
+                    🎉 As an Agent, you can earn ₦
+                    {stats?.currentRates?.businessRecommendationReward || 100}{" "}
+                    for each approved business recommendation!
                   </p>
                 </div>
               )}
@@ -429,8 +498,10 @@ export default function RewardsPage() {
           {stats?.canRedeem ? (
             <Card className="mb-8">
               <CardHeader>
-                <CardTitle>Redeem Rewards</CardTitle>
-                <p className="text-sm text-gray-600">
+                <CardTitle className="dark:text-white">
+                  Redeem Rewards
+                </CardTitle>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Convert your rewards to airtime or coupons. Minimum
                   redemption: ₦{stats?.minimumRedemption || 5000}
                 </p>

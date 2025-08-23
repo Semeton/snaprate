@@ -3,9 +3,10 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Loader2, Menu } from "lucide-react";
+import { Loader2, Menu, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminSidebar from "@/components/AdminSidebar";
+import { useTheme } from "@/components/providers/ThemeProvider";
 
 export default function AdminLayout({
   children,
@@ -16,6 +17,17 @@ export default function AdminLayout({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
+  };
 
   useEffect(() => {
     if (status === "loading") {
@@ -57,7 +69,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile header */}
-      <div className="lg:hidden bg-white border-b px-4 py-3">
+      <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
@@ -66,8 +78,26 @@ export default function AdminLayout({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="text-lg font-semibold text-gray-900">Admin</div>
-          <div className="w-8" /> {/* Spacer for centering */}
+          <div className="text-lg font-semibold text-gray-900 dark:text-white">
+            Admin
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+            title={`Current theme: ${theme}`}
+          >
+            {theme === "dark" ? (
+              <Moon className="h-5 w-5" />
+            ) : theme === "light" ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <div className="w-5 h-5 flex items-center justify-center">
+                <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+              </div>
+            )}
+          </Button>
         </div>
       </div>
 

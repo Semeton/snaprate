@@ -86,12 +86,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Send invitation email
-    const invitationLink = `${process.env.NEXTAUTH_URL}/admin/accept-invitation?token=${invitationToken}`;
+    const invitationLink = `${process.env.NEXTAUTH_URL}/accept-invitation?token=${invitationToken}`;
 
     try {
       const emailService = new EmailService();
-      const emailSent = await emailService.sendAdminInvitationEmail(email, role, invitationLink);
-      
+      const emailSent = await emailService.sendAdminInvitationEmail(
+        email,
+        role,
+        invitationLink,
+      );
+
       if (!emailSent) {
         // Delete the invitation if email fails
         await prisma.adminInvitation.delete({
@@ -99,7 +103,7 @@ export async function POST(request: NextRequest) {
         });
         return NextResponse.json(
           { success: false, error: "Failed to send invitation email" },
-          { status: 500 }
+          { status: 500 },
         );
       }
     } catch (emailError) {
