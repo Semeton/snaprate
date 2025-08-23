@@ -29,12 +29,9 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        reviews: {
-          where: {
-            status: "APPROVED",
-          },
+        _count: {
           select: {
-            id: true,
+            reviews: true,
           },
         },
       },

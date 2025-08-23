@@ -232,7 +232,7 @@ export default function BusinessViewPage() {
                       {business.averageRating.toFixed(1)}
                     </span>
                     <span className="opacity-80">
-                      ({business.totalReviews} reviews)
+                      ({reviews.length} reviews)
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -349,7 +349,7 @@ export default function BusinessViewPage() {
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <MessageSquare className="h-5 w-5" />
-                    <span>Reviews ({business.totalReviews})</span>
+                    <span>Reviews ({reviews.length})</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Star className="h-5 w-5 text-yellow-400 fill-current" />
@@ -477,7 +477,7 @@ export default function BusinessViewPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Reviews</span>
-                  <span className="font-medium">{business.totalReviews}</span>
+                  <span className="font-medium">{reviews.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Visits</span>

@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 // Types for our dynamic data
 interface FeaturedBusiness {
@@ -35,6 +36,9 @@ interface FeaturedBusiness {
   state: string;
   logo: string | null;
   coverImage: string | null;
+  _count?: {
+    reviews: number;
+  };
 }
 
 interface Testimonial {
@@ -52,6 +56,7 @@ interface Testimonial {
 }
 
 export default function LandingPage() {
+  const { data: session, status } = useSession();
   const [featuredBusinesses, setFeaturedBusinesses] = useState<
     FeaturedBusiness[]
   >([]);
@@ -182,15 +187,35 @@ export default function LandingPage() {
               better business ecosystem.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/signup">
+              {status === "loading" ? (
                 <Button
                   size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-4"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-lg px-8 py-4"
+                  disabled
                 >
-                  Start Earning Today
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  Loading...
                 </Button>
-              </Link>
+              ) : session?.user ? (
+                <Link href="/dashboard">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-4"
+                  >
+                    Go to Dashboard
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/auth/signup">
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-lg px-8 py-4"
+                  >
+                    Start Earning Today
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
               <Link href="/businesses">
                 <Button
                   size="lg"
@@ -355,7 +380,8 @@ export default function LandingPage() {
                         {business.city}, {business.state}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {business.totalReviews} reviews
+                        {business._count?.reviews || business.totalReviews || 0}{" "}
+                        reviews
                       </div>
                     </div>
                   </CardContent>
@@ -545,15 +571,35 @@ export default function LandingPage() {
             helping others discover great businesses
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/signup">
+            {status === "loading" ? (
               <Button
                 size="lg"
-                className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-4"
+                className="bg-white text-blue-600 text-lg px-8 py-4"
+                disabled
               >
-                Create Free Account
-                <ArrowRight className="ml-2 h-5 w-5" />
+                Loading...
               </Button>
-            </Link>
+            ) : session?.user ? (
+              <Link href="/dashboard">
+                <Button
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-4"
+                >
+                  Go to Dashboard
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/auth/signup">
+                <Button
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-4"
+                >
+                  Create Free Account
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            )}
             <Link href="/businesses">
               <Button
                 size="lg"
@@ -592,12 +638,23 @@ export default function LandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    href="/auth/signup"
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    Get Started
-                  </Link>
+                  {status === "loading" ? (
+                    <span className="text-gray-500">Loading...</span>
+                  ) : session?.user ? (
+                    <Link
+                      href="/dashboard"
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      Go to Dashboard
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/auth/signup"
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      Get Started
+                    </Link>
+                  )}
                 </li>
                 <li>
                   <Link

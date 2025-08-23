@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
               email: true,
             },
           },
+          _count: {
+            select: {
+              reviews: true,
+            },
+          },
         },
       }),
       prisma.business.count({ where }),

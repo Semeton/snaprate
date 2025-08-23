@@ -37,6 +37,9 @@ interface Business {
   logo?: string;
   coverImage?: string;
   verificationStatus: string;
+  _count?: {
+    reviews: number;
+  };
 }
 
 export default function BusinessesPage() {
@@ -277,9 +280,11 @@ export default function BusinessesPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <CardContent
-                    className={`pt-12 pb-6 px-6 ${viewMode === "list" ? "flex-1" : ""}`}
+                    className={`pt-12 pb-6 px-6 ${
+                      viewMode === "list" ? "flex-1" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <Badge
@@ -315,8 +320,13 @@ export default function BusinessesPage() {
 
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {business.totalReviews} review
-                        {business.totalReviews !== 1 ? "s" : ""}
+                        {business._count?.reviews || business.totalReviews || 0}{" "}
+                        review
+                        {(business._count?.reviews ||
+                          business.totalReviews ||
+                          0) !== 1
+                          ? "s"
+                          : ""}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         {business.totalVisits} visits
