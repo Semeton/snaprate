@@ -33,7 +33,43 @@ export interface BusinessOwner extends BaseUser {
 }
 
 export interface Agent extends BaseUser {
-  agentProfile?: AgentProfile;
+  // Agent-specific properties
+  userId?: number | string;
+  businessName?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  totalBusinesses: number;
+  totalEarnings: number;
+  isApproved: boolean;
+  approvedAt?: Date;
+  approvedBy?: string;
+  onboardedBusinesses: Business[];
+}
+
+// Agent Profile interface for the database model
+export interface AgentProfile {
+  id: string;
+  userId: string;
+  businessName?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  totalBusinesses: number;
+  totalEarnings: number;
+  isApproved: boolean;
+  approvedAt?: Date;
+  approvedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user: BaseUser;
+  onboardedBusinesses: Business[];
 }
 
 export interface Admin extends BaseUser {
@@ -152,35 +188,41 @@ export enum BusinessCategory {
 // Business types
 export interface Business {
   id: string;
+  ownerId: string;
   name: string;
   description?: string;
   category: BusinessCategory;
-  logo?: string;
-  images: string[];
   phone: string;
   email: string;
   website?: string;
-  state: State;
-  city: string;
+  logo?: string;
+  coverImage?: string;
   address: string;
-  coordinates?: Record<string, unknown>; // More specific than 'any'
+  city: string;
+  state: State;
+  latitude?: number;
+  longitude?: number;
+  verificationStatus: BusinessVerificationStatus;
+  verificationNotes?: string;
+  verifiedAt?: Date;
+  verificationDocuments: string[];
+  averageRating: number;
+  totalReviews: number;
+  totalVisits: number;
+  isActive: boolean;
+  onboardedByAgentId?: string;
   cacNumber?: string;
   utilityBill?: string;
-  verificationStatus: BusinessVerificationStatus;
-  verifiedAt?: Date;
-  ownerId: string;
-  owner: BusinessOwner;
-  staffMembers: BusinessStaff[];
-  rating: number;
-  reviewCount: number;
-  visitCount: number;
   createdAt: Date;
   updatedAt: Date;
-  onboardedByAgentId?: string;
-  onboardedByAgent?: AgentProfile;
+  owner: BaseUser;
+  onboardedByAgent?: Agent;
   reviews: Review[];
   coupons: Coupon[];
-  campaigns: Campaign[];
+  businessHours: BusinessHours[];
+  businessSettings?: BusinessSettings;
+  analytics: BusinessAnalytics[];
+  views: BusinessView[];
 }
 
 export interface BusinessStaff {
@@ -201,38 +243,38 @@ export interface BusinessStaff {
 // Review types
 export interface Review {
   id: string;
+  businessId: string;
+  reviewerId: string;
   rating: number;
-  title?: string;
   content: string;
   images: string[];
   video?: string;
   status: ReviewStatus;
   isAnonymous: boolean;
-  userId: string;
-  user: Reviewer;
-  businessId: string;
-  business: Business;
+  isVerified: boolean;
+  helpfulCount: number;
+  businessResponse?: string;
+  businessResponseDate?: Date;
   reported: boolean;
   reportReason?: string;
   createdAt: Date;
   updatedAt: Date;
-  reward?: Reward;
+  business: Business;
+  reviewer: BaseUser;
 }
 
 // Reward types
 export interface Reward {
   id: string;
-  type: RewardType;
+  referrerId: string;
   amount: number;
+  type: string;
   description: string;
-  userId: string;
-  user: Reviewer;
   reviewId?: string;
-  review?: Review;
   isRedeemed: boolean;
   redeemedAt?: Date;
   createdAt: Date;
-  updatedAt: Date;
+  referrer: BaseUser;
 }
 
 // Coupon types
@@ -273,24 +315,6 @@ export interface Campaign {
   updatedAt: Date;
 }
 
-// Agent types
-export interface AgentProfile {
-  id: string;
-  userId: string;
-  user: Agent;
-  onboardedBusinesses: Business[];
-  bankName?: string;
-  accountNumber?: string;
-  accountName?: string;
-  totalEarnings: number;
-  totalBusinessesOnboarded: number;
-  isApproved: boolean;
-  approvedAt?: Date;
-  approvedBy?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // Admin types
 export interface AdminPermission {
   id: string;
@@ -302,14 +326,15 @@ export interface AdminPermission {
 
 export interface AdminAction {
   id: string;
+  adminId: string;
   action: string;
   targetType: string;
   targetId: string;
-  adminId: string;
   adminName: string;
   details?: Record<string, unknown>;
   ipAddress?: string;
   createdAt: Date;
+  admin: BaseUser;
 }
 
 // Form types
@@ -453,4 +478,235 @@ export interface BusinessServiceData {
   coupons?: Record<string, unknown>[];
   campaigns?: Record<string, unknown>[];
   onboardedByAgent?: Record<string, unknown>;
+}
+
+export interface BusinessView {
+  id: string;
+  businessId: string;
+  viewerId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  referrer?: string;
+  source: string;
+  viewType: string;
+  sessionId?: string;
+  duration?: number;
+  createdAt: Date;
+  business: Business;
+  viewer?: BaseUser;
+}
+
+export interface BusinessHours {
+  id: string;
+  businessId: string;
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isOpen: boolean;
+  business: Business;
+}
+
+export interface BusinessSettings {
+  id: string;
+  businessId: string;
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+  reviewAlerts: boolean;
+  couponRedemptions: boolean;
+  weeklyReports: boolean;
+  marketingUpdates: boolean;
+  profileVisibility: string;
+  showContactInfo: boolean;
+  showRevenue: boolean;
+  allowDirectMessages: boolean;
+  twoFactorAuth: boolean;
+  sessionTimeout: number;
+  loginNotifications: boolean;
+  googleAnalytics: boolean;
+  facebookPixel: boolean;
+  mailchimp: boolean;
+  zapier: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  business: Business;
+}
+
+export interface BusinessAnalytics {
+  id: string;
+  businessId: string;
+  date: Date;
+  visits: number;
+  uniqueVisitors: number;
+  pageViews: number;
+  reviews: number;
+  averageRating: number;
+  couponViews: number;
+  couponRedemptions: number;
+  revenue: number;
+  createdAt: Date;
+  business: Business;
+}
+
+// User interface that matches the Prisma schema
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role: UserRole;
+  status: AccountStatus;
+  referralCode: string;
+  referredBy?: string;
+  state: State;
+  city: string;
+  address: string;
+  avatar?: string;
+  dateOfBirth?: Date;
+  gender?: string;
+  emailVerified?: Date;
+  phoneVerified?: Date;
+  isVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpiry?: Date;
+  passwordResetToken?: string;
+  passwordResetExpiry?: Date;
+  lastLoginAt?: Date;
+  deletedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // Relations
+  referredByUser?: User;
+  referrals: User[];
+  accounts: Account[];
+  sessions: Session[];
+  reviews: Review[];
+  rewards: Reward[];
+  rewardRedemptions: RewardRedemption[];
+  business?: Business;
+  agentProfile?: Agent;
+  businessRecommendations: BusinessRecommendation[];
+  agentApplications: AgentApplication[];
+  adminInvitations: AdminInvitation[];
+  adminActions: AdminAction[];
+  reportedContent: ReportedContent[];
+  resolvedReports: ReportedContent[];
+  businessViews: BusinessView[];
+}
+
+export interface Account {
+  id: string;
+  userId: string;
+  type: string;
+  provider: string;
+  providerAccountId: string;
+  refresh_token?: string;
+  access_token?: string;
+  expires_at?: number;
+  token_type?: string;
+  scope?: string;
+  id_token?: string;
+  session_state?: string;
+  user: User;
+}
+
+export interface Session {
+  id: string;
+  sessionToken: string;
+  userId: string;
+  expires: Date;
+  user: User;
+}
+
+export interface VerificationToken {
+  identifier: string;
+  token: string;
+  expires: Date;
+}
+
+export interface AgentApplication {
+  id: string;
+  userId: string;
+  businessName?: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNotes?: string;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user: User;
+}
+
+export interface AdminInvitation {
+  id: string;
+  email: string;
+  role: UserRole;
+  invitedBy: string;
+  invitationToken: string;
+  expiresAt: Date;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED";
+  createdAt: Date;
+  invitedByUser: User;
+}
+
+export interface BusinessRecommendation {
+  id: string;
+  businessName: string;
+  businessAddress?: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  category: BusinessCategory;
+  state: State;
+  city: string;
+  description?: string;
+  recommendedBy: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNotes?: string;
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  recommendedByUser: User;
+}
+
+export interface ReportedContent {
+  id: string;
+  contentType: "REVIEW" | "BUSINESS" | "USER";
+  contentId: string;
+  reporterId: string;
+  reason:
+    | "INAPPROPRIATE_CONTENT"
+    | "SPAM"
+    | "HARASSMENT"
+    | "FALSE_INFORMATION"
+    | "COPYRIGHT_VIOLATION"
+    | "OTHER";
+  description?: string;
+  status: "PENDING" | "INVESTIGATED" | "RESOLVED" | "DISMISSED";
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  reporter: User;
+  resolver?: User;
+}
+
+export interface RewardRedemption {
+  id: string;
+  userId: string;
+  type: string;
+  amount: number;
+  phone?: string;
+  status: string;
+  processedAt?: Date;
+  createdAt: Date;
+  user: User;
 }

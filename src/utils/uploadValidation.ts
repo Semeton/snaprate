@@ -37,7 +37,7 @@ export function validateFileUpload(
   const {
     maxSize = DEFAULT_IMAGE_SIZE,
     allowedTypes = ALLOWED_IMAGE_TYPES,
-    type = "image",
+    // type = "image",
   } = options;
 
   // Check if file exists

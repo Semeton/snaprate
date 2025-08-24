@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CouponService } from "@/services/CouponService";
 import { prisma } from "@/lib/prisma";
+import { CouponStatus } from "@prisma/client";
 
 const couponService = new CouponService();
 
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
       const coupons = await couponService.getBusinessCoupons(businessId, {
         page,
         limit,
-        status: status as any,
+        status: status as CouponStatus,
       });
       return NextResponse.json({ success: true, data: coupons });
     }

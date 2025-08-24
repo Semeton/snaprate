@@ -2,14 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import {
-  Star,
-  Gift,
-  Phone,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { Star, Gift, Phone, AlertCircle, CheckCircle, X } from "lucide-react";
 
 interface Reward {
   id: string;
@@ -367,7 +360,7 @@ export default function RewardRedemption({
               </h3>
               <button
                 onClick={closeModal}
-                disabled={redeeming}
+                disabled={!!redeeming}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
               >
                 <X className="h-6 w-6" />
@@ -485,7 +478,7 @@ export default function RewardRedemption({
                   <button
                     type="button"
                     onClick={closeModal}
-                    disabled={redeeming}
+                    disabled={!!redeeming}
                     className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                   >
                     Cancel
@@ -493,7 +486,7 @@ export default function RewardRedemption({
                   <button
                     onClick={handleRedemption}
                     disabled={
-                      redeeming ||
+                      !!redeeming ||
                       (redemptionType === "AIRTIME" && !phoneNumber.trim())
                     }
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

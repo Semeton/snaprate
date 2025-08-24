@@ -1,5 +1,5 @@
-import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface UserAvatarProps {
   user: {
@@ -77,13 +77,15 @@ export function UserAvatar({
       {/* Avatar */}
       <div className="relative">
         {user.avatar ? (
-          <img
+          <Image
             src={user.avatar}
             alt={user.name || "User"}
             className={cn(
               "rounded-full object-cover border-2 border-gray-200 dark:border-gray-600",
               sizeClasses[size],
             )}
+            width={100}
+            height={100}
           />
         ) : (
           <div
@@ -200,7 +202,7 @@ export function Avatar({
   return (
     <div className="relative">
       {user.avatar ? (
-        <img
+        <Image
           src={user.avatar}
           alt={user.name || "User"}
           className={cn(
@@ -208,6 +210,8 @@ export function Avatar({
             sizeClasses[size],
             className,
           )}
+          width={100}
+          height={100}
         />
       ) : (
         <div

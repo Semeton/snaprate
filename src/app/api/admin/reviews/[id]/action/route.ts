@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ReviewStatus } from "@prisma/client";
 
-export async function POST(
+export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,8 +25,9 @@ export async function POST(
       );
     }
 
+    const { id: reviewId } = await params;
+
     const { action } = await request.json();
-    const reviewId = params.id;
 
     if (!["APPROVE", "REJECT", "VERIFY"].includes(action)) {
       return NextResponse.json(
@@ -50,7 +52,7 @@ export async function POST(
       );
     }
 
-    let updateData: any = {};
+    const updateData: { status?: ReviewStatus; isVerified?: boolean } = {};
 
     if (action === "APPROVE") {
       updateData.status = "APPROVED";

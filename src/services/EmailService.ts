@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { PlatformSettingsService } from "./PlatformSettingsService";
 import logger from "@/lib/logger";
 
 export interface EmailOptions {
@@ -17,8 +18,11 @@ export interface VerificationEmailData {
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private platformSettingsService: PlatformSettingsService;
 
   constructor() {
+    this.platformSettingsService = PlatformSettingsService.getInstance();
+
     let config: { host: string; port: number; secure: boolean };
 
     if (process.env.NODE_ENV === "production") {
@@ -1005,6 +1009,94 @@ ${
 Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/reviewer/dashboard
 
 If you have any questions, please contact our support team.
+
+Best regards,
+The SnapRate Team
+
+© 2024 SnapRate. All rights reserved.
+    `;
+  }
+
+  /**
+   * Generate account verified email HTML
+   */
+  private generateAccountVerifiedEmailHTML(
+    name: string,
+    platformSettings: unknown,
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Account Verified - SnapRate</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Welcome to SnapRate!</h1>
+              <p>Your account is now verified and ready to go!</p>
+            </div>
+            <div class="content">
+              <h2>Hi ${name},</h2>
+              <p>Congratulations! Your SnapRate account has been successfully verified. You're now ready to start earning rewards by reviewing businesses!</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="button">Go to Dashboard</a>
+              </div>
+              
+              <h3>What you can do now:</h3>
+              <ul>
+                <li>📝 Write reviews and earn ₦${platformSettings.reviewRewardAmount} per review</li>
+                <li>👥 Refer friends and earn referral bonuses</li>
+                <li>🏆 Level up and unlock higher rewards</li>
+                <li>💰 Redeem your earnings for airtime, coupons, or bank transfer</li>
+              </ul>
+              
+              <p>Happy reviewing!</p>
+            </div>
+            <div class="footer">
+              <p>© 2024 SnapRate. All rights reserved.</p>
+              <p>Connecting consumers with businesses through honest reviews and rewards.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate welcome email text version
+   */
+  private generateAccountVerifiedEmailText(
+    name: string,
+    platformSettings: unknown,
+  ): string {
+    return `
+Welcome to SnapRate!
+
+Hi ${name},
+
+Congratulations! Your SnapRate account has been successfully verified. You're now ready to start earning rewards by reviewing businesses!
+
+What you can do now:
+- Write reviews and earn ₦${platformSettings.reviewRewardAmount} per review
+- Refer friends and earn referral bonuses
+- Level up and unlock higher rewards
+- Redeem your earnings for airtime, coupons, or bank transfer
+
+Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard
+
+Happy reviewing!
 
 Best regards,
 The SnapRate Team

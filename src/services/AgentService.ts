@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { IAgentService } from "./interfaces";
 import {
-  AgentProfile,
+  Agent,
   Business,
   BusinessVerificationStatus,
   BusinessCategory,
@@ -9,8 +9,6 @@ import {
 } from "@/types";
 
 export class AgentService implements IAgentService {
-  // Single Responsibility: This service only handles agent-related operations
-
   async createAgentProfile(
     userId: string,
     agentData: {
@@ -18,10 +16,9 @@ export class AgentService implements IAgentService {
       accountNumber?: string;
       accountName?: string;
     },
-  ): Promise<AgentProfile> {
+  ): Promise<Agent> {
     try {
-      // Check if user already has an agent profile
-      const existingProfile = await prisma.agentProfile.findUnique({
+      const existingProfile = await prisma.agent.findUnique({
         where: { userId },
       });
 
@@ -29,7 +26,7 @@ export class AgentService implements IAgentService {
         throw new Error("User already has an agent profile");
       }
 
-      const agentProfile = await prisma.agentProfile.create({
+      const agentProfile = await prisma.agent.create({
         data: {
           userId,
           bankName: agentData.bankName,
@@ -37,7 +34,7 @@ export class AgentService implements IAgentService {
           accountName: agentData.accountName,
           isApproved: false,
           totalEarnings: 0,
-          totalBusinessesOnboarded: 0,
+          totalBusinesses: 0,
         },
         include: {
           user: true,
@@ -45,7 +42,7 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to create agent profile: ${
@@ -55,9 +52,9 @@ export class AgentService implements IAgentService {
     }
   }
 
-  async findById(id: string): Promise<AgentProfile | null> {
+  async findById(id: string): Promise<Agent | null> {
     try {
-      const agentProfile = await prisma.agentProfile.findUnique({
+      const agentProfile = await prisma.agent.findUnique({
         where: { id },
         include: {
           user: true,
@@ -65,7 +62,9 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      if (!agentProfile) return null;
+
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to find agent profile: ${
@@ -75,9 +74,9 @@ export class AgentService implements IAgentService {
     }
   }
 
-  async findByUser(userId: string): Promise<AgentProfile | null> {
+  async findByUser(userId: string): Promise<Agent | null> {
     try {
-      const agentProfile = await prisma.agentProfile.findUnique({
+      const agentProfile = await prisma.agent.findUnique({
         where: { userId },
         include: {
           user: true,
@@ -85,7 +84,9 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      if (!agentProfile) return null;
+
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to find agent profile by user: ${
@@ -95,32 +96,18 @@ export class AgentService implements IAgentService {
     }
   }
 
-  async updateAgentProfile(
-    id: string,
-    data: Partial<AgentProfile>,
-  ): Promise<AgentProfile> {
+  async updateAgentProfile(id: string, data: Partial<Agent>): Promise<Agent> {
     try {
-      // Remove fields that shouldn't be updated
-      const {
-        userId,
-        totalEarnings,
-        totalBusinessesOnboarded,
-        isApproved,
-        approvedAt,
-        approvedBy,
-        ...updateData
-      } = data;
-
-      const agentProfile = await prisma.agentProfile.update({
+      const agentProfile = await prisma.agent.update({
         where: { id },
-        data: updateData,
+        data,
         include: {
           user: true,
           onboardedBusinesses: true,
         },
       });
 
-      return agentProfile as AgentProfile;
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to update agent profile: ${
@@ -132,7 +119,7 @@ export class AgentService implements IAgentService {
 
   async deleteAgentProfile(id: string): Promise<void> {
     try {
-      await prisma.agentProfile.delete({
+      await prisma.agent.delete({
         where: { id },
       });
     } catch (error) {
@@ -144,9 +131,9 @@ export class AgentService implements IAgentService {
     }
   }
 
-  async approveAgent(id: string, adminId: string): Promise<AgentProfile> {
+  async approveAgent(id: string, adminId: string): Promise<Agent> {
     try {
-      const agentProfile = await prisma.agentProfile.update({
+      const agentProfile = await prisma.agent.update({
         where: { id },
         data: {
           isApproved: true,
@@ -159,7 +146,7 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to approve agent: ${
@@ -171,11 +158,11 @@ export class AgentService implements IAgentService {
 
   async rejectAgent(
     id: string,
-    adminId: string,
-    reason: string,
-  ): Promise<AgentProfile> {
+    // adminId: string,
+    // reason: string,
+  ): Promise<Agent> {
     try {
-      const agentProfile = await prisma.agentProfile.update({
+      const agentProfile = await prisma.agent.update({
         where: { id },
         data: {
           isApproved: false,
@@ -188,7 +175,7 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to reject agent: ${
@@ -217,7 +204,7 @@ export class AgentService implements IAgentService {
   ): Promise<Business> {
     try {
       // Verify agent is approved
-      const agentProfile = await prisma.agentProfile.findUnique({
+      const agentProfile = await prisma.agent.findUnique({
         where: { id: agentId },
       });
 
@@ -263,16 +250,16 @@ export class AgentService implements IAgentService {
       });
 
       // Update agent stats
-      await prisma.agentProfile.update({
+      await prisma.agent.update({
         where: { id: agentId },
         data: {
-          totalBusinessesOnboarded: {
+          totalBusinesses: {
             increment: 1,
           },
         },
       });
 
-      return business as Business;
+      return business as unknown as Business;
     } catch (error) {
       throw new Error(
         `Failed to onboard business: ${
@@ -289,7 +276,7 @@ export class AgentService implements IAgentService {
     monthlyEarnings: number;
   }> {
     try {
-      const agentProfile = await prisma.agentProfile.findUnique({
+      const agentProfile = await prisma.agent.findUnique({
         where: { id: agentId },
       });
 
@@ -311,7 +298,7 @@ export class AgentService implements IAgentService {
 
       const monthlyEarnings = await prisma.reward.aggregate({
         where: {
-          userId: agentProfile.userId,
+          referrerId: agentProfile.userId,
           type: "BUSINESS_ONBOARDING",
           createdAt: {
             gte: thirtyDaysAgo,
@@ -321,10 +308,10 @@ export class AgentService implements IAgentService {
       });
 
       return {
-        totalBusinessesOnboarded: agentProfile.totalBusinessesOnboarded,
+        totalBusinessesOnboarded: agentProfile.totalBusinesses,
         totalEarnings: agentProfile.totalEarnings,
         pendingApprovals,
-        monthlyEarnings: monthlyEarnings._sum.amount || 0,
+        monthlyEarnings: monthlyEarnings._sum?.amount || 0,
       };
     } catch (error) {
       throw new Error(
@@ -368,7 +355,7 @@ export class AgentService implements IAgentService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: businesses as Business[],
+        data: businesses as unknown as Business[],
         pagination: {
           page,
           limit,
@@ -392,9 +379,9 @@ export class AgentService implements IAgentService {
       accountNumber: string;
       accountName: string;
     },
-  ): Promise<AgentProfile> {
+  ): Promise<Agent> {
     try {
-      const agentProfile = await prisma.agentProfile.update({
+      const agentProfile = await prisma.agent.update({
         where: { id: agentId },
         data: {
           bankName: bankData.bankName,
@@ -407,7 +394,7 @@ export class AgentService implements IAgentService {
         },
       });
 
-      return agentProfile as AgentProfile;
+      return agentProfile as unknown as Agent;
     } catch (error) {
       throw new Error(
         `Failed to update bank details: ${
@@ -421,7 +408,7 @@ export class AgentService implements IAgentService {
     page: number = 1,
     limit: number = 10,
   ): Promise<{
-    data: AgentProfile[];
+    data: Agent[];
     pagination: {
       page: number;
       limit: number;
@@ -433,7 +420,7 @@ export class AgentService implements IAgentService {
       const skip = (page - 1) * limit;
 
       const [agents, total] = await Promise.all([
-        prisma.agentProfile.findMany({
+        prisma.agent.findMany({
           where: { isApproved: false },
           skip,
           take: limit,
@@ -442,13 +429,13 @@ export class AgentService implements IAgentService {
             user: true,
           },
         }),
-        prisma.agentProfile.count({ where: { isApproved: false } }),
+        prisma.agent.count({ where: { isApproved: false } }),
       ]);
 
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: agents as AgentProfile[],
+        data: agents as unknown as Agent[],
         pagination: {
           page,
           limit,
@@ -465,21 +452,18 @@ export class AgentService implements IAgentService {
     }
   }
 
-  async getTopAgents(limit: number = 10): Promise<AgentProfile[]> {
+  async getTopAgents(limit: number = 10): Promise<Agent[]> {
     try {
-      const agents = await prisma.agentProfile.findMany({
+      const agents = await prisma.agent.findMany({
         where: { isApproved: true },
-        orderBy: [
-          { totalBusinessesOnboarded: "desc" },
-          { totalEarnings: "desc" },
-        ],
+        orderBy: [{ totalBusinesses: "desc" }, { totalEarnings: "desc" }],
         take: limit,
         include: {
           user: true,
         },
       });
 
-      return agents as AgentProfile[];
+      return agents as unknown as Agent[];
     } catch (error) {
       throw new Error(
         `Failed to get top agents: ${
@@ -499,7 +483,7 @@ export class AgentService implements IAgentService {
     page: number = 1,
     limit: number = 10,
   ): Promise<{
-    data: AgentProfile[];
+    data: Agent[];
     pagination: {
       page: number;
       limit: number;
@@ -515,7 +499,7 @@ export class AgentService implements IAgentService {
       }
 
       if (filters.minBusinessesOnboarded) {
-        where.totalBusinessesOnboarded = {
+        where.totalBusinesses = {
           gte: filters.minBusinessesOnboarded,
         };
       }
@@ -535,22 +519,22 @@ export class AgentService implements IAgentService {
       const skip = (page - 1) * limit;
 
       const [agents, total] = await Promise.all([
-        prisma.agentProfile.findMany({
+        prisma.agent.findMany({
           where,
           skip,
           take: limit,
-          orderBy: { totalBusinessesOnboarded: "desc" },
+          orderBy: { totalBusinesses: "desc" },
           include: {
             user: true,
           },
         }),
-        prisma.agentProfile.count({ where }),
+        prisma.agent.count({ where }),
       ]);
 
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: agents as AgentProfile[],
+        data: agents as unknown as Agent[],
         pagination: {
           page,
           limit,

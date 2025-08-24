@@ -147,7 +147,7 @@ export default function ProfilePage() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">

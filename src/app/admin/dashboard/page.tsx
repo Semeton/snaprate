@@ -39,9 +39,41 @@ interface AdminDashboardData {
     adminInvitations: number;
   };
   recent: {
-    adminActions: any[];
-    pendingBusinesses: any[];
-    pendingAgents: any[];
+    adminActions: {
+      action: string;
+      admin: { name: string };
+      createdAt: string;
+      targetType: string;
+    }[];
+    adminActionsPagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    pendingBusinesses: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      state: string;
+      country: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    pendingAgents: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      city: string;
+      state: string;
+      country: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
   };
   platformSettings: {
     minimumRedemptionAmount: number;
@@ -59,15 +91,31 @@ export default function AdminDashboard() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [adminActionsPage, setAdminActionsPage] = useState(1);
+  const [adminActionsLimit, setAdminActionsLimit] = useState(10);
+  const [paginationLoading, setPaginationLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+    if (adminActionsPage > 1) {
+      fetchDashboardData(true);
+    }
+    if (adminActionsLimit !== 10) {
+      fetchDashboardData(true);
+    }
+  }, [adminActionsPage, adminActionsLimit]);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isPagination = false) => {
     try {
-      setLoading(true);
-      const response = await fetch("/api/admin/dashboard");
+      if (isPagination) {
+        setPaginationLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await fetch(
+        `/api/admin/dashboard?adminActionsPage=${adminActionsPage}&adminActionsLimit=${adminActionsLimit}`,
+      );
       if (response.ok) {
         const data = await response.json();
         setDashboardData(data.data);
@@ -75,8 +123,16 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
-      setLoading(false);
+      if (isPagination) {
+        setPaginationLoading(false);
+      } else {
+        setLoading(false);
+      }
     }
+  };
+
+  const handleAdminActionsPageChange = (newPage: number) => {
+    setAdminActionsPage(newPage);
   };
 
   const navigateTo = (path: string) => {
@@ -371,34 +427,200 @@ export default function AdminDashboard() {
         {/* Recent Admin Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Admin Actions</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Admin Actions</CardTitle>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin/actions")}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  View All
+                </Button>
+                <label htmlFor="pageSize" className="text-sm text-gray-600">
+                  Show:
+                </label>
+                <select
+                  id="pageSize"
+                  value={adminActionsLimit}
+                  onChange={(e) => {
+                    setAdminActionsLimit(parseInt(e.target.value));
+                    setAdminActionsPage(1); // Reset to first page when changing page size
+                  }}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {dashboardData.recent.adminActions.length > 0 ? (
-              <div className="space-y-3">
-                {dashboardData.recent.adminActions.map((action, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <UserCheck className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">
-                          {action.action.replace(/_/g, " ")}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          by {action.admin.name} •{" "}
-                          {new Date(action.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="outline">{action.targetType}</Badge>
-                  </div>
-                ))}
+            {paginationLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading admin actions...</p>
               </div>
+            ) : dashboardData.recent.adminActions.length > 0 ? (
+              <>
+                <div className="space-y-3 mb-4">
+                  {dashboardData.recent.adminActions.map((action, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-full">
+                          <UserCheck className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {action.action.replace(/_/g, " ")}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            by {action.admin.name} •{" "}
+                            {new Date(action.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline">{action.targetType}</Badge>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {dashboardData.recent.adminActionsPagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {(adminActionsPage - 1) * adminActionsLimit + 1}{" "}
+                      to{" "}
+                      {Math.min(
+                        adminActionsPage * adminActionsLimit,
+                        dashboardData.recent.adminActionsPagination.total,
+                      )}{" "}
+                      of {dashboardData.recent.adminActionsPagination.total}{" "}
+                      actions
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleAdminActionsPageChange(
+                            Math.max(1, adminActionsPage - 1),
+                          )
+                        }
+                        disabled={adminActionsPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from(
+                          {
+                            length: Math.min(
+                              5,
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages,
+                            ),
+                          },
+                          (_, i) => {
+                            const pageNum = i + 1;
+                            if (
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages <= 5
+                            ) {
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={
+                                    pageNum === adminActionsPage
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() =>
+                                    handleAdminActionsPageChange(pageNum)
+                                  }
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            }
+
+                            // Show first page, last page, current page, and pages around current
+                            if (
+                              pageNum === 1 ||
+                              pageNum ===
+                                dashboardData.recent.adminActionsPagination
+                                  .totalPages ||
+                              (pageNum >= adminActionsPage - 1 &&
+                                pageNum <= adminActionsPage + 1)
+                            ) {
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={
+                                    pageNum === adminActionsPage
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() =>
+                                    handleAdminActionsPageChange(pageNum)
+                                  }
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            }
+
+                            // Show ellipsis
+                            if (
+                              pageNum === adminActionsPage - 2 ||
+                              pageNum === adminActionsPage + 2
+                            ) {
+                              return (
+                                <span
+                                  key={pageNum}
+                                  className="px-2 text-gray-500"
+                                >
+                                  ...
+                                </span>
+                              );
+                            }
+
+                            return null;
+                          },
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleAdminActionsPageChange(
+                            Math.min(
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages,
+                              adminActionsPage + 1,
+                            ),
+                          )
+                        }
+                        disabled={
+                          adminActionsPage ===
+                          dashboardData.recent.adminActionsPagination.totalPages
+                        }
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <UserCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />

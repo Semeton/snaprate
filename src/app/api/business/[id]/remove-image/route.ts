@@ -7,10 +7,9 @@ import { join } from "path";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const businessId = params.id;
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -19,6 +18,8 @@ export async function DELETE(
         { status: 401 },
       );
     }
+
+    const { id: businessId } = await params;
 
     // Check if user owns this business
     const business = await prisma.business.findUnique({

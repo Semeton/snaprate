@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import {
   Building2,
   MapPin,
@@ -19,15 +18,15 @@ import {
   Globe,
   Clock,
   Star,
-  MessageSquare,
   CheckCircle,
   XCircle,
   Eye,
   FileText,
 } from "lucide-react";
+import { Business, Review } from "@prisma/client";
 
 interface BusinessDetailModalProps {
-  business: any;
+  business: unknown;
   isOpen: boolean;
   onClose: () => void;
   onVerification: (businessId: string, status: "VERIFIED" | "REJECTED") => void;
@@ -246,7 +245,7 @@ export default function BusinessDetailModal({
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {business.reviews.slice(0, 3).map((review: any) => (
+                  {business.reviews.slice(0, 3).map((review: Review) => (
                     <div key={review.id} className="p-3 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-2">

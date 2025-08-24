@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ReviewStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,10 +31,17 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "desc";
 
     // Build where clause
-    const where: any = {};
+    const where: {
+      status?: ReviewStatus;
+      OR?: {
+        content?: { contains: string; mode: "insensitive" };
+        business?: { name?: { contains: string; mode: "insensitive" } };
+        reviewer?: { name?: { contains: string; mode: "insensitive" } };
+      }[];
+    } = {};
 
     if (filter !== "ALL") {
-      where.status = filter;
+      where.status = filter as ReviewStatus;
     }
 
     if (search) {
@@ -45,13 +53,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Build orderBy clause
-    const orderBy: any = {};
+    const orderBy: {
+      rating?: "asc" | "desc";
+      status?: "asc" | "desc";
+      createdAt?: "asc" | "desc";
+    } = {};
     if (sortField === "rating") {
-      orderBy.rating = sortDirection;
+      orderBy.rating = sortDirection as "asc" | "desc";
     } else if (sortField === "status") {
-      orderBy.status = sortDirection;
+      orderBy.status = sortDirection as "asc" | "desc";
     } else if (sortField === "createdAt") {
-      orderBy.createdAt = sortDirection;
+      orderBy.createdAt = sortDirection as "asc" | "desc";
     } else {
       orderBy.createdAt = "desc";
     }

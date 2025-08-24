@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { State } from "@/types";
-import { Star, CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import PublicNavigation from "@/components/PublicNavigation";
 

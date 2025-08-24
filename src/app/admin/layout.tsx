@@ -108,7 +108,7 @@ export default function AdminLayout({
         />
 
         {/* Main content */}
-        <div className="flex-1">{children}</div>
+        <div className="flex-1 lg:ml-0">{children}</div>
       </div>
     </div>
   );

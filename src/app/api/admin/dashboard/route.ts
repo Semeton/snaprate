@@ -26,6 +26,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get pagination parameters for admin actions
+    const { searchParams } = new URL(request.url);
+    const adminActionsPage = parseInt(
+      searchParams.get("adminActionsPage") || "1",
+    );
+    const adminActionsLimit = parseInt(
+      searchParams.get("adminActionsLimit") || "10",
+    );
+    const adminActionsSkip = (adminActionsPage - 1) * adminActionsLimit;
+
     // Get platform overview statistics
     const [
       totalUsers,
@@ -117,19 +127,23 @@ export async function GET(request: NextRequest) {
       0,
     );
 
-    // Get recent admin actions
-    const recentActions = await prisma.adminAction.findMany({
-      take: 10,
-      orderBy: { createdAt: "desc" },
-      include: {
-        admin: {
-          select: {
-            name: true,
-            email: true,
+    // Get recent admin actions with pagination
+    const [recentActions, totalAdminActions] = await Promise.all([
+      prisma.adminAction.findMany({
+        skip: adminActionsSkip,
+        take: adminActionsLimit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          admin: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.adminAction.count(),
+    ]);
 
     // Get recent pending items
     const recentPendingBusinesses = await prisma.business.findMany({
@@ -185,6 +199,12 @@ export async function GET(request: NextRequest) {
         },
         recent: {
           adminActions: recentActions,
+          adminActionsPagination: {
+            page: adminActionsPage,
+            limit: adminActionsLimit,
+            total: totalAdminActions,
+            totalPages: Math.ceil(totalAdminActions / adminActionsLimit),
+          },
           pendingBusinesses: recentPendingBusinesses,
           pendingAgents: recentPendingAgents,
         },

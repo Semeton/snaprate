@@ -12,20 +12,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Star,
-  User,
   Building2,
   Calendar,
   MessageSquare,
   CheckCircle,
   XCircle,
   Shield,
-  Image,
+  Image as ImageIcon,
   Video,
   ThumbsUp,
 } from "lucide-react";
+import Image from "next/image";
 
 interface ReviewDetailModalProps {
-  review: any;
+  review: unknown;
   isOpen: boolean;
   onClose: () => void;
   onAction: (reviewId: string, action: "APPROVE" | "REJECT" | "VERIFY") => void;
@@ -128,13 +128,15 @@ export default function ReviewDetailModal({
                     {review.images &&
                       review.images.map((image: string, index: number) => (
                         <div key={index} className="relative">
-                          <img
+                          <Image
                             src={image}
                             alt={`Review image ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg border"
+                            width={100}
+                            height={100}
                           />
                           <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                            <Image className="h-3 w-3 inline mr-1" />
+                            <ImageIcon className="h-3 w-3 inline mr-1" />
                             Image {index + 1}
                           </div>
                         </div>

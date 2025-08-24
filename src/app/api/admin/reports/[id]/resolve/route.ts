@@ -101,12 +101,12 @@ export async function POST(
           break;
 
         case "BUSINESS":
-          if (contentAction === "SUSPEND") {
-            await prisma.business.update({
-              where: { id: report.contentId },
-              data: { status: "SUSPENDED" },
-            });
-          }
+          // if (contentAction === "SUSPEND") {
+          //   await prisma.business.update({
+          //     where: { id: report.contentId },
+          //     data: { status: "SUSPENDED" },
+          //   });
+          // }
           break;
 
         case "USER":

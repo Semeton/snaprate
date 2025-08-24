@@ -1,20 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { IAdminService } from "./interfaces";
 import {
-  User,
+  BaseUser,
   Business,
-  AgentProfile,
+  Agent,
   Review,
   AdminAction,
   UserRole,
   AccountStatus,
   BusinessVerificationStatus,
   ReviewStatus,
+  User,
 } from "@/types";
+import { InputJsonValue } from "@prisma/client/runtime/library";
 
 export class AdminService implements IAdminService {
-  // Single Responsibility: This service only handles admin-related operations
-
   async getDashboardStats(): Promise<{
     totalUsers: number;
     totalBusinesses: number;
@@ -39,7 +39,7 @@ export class AdminService implements IAdminService {
         prisma.business.count({
           where: { verificationStatus: BusinessVerificationStatus.PENDING },
         }),
-        prisma.agentProfile.count({
+        prisma.agent.count({
           where: { isApproved: false },
         }),
         prisma.review.count({
@@ -126,7 +126,7 @@ export class AdminService implements IAdminService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: users as User[],
+        data: users as unknown as User[],
         pagination: {
           page,
           limit,
@@ -202,8 +202,48 @@ export class AdminService implements IAdminService {
 
       const totalPages = Math.ceil(total / limit);
 
+      // Convert Prisma results to Business interface
+      const businessResults = businesses.map((business) => ({
+        id: business.id,
+        ownerId: business.ownerId,
+        name: business.name,
+        description: business.description || undefined,
+        category: business.category,
+        phone: business.phone,
+        email: business.email,
+        website: business.website || undefined,
+        logo: business.logo || undefined,
+        coverImage: business.coverImage || undefined,
+        address: business.address,
+        city: business.city,
+        state: business.state,
+        latitude: business.latitude || undefined,
+        longitude: business.longitude || undefined,
+        verificationStatus: business.verificationStatus,
+        verificationNotes: business.verificationNotes || undefined,
+        verifiedAt: business.verifiedAt || undefined,
+        verificationDocuments: business.verificationDocuments || [],
+        averageRating: business.averageRating,
+        totalReviews: business.totalReviews,
+        totalVisits: business.totalVisits,
+        isActive: business.isActive,
+        onboardedByAgentId: business.onboardedByAgentId || undefined,
+        cacNumber: business.cacNumber || undefined,
+        utilityBill: business.utilityBill || undefined,
+        createdAt: business.createdAt,
+        updatedAt: business.updatedAt,
+        owner: business.owner as BaseUser,
+        onboardedByAgent: business.onboardedByAgent as Agent,
+        reviews: [],
+        coupons: [],
+        businessHours: [],
+        businessSettings: undefined,
+        analytics: [],
+        views: [],
+      }));
+
       return {
-        data: businesses as Business[],
+        data: businessResults as Business[],
         pagination: {
           page,
           limit,
@@ -229,7 +269,7 @@ export class AdminService implements IAdminService {
       search?: string;
     },
   ): Promise<{
-    data: AgentProfile[];
+    data: Agent[];
     pagination: {
       page: number;
       limit: number;
@@ -263,7 +303,7 @@ export class AdminService implements IAdminService {
       const skip = (page - 1) * limit;
 
       const [agents, total] = await Promise.all([
-        prisma.agentProfile.findMany({
+        prisma.agent.findMany({
           where,
           skip,
           take: limit,
@@ -272,13 +312,13 @@ export class AdminService implements IAdminService {
             user: true,
           },
         }),
-        prisma.agentProfile.count({ where }),
+        prisma.agent.count({ where }),
       ]);
 
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: agents as AgentProfile[],
+        data: agents as unknown as Agent[],
         pagination: {
           page,
           limit,
@@ -329,7 +369,7 @@ export class AdminService implements IAdminService {
       }
 
       if (filters?.userId) {
-        where.userId = filters.userId;
+        where.reviewerId = filters.userId;
       }
 
       const skip = (page - 1) * limit;
@@ -341,7 +381,7 @@ export class AdminService implements IAdminService {
           take: limit,
           orderBy: { createdAt: "desc" },
           include: {
-            user: true,
+            reviewer: true,
             business: true,
           },
         }),
@@ -351,7 +391,7 @@ export class AdminService implements IAdminService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: reviews as Review[],
+        data: reviews as unknown as Review[],
         pagination: {
           page,
           limit,
@@ -438,7 +478,7 @@ export class AdminService implements IAdminService {
     }
   }
 
-  async activateUser(userId: string, adminId: string): Promise<User> {
+  async activateUser(userId: string, adminId: string): Promise<BaseUser> {
     try {
       const user = await prisma.user.update({
         where: { id: userId },
@@ -461,7 +501,7 @@ export class AdminService implements IAdminService {
         { previousStatus: user.status },
       );
 
-      return user as User;
+      return user as BaseUser;
     } catch (error) {
       throw new Error(
         `Failed to activate user: ${
@@ -477,7 +517,7 @@ export class AdminService implements IAdminService {
     targetId: string,
     adminId: string,
     adminName: string,
-    details?: any,
+    details?: InputJsonValue,
   ): Promise<AdminAction> {
     try {
       const adminAction = await prisma.adminAction.create({
@@ -658,20 +698,21 @@ export class AdminService implements IAdminService {
 
       return months;
     } catch (error) {
+      console.error(error);
       return [];
     }
   }
 
   async getReportedContent(): Promise<{
     reportedReviews: Review[];
-    reportedUsers: User[];
+    reportedUsers: BaseUser[];
   }> {
     try {
       const [reportedReviews, reportedUsers] = await Promise.all([
         prisma.review.findMany({
           where: { reported: true },
           include: {
-            user: true,
+            reviewer: true,
             business: true,
           },
           orderBy: { createdAt: "desc" },
@@ -690,10 +731,9 @@ export class AdminService implements IAdminService {
           orderBy: { updatedAt: "desc" },
         }),
       ]);
-
       return {
-        reportedReviews: reportedReviews as Review[],
-        reportedUsers: reportedUsers as User[],
+        reportedReviews: reportedReviews as unknown as Review[],
+        reportedUsers: reportedUsers as BaseUser[],
       };
     } catch (error) {
       throw new Error(

@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/user-avatar";
 import { useBusinessViewTracking } from "@/hooks/useBusinessViewTracking";
 import {
@@ -16,12 +15,12 @@ import {
   Phone,
   Mail,
   Globe,
-  Clock,
   MessageSquare,
   Plus,
   Building2,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
+import Image from "next/image";
 
 interface Business {
   id: string;
@@ -65,7 +64,7 @@ interface Review {
 export default function BusinessViewPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
   const [business, setBusiness] = useState<Business | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -181,10 +180,12 @@ export default function BusinessViewPage() {
         {/* Cover Image */}
         <div className="h-64 md:h-80 bg-gradient-to-r from-blue-500 to-purple-600">
           {business.coverImage ? (
-            <img
+            <Image
               src={business.coverImage}
               alt={`${business.name} cover`}
               className="w-full h-full object-cover"
+              width={1000}
+              height={1000}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -202,10 +203,12 @@ export default function BusinessViewPage() {
               {/* Logo */}
               <div className="w-24 h-24 md:w-32 md:h-32 bg-white dark:bg-gray-800 rounded-2xl border-4 border-white dark:border-gray-800 shadow-xl flex items-center justify-center overflow-hidden">
                 {business.logo ? (
-                  <img
+                  <Image
                     src={business.logo}
                     alt={`${business.name} logo`}
                     className="w-full h-full object-cover"
+                    width={1000}
+                    height={1000}
                   />
                 ) : (
                   <Building2 className="w-12 h-12 md:w-16 md:h-16 text-gray-400" />
@@ -415,11 +418,13 @@ export default function BusinessViewPage() {
                           {review.images && review.images.length > 0 && (
                             <div className="flex space-x-2">
                               {review.images.slice(0, 3).map((image, index) => (
-                                <img
+                                <Image
                                   key={index}
                                   src={image}
                                   alt={`Review image ${index + 1}`}
                                   className="w-16 h-16 object-cover rounded"
+                                  width={64}
+                                  height={64}
                                 />
                               ))}
                               {review.images.length > 3 && (
@@ -523,7 +528,8 @@ export default function BusinessViewPage() {
                       Share Your Experience
                     </h3>
                     <p className="text-blue-700 text-sm mb-4">
-                      Help others by reviewing this business and earn ₦50!
+                      Help others by reviewing this business and earn a cash
+                      reward!
                     </p>
                     <Button
                       onClick={handleAddReview}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,10 +23,8 @@ import {
   Eye,
   Clock,
   User,
-  Mail,
   MapPin,
   Filter,
-  Star,
   FileText,
 } from "lucide-react";
 
@@ -49,7 +46,6 @@ interface AgentApplication {
 }
 
 export default function AdminAgentsPage() {
-  const { data: session } = useSession();
   const [applications, setApplications] = useState<AgentApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");

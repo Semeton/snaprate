@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
+import { ReviewStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") as any;
+    const status = searchParams.get("status") as ReviewStatus;
 
     // Get the user's business
     const business = await prisma.business.findUnique({
@@ -34,8 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get reviews for the business
-    const where: any = { businessId: business.id };
-    if (status && status !== "all") {
+    const where: { businessId: string; status?: ReviewStatus } = {
+      businessId: business.id,
+    };
+
+    if (status) {
       where.status = status;
     }
 

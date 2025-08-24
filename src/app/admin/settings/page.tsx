@@ -8,13 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import {
   Settings,
@@ -25,10 +18,9 @@ import {
   Eye,
   EyeOff,
   Camera,
-  Trash2,
   AlertTriangle,
-  CheckCircle,
 } from "lucide-react";
+import Image from "next/image";
 
 interface AdminProfile {
   id: string;
@@ -369,10 +361,12 @@ export default function AdminSettingsPage() {
               <div className="relative">
                 <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                   {profile.avatar ? (
-                    <img
+                    <Image
                       src={profile.avatar}
                       alt="Profile"
                       className="w-full h-full object-cover"
+                      width={1000}
+                      height={1000}
                     />
                   ) : (
                     <User className="h-10 w-10 text-gray-400" />

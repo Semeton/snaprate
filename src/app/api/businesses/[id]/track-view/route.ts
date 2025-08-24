@@ -5,19 +5,20 @@ import BusinessViewService from "@/services/BusinessViewService";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const businessId = params.id;
+    const { id: businessId } = await params;
     const session = await getServerSession(authOptions);
-    
+
     // Get request details
-    const ipAddress = request.headers.get("x-forwarded-for") || 
-                     request.headers.get("x-real-ip") || 
-                     "unknown";
+    const ipAddress =
+      request.headers.get("x-forwarded-for") ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
     const userAgent = request.headers.get("user-agent") || "unknown";
     const referrer = request.headers.get("referer") || "unknown";
-    
+
     // Determine source and view type from request
     const url = new URL(request.url);
     const source = url.searchParams.get("source") || "DIRECT";
@@ -25,8 +26,8 @@ export async function POST(
     const sessionId = url.searchParams.get("sessionId") || undefined;
 
     // Validate business exists
-    const businessViewService = BusinessViewService.getInstance();
-    
+    const businessViewService = new BusinessViewService();
+
     // Track the view
     await businessViewService.trackView({
       businessId,
@@ -34,8 +35,8 @@ export async function POST(
       ipAddress: ipAddress.toString(),
       userAgent,
       referrer,
-      source: source as any,
-      viewType: viewType as any,
+      source,
+      viewType,
       sessionId,
     });
 
@@ -47,7 +48,7 @@ export async function POST(
     console.error("Failed to track business view:", error);
     return NextResponse.json(
       { success: false, error: "Failed to track business view" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

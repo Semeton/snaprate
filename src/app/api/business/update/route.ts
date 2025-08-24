@@ -3,10 +3,22 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
+import { Session } from "next-auth";
+import { BusinessCategory, State } from "@prisma/client";
 
 export async function PUT(request: NextRequest) {
-  let body: any;
-  let session: any;
+  let body: {
+    name: string;
+    description: string;
+    category: BusinessCategory;
+    phone: string;
+    email: string;
+    website: string;
+    address: string;
+    city: string;
+    state: State;
+  };
+  let session: Session | null;
 
   try {
     session = await getServerSession(authOptions);
@@ -106,8 +118,6 @@ export async function PUT(request: NextRequest) {
     logger.error("Failed to update business", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      body: body,
-      userId: session?.user?.id,
     });
     return NextResponse.json(
       {

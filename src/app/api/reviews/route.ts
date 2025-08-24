@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PlatformSettingsService } from "@/services/PlatformSettingsService";
+import { ReviewStatus } from "@/types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { businessId, rating, title, content, images, video, isAnonymous } =
-      body;
+    const { businessId, rating, content, images, video } = body;
 
     // Validation
     if (!businessId || !rating || !content) {
@@ -55,43 +56,53 @@ export async function POST(request: NextRequest) {
 
     if (existingReview) {
       return NextResponse.json(
-        { success: false, error: "You have already reviewed this business" },
-        { status: 409 },
+        {
+          success: false,
+          error: "You have already reviewed this business",
+        },
+        { status: 400 },
       );
     }
 
-    // Create review
+    // Check if business exists and is verified
+    const business = await prisma.business.findFirst({
+      where: {
+        id: businessId,
+        verificationStatus: "VERIFIED",
+      },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Business not found or not verified",
+        },
+        { status: 404 },
+      );
+    }
+
+    // Get platform settings for reward amount
+    const platformSettings = PlatformSettingsService.getInstance();
+    const settings = await platformSettings.getSettings();
+
+    // Create the review
     const review = await prisma.review.create({
       data: {
-        reviewerId: session.user.id,
-        businessId,
         rating,
         content,
         images: images || [],
         video: video || null,
-        status: "PENDING",
-        isVerified: false,
-        helpfulCount: 0,
+        status: ReviewStatus.PENDING,
+        reviewerId: session.user.id,
+        businessId,
       },
       include: {
-        reviewer: {
-          select: {
-            id: true,
-            name: true,
-            avatar: true,
-          },
-        },
-        business: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-          },
-        },
+        business: true,
       },
     });
 
-    // Update business metrics
+    // Update business rating and review count
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -109,11 +120,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create reward for the review (NGN 50)
+    // Create reward for the review using platform settings
     await prisma.reward.create({
       data: {
         referrerId: session.user.id,
-        amount: 50,
+        amount: settings.reviewRewardAmount,
         type: "REVIEW",
         description: `Review reward for ${review.business.name}`,
         isRedeemed: false,
@@ -145,8 +156,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reviewId, rating, title, content, images, video, isAnonymous } =
-      body;
+    const { reviewId, rating, content, images, video, isAnonymous } = body;
 
     // Validation
     if (!reviewId || !rating || !content) {
@@ -274,15 +284,17 @@ export async function GET(request: NextRequest) {
       try {
         console.log("Fetching reviews for businessId:", businessId);
         const skip = (page - 1) * limit;
-        const where: { businessId: string; status?: string } = { businessId };
+        const where: { businessId: string; status?: ReviewStatus } = {
+          businessId,
+        };
         if (status) {
-          where.status = status as any;
+          where.status = status as ReviewStatus;
         }
         console.log("Where clause:", where);
 
         const [reviews, total] = await Promise.all([
           prisma.review.findMany({
-            where: where as any,
+            where,
             include: {
               reviewer: {
                 select: {
@@ -342,7 +354,7 @@ export async function GET(request: NextRequest) {
     if (userId) {
       try {
         const skip = (page - 1) * limit;
-        const where: any = { reviewerId: userId };
+        const where = { reviewerId: userId };
         if (status) {
           where.status = status;
         }

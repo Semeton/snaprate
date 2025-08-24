@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,15 +31,11 @@ import {
   Eye,
   Filter,
   MessageSquare,
-  Building2,
-  User,
-  Calendar,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
   ChevronRight,
   Shield,
-  AlertTriangle,
 } from "lucide-react";
 
 interface Review {
@@ -68,7 +63,6 @@ interface Review {
 }
 
 export default function AdminReviewsPage() {
-  const { data: session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
@@ -471,7 +465,10 @@ export default function AdminReviewsPage() {
                       <div className="flex flex-col space-y-1">
                         {getStatusBadge(review.status)}
                         {review.isVerified && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-green-500 text-white"
+                          >
                             Verified
                           </Badge>
                         )}
@@ -561,7 +558,7 @@ export default function AdminReviewsPage() {
                             </Button>
                           </>
                         )}
-                        {(review.status === "APPROVED" ||
+                        {/* {(review.status === "APPROVED" ||
                           review.status === "REJECTED") && (
                           <Button
                             size="sm"
@@ -577,7 +574,7 @@ export default function AdminReviewsPage() {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
-                        )}
+                        )} */}
                         {/* Always show view button for all reviews */}
                         <Button
                           size="sm"

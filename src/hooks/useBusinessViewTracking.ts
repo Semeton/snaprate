@@ -1,5 +1,4 @@
 import { useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
 
 interface UseBusinessViewTrackingOptions {
   businessId: string;
@@ -16,25 +15,28 @@ export function useBusinessViewTracking({
   autoTrack = true,
   sessionId,
 }: UseBusinessViewTrackingOptions) {
-  const { data: session } = useSession();
-
   const trackView = useCallback(async () => {
     try {
       // Generate a unique session ID if not provided
-      const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+      const currentSessionId =
+        sessionId ||
+        `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       const params = new URLSearchParams({
         source,
         viewType,
         sessionId: currentSessionId,
       });
 
-      const response = await fetch(`/api/businesses/${businessId}/track-view?${params.toString()}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/businesses/${businessId}/track-view?${params.toString()}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         console.warn("Failed to track business view");

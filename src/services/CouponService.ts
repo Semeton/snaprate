@@ -66,7 +66,7 @@ export class CouponService {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where: any = { businessId };
+      const where = { businessId };
       if (status) {
         where.status = status;
       }
@@ -175,6 +175,7 @@ export class CouponService {
 
       return { isValid: true, coupon };
     } catch (error) {
+      console.error(error);
       return {
         isValid: false,
         error: "Failed to validate coupon",
@@ -219,12 +220,12 @@ export class CouponService {
   ): Promise<Coupon> {
     try {
       // Remove fields that shouldn't be updated
-      const { id, code, businessId, currentUses, ...allowedUpdates } =
-        updateData;
+      // const { id, code, businessId, currentUses, ...allowedUpdates } =
+      // updateData;
 
       const coupon = await prisma.coupon.update({
         where: { id: couponId },
-        data: allowedUpdates,
+        data: updateData,
         include: {
           business: {
             select: {

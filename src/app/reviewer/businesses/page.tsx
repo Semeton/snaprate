@@ -24,6 +24,8 @@ import {
   ArrowLeft,
   Plus,
 } from "lucide-react";
+import { Review } from "@prisma/client";
+import Image from "next/image";
 
 interface Business {
   id: string;
@@ -109,7 +111,7 @@ export default function BusinessesPage() {
       if (response.ok) {
         const data = await response.json();
         const reviewedBusinessIds = new Set(
-          data.data?.map((r: any) => r.businessId) || [],
+          data.data?.map((r: Review) => r.businessId) || [],
         );
         setHasReviewed(reviewedBusinessIds);
       }
@@ -326,9 +328,11 @@ export default function BusinessesPage() {
                     {/* Business Logo/Image */}
                     <div className="h-32 bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
                       {business.logo ? (
-                        <img
+                        <Image
                           src={business.logo}
                           alt={business.name}
+                          width={100}
+                          height={100}
                           className="h-full w-full object-cover rounded-lg"
                         />
                       ) : (

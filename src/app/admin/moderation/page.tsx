@@ -9,20 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
-import {
-  Shield,
-  Users,
-  Settings,
-  Save,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Trash2,
-  UserCheck,
-  UserX,
-  Crown,
-} from "lucide-react";
+import { Shield, Users, Save, XCircle, Crown } from "lucide-react";
 
 interface AdminPermissions {
   id: string;

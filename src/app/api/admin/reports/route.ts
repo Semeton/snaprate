@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ContentType, ReportReason, ReportStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,10 +34,16 @@ export async function GET(request: NextRequest) {
     const reason = searchParams.get("reason");
 
     // Build where clause
-    const where: any = {};
-    if (status && status !== "ALL") where.status = status;
-    if (contentType && contentType !== "ALL") where.contentType = contentType;
-    if (reason && reason !== "ALL") where.reason = reason;
+    const where: {
+      status?: ReportStatus;
+      contentType?: ContentType;
+      reason?: ReportReason;
+    } = {};
+    if (status && status !== "ALL") where.status = status as ReportStatus;
+    if (contentType && contentType !== "ALL")
+      where.contentType = contentType as unknown as ContentType;
+    if (reason && reason !== "ALL")
+      where.reason = reason as unknown as ReportReason;
 
     // Get all reported content with related information
     const reports = await prisma.reportedContent.findMany({

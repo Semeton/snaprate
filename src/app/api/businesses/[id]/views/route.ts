@@ -5,10 +5,10 @@ import BusinessViewService from "@/services/BusinessViewService";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const businessId = params.id;
+    const { id: businessId } = await params;
     const session = await getServerSession(authOptions);
     
     // Check if user has access to view business analytics

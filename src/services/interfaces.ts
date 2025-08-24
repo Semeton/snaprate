@@ -3,25 +3,25 @@
 
 import {
   User,
-  BusinessServiceData,
+  Business,
   Review,
   Reward,
-  Coupon,
-  AgentProfile,
-  AdminAction,
   Notification,
-  ApiResponse,
+  AdminAction,
+  Agent,
   PaginatedResponse,
+  BusinessServiceData,
   BusinessSearchFilters,
   ReviewSearchFilters,
   DashboardStats,
   BusinessDashboardStats,
   AgentDashboardStats,
+  Coupon,
 } from "@/types";
 
 // Base service interface for common CRUD operations
 export interface IBaseService<T> {
-  create(data: any): Promise<T>;
+  create(data: unknown): Promise<T>;
   findById(id: string): Promise<T | null>;
   update(id: string, data: Partial<T>): Promise<T>;
   delete(id: string): Promise<void>;
@@ -29,7 +29,7 @@ export interface IBaseService<T> {
 
 // User service interface
 export interface IUserService {
-  createUser(userData: any): Promise<User>;
+  createUser(userData: unknown): Promise<User>;
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   findByPhone(phone: string): Promise<User | null>;
@@ -47,7 +47,7 @@ export interface IUserService {
 // Business service interface
 export interface IBusinessService {
   createBusiness(
-    businessData: any,
+    businessData: unknown,
     ownerId: string,
   ): Promise<BusinessServiceData>;
   findById(id: string): Promise<BusinessServiceData | null>;
@@ -69,14 +69,14 @@ export interface IBusinessService {
     limit?: number,
   ): Promise<PaginatedResponse<BusinessServiceData>>;
   getBusinessStats(businessId: string): Promise<BusinessDashboardStats>;
-  addStaffMember(businessId: string, staffData: any): Promise<any>;
+  addStaffMember(businessId: string, staffData: unknown): Promise<unknown>;
   removeStaffMember(businessId: string, staffId: string): Promise<void>;
 }
 
 // Review service interface
 export interface IReviewService {
   createReview(
-    reviewData: any,
+    reviewData: unknown,
     userId: string,
     businessId: string,
   ): Promise<Review>;
@@ -104,13 +104,13 @@ export interface IReviewService {
   getReviewStats(businessId: string): Promise<{
     averageRating: number;
     totalReviews: number;
-    ratingDistribution: any;
+    ratingDistribution: unknown;
   }>;
 }
 
 // Reward service interface
 export interface IRewardService {
-  createReward(rewardData: any): Promise<Reward>;
+  createReward(rewardData: unknown): Promise<Reward>;
   findById(id: string): Promise<Reward | null>;
   findByUser(
     userId: string,
@@ -131,7 +131,7 @@ export interface IRewardService {
 
 // Coupon service interface
 export interface ICouponService {
-  createCoupon(couponData: any, businessId: string): Promise<Coupon>;
+  createCoupon(couponData: unknown, businessId: string): Promise<Coupon>;
   findById(id: string): Promise<Coupon | null>;
   findByCode(code: string): Promise<Coupon | null>;
   findByBusiness(
@@ -151,28 +151,21 @@ export interface ICouponService {
 
 // Agent service interface
 export interface IAgentService {
-  createAgentProfile(userId: string, agentData: any): Promise<AgentProfile>;
-  findById(id: string): Promise<AgentProfile | null>;
-  findByUser(userId: string): Promise<AgentProfile | null>;
-  updateAgentProfile(
-    id: string,
-    data: Partial<AgentProfile>,
-  ): Promise<AgentProfile>;
+  createAgentProfile(userId: string, agentData: unknown): Promise<Agent>;
+  findById(id: string): Promise<Agent | null>;
+  findByUser(userId: string): Promise<Agent | null>;
+  updateAgentProfile(id: string, data: Partial<Agent>): Promise<Agent>;
   deleteAgentProfile(id: string): Promise<void>;
-  approveAgent(id: string, adminId: string): Promise<AgentProfile>;
-  rejectAgent(
-    id: string,
-    adminId: string,
-    reason: string,
-  ): Promise<AgentProfile>;
-  onboardBusiness(agentId: string, businessData: any): Promise<Business>;
+  approveAgent(id: string, adminId: string): Promise<Agent>;
+  rejectAgent(id: string, adminId: string, reason: string): Promise<Agent>;
+  onboardBusiness(agentId: string, businessData: unknown): Promise<Business>;
   getAgentStats(agentId: string): Promise<AgentDashboardStats>;
   getOnboardedBusinesses(
     agentId: string,
     page?: number,
     limit?: number,
   ): Promise<PaginatedResponse<Business>>;
-  updateBankDetails(agentId: string, bankData: any): Promise<AgentProfile>;
+  updateBankDetails(agentId: string, bankData: unknown): Promise<Agent>;
 }
 
 // Admin service interface
@@ -187,22 +180,22 @@ export interface IAdminService {
   getUsers(
     page?: number,
     limit?: number,
-    filters?: any,
+    filters?: unknown,
   ): Promise<PaginatedResponse<User>>;
   getBusinesses(
     page?: number,
     limit?: number,
-    filters?: any,
+    filters?: unknown,
   ): Promise<PaginatedResponse<Business>>;
   getAgents(
     page?: number,
     limit?: number,
-    filters?: any,
-  ): Promise<PaginatedResponse<AgentProfile>>;
+    filters?: unknown,
+  ): Promise<PaginatedResponse<Agent>>;
   getReviews(
     page?: number,
     limit?: number,
-    filters?: any,
+    filters?: unknown,
   ): Promise<PaginatedResponse<Review>>;
   suspendUser(userId: string, reason: string, adminId: string): Promise<User>;
   banUser(userId: string, reason: string, adminId: string): Promise<User>;
@@ -212,7 +205,7 @@ export interface IAdminService {
     targetId: string,
     adminId: string,
     adminName: string,
-    details?: any,
+    details?: unknown,
   ): Promise<AdminAction>;
   getAdminActions(
     page?: number,
@@ -252,11 +245,11 @@ export interface IAuthService {
     state: string;
     city: string;
     address: string;
-  }): Promise<{ user: any; token: string }>;
+  }): Promise<{ user: unknown; token: string }>;
   signIn(credentials: {
     email: string;
     password: string;
-  }): Promise<{ user: any; token: string }>;
+  }): Promise<{ user: unknown; token: string }>;
   signOut(): Promise<void>;
   verifyEmail(token: string): Promise<boolean>;
   sendVerificationEmail(
@@ -305,5 +298,5 @@ export interface IPaymentService {
     userId: string,
     page?: number,
     limit?: number,
-  ): Promise<PaginatedResponse<any>>;
+  ): Promise<PaginatedResponse<unknown>>;
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
+import { BusinessView } from "@prisma/client";
 
 export interface BusinessViewData {
   businessId: string;
@@ -23,16 +24,7 @@ export interface BusinessViewStats {
 }
 
 export class BusinessViewService {
-  private static instance: BusinessViewService;
-
-  private constructor() {}
-
-  public static getInstance(): BusinessViewService {
-    if (!BusinessViewService.instance) {
-      BusinessViewService.instance = new BusinessViewService();
-    }
-    return BusinessViewService;
-  }
+  constructor() {}
 
   /**
    * Track a business view
@@ -66,7 +58,9 @@ export class BusinessViewService {
       // Update daily analytics
       await this.updateDailyAnalytics(viewData.businessId);
 
-      logger.info("Business view tracked successfully", { businessId: viewData.businessId });
+      logger.info("Business view tracked successfully", {
+        businessId: viewData.businessId,
+      });
     } catch (error) {
       logger.error("Failed to track business view", { error, viewData });
       throw error;
@@ -157,7 +151,9 @@ export class BusinessViewService {
   /**
    * Get business view statistics
    */
-  public async getBusinessViewStats(businessId: string): Promise<BusinessViewStats> {
+  public async getBusinessViewStats(
+    businessId: string,
+  ): Promise<BusinessViewStats> {
     try {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -244,7 +240,10 @@ export class BusinessViewService {
   /**
    * Get recent views for a business
    */
-  public async getRecentViews(businessId: string, limit: number = 10): Promise<any[]> {
+  public async getRecentViews(
+    businessId: string,
+    limit: number = 10,
+  ): Promise<BusinessView[]> {
     try {
       return await prisma.businessView.findMany({
         where: { businessId },
@@ -270,19 +269,24 @@ export class BusinessViewService {
   /**
    * Get platform-wide view statistics
    */
-  public async getPlatformViewStats(): Promise<any> {
+  public async getPlatformViewStats(): Promise<unknown> {
     try {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [totalViews, todayViews, thisWeekViews, thisMonthViews] = await Promise.all([
-        prisma.businessView.count(),
-        prisma.businessView.count({ where: { createdAt: { gte: today } } }),
-        prisma.businessView.count({ where: { createdAt: { gte: thisWeek } } }),
-        prisma.businessView.count({ where: { createdAt: { gte: thisMonth } } }),
-      ]);
+      const [totalViews, todayViews, thisWeekViews, thisMonthViews] =
+        await Promise.all([
+          prisma.businessView.count(),
+          prisma.businessView.count({ where: { createdAt: { gte: today } } }),
+          prisma.businessView.count({
+            where: { createdAt: { gte: thisWeek } },
+          }),
+          prisma.businessView.count({
+            where: { createdAt: { gte: thisMonth } },
+          }),
+        ]);
 
       return {
         totalViews,

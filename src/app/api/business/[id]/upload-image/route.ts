@@ -12,10 +12,9 @@ import {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const businessId = params.id;
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -24,6 +23,8 @@ export async function POST(
         { status: 401 },
       );
     }
+
+    const { id: businessId } = await params;
 
     // Check if user owns this business
     const business = await prisma.business.findUnique({

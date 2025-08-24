@@ -1,12 +1,12 @@
-import { prisma } from '@/lib/prisma';
-import { IUserService } from './interfaces';
-import { User, UserRole, AccountStatus } from '@/types';
-import bcrypt from 'bcryptjs';
-import { generateReferralCode } from '@/lib/utils';
+import { prisma } from "@/lib/prisma";
+import { IUserService } from "./interfaces";
+import { User, UserRole, AccountStatus, State } from "@/types";
+import bcrypt from "bcryptjs";
+import { generateReferralCode } from "@/lib/utils";
 
 export class UserService implements IUserService {
   // Single Responsibility: This service only handles user-related operations
-  
+
   async createUser(userData: {
     name: string;
     email: string;
@@ -14,7 +14,7 @@ export class UserService implements IUserService {
     password?: string;
     role?: UserRole;
     referredBy?: string;
-    state?: string;
+    state?: State;
     city?: string;
     address?: string;
   }): Promise<User> {
@@ -22,21 +22,20 @@ export class UserService implements IUserService {
       // Check if user already exists
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [
-            { email: userData.email },
-            { phone: userData.phone }
-          ]
-        }
+          OR: [{ email: userData.email }, { phone: userData.phone }],
+        },
       });
 
       if (existingUser) {
-        throw new Error('User with this email or phone already exists');
+        throw new Error("User with this email or phone already exists");
       }
 
       // Hash password if provided
-      let hashedPassword: string | undefined;
+      let hashedPassword: string;
       if (userData.password) {
         hashedPassword = await bcrypt.hash(userData.password, 12);
+      } else {
+        hashedPassword = "";
       }
 
       // Generate unique referral code
@@ -51,21 +50,30 @@ export class UserService implements IUserService {
           password: hashedPassword,
           role: userData.role || UserRole.REVIEWER,
           status: AccountStatus.PENDING,
-          state: userData.state as any,
-          city: userData.city,
-          address: userData.address,
+          state: userData.state as State,
+          city: userData.city as string,
+          address: userData.address as string,
           referralCode,
-          referredBy: userData.referredBy,
+          referredBy: userData.referredBy as string,
         },
         include: {
-          business: true,
+          business: {
+            include: {
+              reviews: true,
+            },
+          },
+          rewards: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -79,16 +87,19 @@ export class UserService implements IUserService {
           reviews: {
             include: {
               business: true,
-              reward: true,
-            }
+            },
           },
           rewards: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -99,28 +110,36 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user by email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find user by email: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
   async findByPhone(phone: string): Promise<User | null> {
     try {
       const user = await prisma.user.findUnique({
-        where: { phone },
+        where: { phone: phone as string },
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to find user by phone: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to find user by phone: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -137,22 +156,30 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to update user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
   async deleteUser(id: string): Promise<void> {
     try {
       await prisma.user.delete({
-        where: { id }
+        where: { id },
       });
     } catch (error) {
-      throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete user: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -167,12 +194,16 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to verify email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to verify email: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -187,32 +218,39 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to verify phone: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to verify phone: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
   async updateProfile(id: string, data: Partial<User>): Promise<User> {
     try {
-      // Remove sensitive fields that shouldn't be updated via profile update
-      const { password, email, phone, role, status, ...profileData } = data;
+      // const { password, email, phone, role, status, ...profileData } = data;
 
       const user = await prisma.user.update({
         where: { id },
-        data: profileData,
+        data,
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to update profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update profile: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -223,37 +261,47 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return referrals as User[];
     } catch (error) {
-      throw new Error(`Failed to get referrals: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get referrals: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async getReferralStats(userId: string): Promise<{ count: number; earnings: number }> {
+  async getReferralStats(
+    userId: string,
+  ): Promise<{ count: number; earnings: number }> {
     try {
       const referrals = await prisma.user.count({
-        where: { referredBy: userId }
+        where: { referredBy: userId },
       });
 
       const referralEarnings = await prisma.reward.aggregate({
         where: {
-          userId,
-          type: 'REFERRAL_BONUS'
+          referrerId: userId,
+          type: "REFERRAL_BONUS",
         },
         _sum: {
-          amount: true
-        }
+          amount: true,
+        },
       });
 
       return {
         count: referrals,
-        earnings: referralEarnings._sum.amount || 0
+        earnings: referralEarnings._sum?.amount || 0,
       };
     } catch (error) {
-      throw new Error(`Failed to get referral stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get referral stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
@@ -267,16 +315,20 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to activate account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to activate account: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async suspendAccount(userId: string, reason?: string): Promise<User> {
+  async suspendAccount(userId: string): Promise<User> {
     try {
       const user = await prisma.user.update({
         where: { id: userId },
@@ -286,16 +338,20 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to suspend account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to suspend account: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async banAccount(userId: string, reason?: string): Promise<User> {
+  async banAccount(userId: string): Promise<User> {
     try {
       const user = await prisma.user.update({
         where: { id: userId },
@@ -305,12 +361,16 @@ export class UserService implements IUserService {
         include: {
           business: true,
           agentProfile: true,
-        }
+        },
       });
 
       return user as User;
     } catch (error) {
-      throw new Error(`Failed to ban account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to ban account: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 }

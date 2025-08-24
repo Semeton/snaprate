@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -27,7 +27,7 @@ export async function PUT(
       );
     }
 
-    const adminId = params.id;
+    const { id: adminId } = await params;
     const { permissions } = await request.json();
 
     // Validate permissions object
@@ -76,16 +76,16 @@ export async function PUT(
 
     // Store permissions in user metadata or create a separate permissions table
     // For now, we'll store it in a JSON field in the user table
-    const updatedUser = await prisma.user.update({
-      where: { id: adminId },
-      data: {
-        // Store permissions in a metadata field or create a separate permissions table
-        // This is a simplified approach - in production you might want a dedicated permissions table
-        metadata: {
-          permissions: permissions,
-        },
-      },
-    });
+    // const updatedUser = await prisma.user.update({
+    //   where: { id: adminId },
+    //   data: {
+    //     // Store permissions in a metadata field or create a separate permissions table
+    //     // This is a simplified approach - in production you might want a dedicated permissions table
+    //     metadata: {
+    //       permissions: permissions,
+    //     },
+    //   },
+    // });
 
     // Log the admin action
     await prisma.adminAction.create({

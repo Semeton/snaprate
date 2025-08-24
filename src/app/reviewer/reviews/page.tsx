@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +16,7 @@ import {
   Plus,
 } from "lucide-react";
 import ReviewerSidebar from "@/components/ReviewerSidebar";
+import Image from "next/image";
 
 interface Review {
   id: string;
@@ -42,7 +43,7 @@ interface Review {
 export default function MyReviewsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +98,7 @@ export default function MyReviewsPage() {
         setError("Failed to delete review");
       }
     } catch (error) {
+      console.error("Failed to delete review:", error);
       setError("Failed to delete review");
     }
   };
@@ -147,7 +149,7 @@ export default function MyReviewsPage() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -156,8 +158,18 @@ export default function MyReviewsPage() {
               size="sm"
               onClick={() => setSidebarOpen(true)}
             >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </Button>
             <h1 className="text-lg font-semibold text-gray-900">My Reviews</h1>
@@ -259,10 +271,12 @@ export default function MyReviewsPage() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">
                           {review.business.logo ? (
-                            <img
+                            <Image
                               src={review.business.logo}
                               alt={review.business.name}
                               className="w-12 h-12 rounded-lg object-cover"
+                              width={48}
+                              height={48}
                             />
                           ) : (
                             <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -330,11 +344,13 @@ export default function MyReviewsPage() {
                         <div className="mb-4">
                           <div className="flex space-x-2">
                             {review.images.map((image, index) => (
-                              <img
+                              <Image
                                 key={index}
                                 src={image}
                                 alt={`Review image ${index + 1}`}
                                 className="w-16 h-16 rounded object-cover"
+                                width={64}
+                                height={64}
                               />
                             ))}
                             {review.video && (

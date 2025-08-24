@@ -44,7 +44,7 @@ export class PlatformStatsService {
           take: 3,
           orderBy: { createdAt: "desc" },
           include: {
-            user: { select: { name: true } },
+            reviewer: { select: { name: true } },
             business: { select: { name: true } },
           },
         }),
@@ -65,8 +65,8 @@ export class PlatformStatsService {
         ...recentReviews.map((review) => ({
           id: review.id,
           type: "REVIEW" as const,
-          title: `New review for ${review.business.name}`,
-          description: `by ${review.user.name}`,
+          title: `New review for ${review.business?.name}`,
+          description: `by ${review.reviewer.name}`,
           timestamp: review.createdAt,
         })),
         ...recentBusinesses.map((business) => ({

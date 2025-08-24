@@ -13,7 +13,6 @@ import {
   MessageSquare,
   TrendingUp,
   LogOut,
-  Menu,
   X,
   Shield,
   FileText,
@@ -99,11 +98,12 @@ export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Sidebar */}
       <div
         className={`
-          fixed inset-y-0 left-0 z-50 bg-white shadow-lg border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:fixed lg:left-0
+          fixed inset-y-0 left-0 z-50 bg-white shadow-lg border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:z-auto
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          w-64 lg:w-64
         `}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full w-64">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">
             <div className="flex items-center space-x-3">

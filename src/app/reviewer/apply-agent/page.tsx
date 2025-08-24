@@ -5,11 +5,9 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import {
   Shield,
   CheckCircle,
@@ -104,6 +102,7 @@ export default function ApplyAgentPage() {
         setError(errorData.error || "Failed to submit application");
       }
     } catch (error) {
+      console.error("Error submitting application:", error);
       setError("An error occurred while submitting your application");
     } finally {
       setSubmitting(false);
@@ -135,7 +134,7 @@ export default function ApplyAgentPage() {
             <Shield className="h-10 w-10 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            You're Already an Agent!
+            You&apos;re Already an Agent!
           </h2>
           <p className="text-gray-600 mb-6">
             You already have agent privileges and can recommend businesses.
@@ -157,7 +156,7 @@ export default function ApplyAgentPage() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col lg:ml-0">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">

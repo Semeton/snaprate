@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -39,9 +39,23 @@ export async function GET(request: NextRequest) {
       settings = await prisma.businessSettings.create({
         data: {
           businessId: business.id,
-          notifications: true,
-          privacy: "PUBLIC",
-          security: "STANDARD",
+          emailNotifications: true,
+          smsNotifications: false,
+          reviewAlerts: true,
+          couponRedemptions: true,
+          weeklyReports: true,
+          marketingUpdates: true,
+          profileVisibility: "PUBLIC",
+          showContactInfo: true,
+          showRevenue: false,
+          allowDirectMessages: true,
+          twoFactorAuth: false,
+          sessionTimeout: 30,
+          loginNotifications: true,
+          googleAnalytics: false,
+          facebookPixel: false,
+          mailchimp: false,
+          zapier: false,
         },
       });
     }

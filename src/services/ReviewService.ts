@@ -1,32 +1,42 @@
 import { prisma } from "@/lib/prisma";
-import { Review, ReviewStatus, Business } from "@/types";
 import { RewardService } from "./RewardService";
+import { PlatformSettingsService } from "./PlatformSettingsService";
+import { RewardType, Review, ReviewStatus } from "@/types";
+import { PrismaClient } from "@prisma/client";
 
 export class ReviewService {
   private rewardService: RewardService;
+  private platformSettingsService: PlatformSettingsService;
 
   constructor() {
     this.rewardService = new RewardService();
+    this.platformSettingsService = PlatformSettingsService.getInstance();
   }
 
   async createReview(reviewData: {
     userId: string;
     businessId: string;
     rating: number;
+    title?: string;
     content: string;
     images: string[];
     video?: string | null;
+    isAnonymous?: boolean;
   }): Promise<Review> {
     try {
-      // Start a transaction to create review and update business metrics
+      // Get platform settings for reward amount
+      const platformSettings = await this.platformSettingsService.getSettings();
+
       const result = await prisma.$transaction(async (tx) => {
         // Create the review
         const review = await tx.review.create({
           data: {
             rating: reviewData.rating,
+            // title: reviewData.title,
             content: reviewData.content,
-            images: reviewData.images,
-            video: reviewData.video,
+            images: reviewData.images || [],
+            video: reviewData.video || null,
+            isAnonymous: reviewData.isAnonymous || false,
             status: ReviewStatus.PENDING,
             reviewerId: reviewData.userId,
             businessId: reviewData.businessId,
@@ -43,16 +53,16 @@ export class ReviewService {
         return review;
       });
 
-      // Create reward for the review (NGN 50)
+      // Create reward for the review using platform settings
       await this.rewardService.createReward({
-        type: "REVIEW" as any,
-        amount: 50,
-        description: `Review reward for ${result.business?.name || "business"}`,
-        userId: reviewData.userId,
+        type: "REVIEW" as RewardType,
+        amount: platformSettings.reviewRewardAmount,
+        description: `Review reward for ${result.businessId}`,
+        referrerId: reviewData.userId,
         reviewId: result.id,
       });
 
-      return result as Review;
+      return result as unknown as Review;
     } catch (error) {
       throw new Error(
         `Failed to create review: ${
@@ -78,7 +88,7 @@ export class ReviewService {
         },
       });
 
-      return review as Review;
+      return review as unknown as Review;
     } catch (error) {
       throw new Error(
         `Failed to get user review: ${
@@ -100,7 +110,7 @@ export class ReviewService {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where: any = { businessId };
+      const where = { businessId };
       if (status) {
         where.status = status;
       }
@@ -161,7 +171,7 @@ export class ReviewService {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where: any = { reviewerId: userId };
+      const where = { reviewerId: userId };
       if (status) {
         where.status = status;
       }
@@ -170,7 +180,7 @@ export class ReviewService {
         prisma.review.findMany({
           where,
           include: {
-            user: {
+            reviewer: {
               select: {
                 id: true,
                 name: true,
@@ -220,7 +230,7 @@ export class ReviewService {
           status: ReviewStatus.APPROVED,
         },
         include: {
-          user: true,
+          reviewer: true,
           business: true,
         },
       });
@@ -239,7 +249,7 @@ export class ReviewService {
         },
       });
 
-      return review as Review;
+      return review as unknown as Review;
     } catch (error) {
       throw new Error(
         `Failed to approve review: ${
@@ -261,7 +271,7 @@ export class ReviewService {
           status: ReviewStatus.REJECTED,
         },
         include: {
-          user: true,
+          reviewer: true,
           business: true,
         },
       });
@@ -278,7 +288,7 @@ export class ReviewService {
         },
       });
 
-      return review as Review;
+      return review as unknown as Review;
     } catch (error) {
       throw new Error(
         `Failed to reject review: ${
@@ -291,7 +301,7 @@ export class ReviewService {
   async reportReview(
     reviewId: string,
     reason: string,
-    reporterId: string,
+    // reporterId: string,
   ): Promise<Review> {
     try {
       const review = await prisma.review.update({
@@ -301,12 +311,12 @@ export class ReviewService {
           reportReason: reason,
         },
         include: {
-          user: true,
+          reviewer: true,
           business: true,
         },
       });
 
-      return review as Review;
+      return review as unknown as Review;
     } catch (error) {
       throw new Error(
         `Failed to report review: ${
@@ -326,7 +336,7 @@ export class ReviewService {
         throw new Error("Review not found");
       }
 
-      if (review.userId !== userId) {
+      if (review.reviewerId !== userId) {
         throw new Error("You can only delete your own reviews");
       }
 
@@ -347,7 +357,7 @@ export class ReviewService {
 
   private async updateBusinessMetrics(
     businessId: string,
-    tx?: any,
+    tx?: PrismaClient,
   ): Promise<void> {
     try {
       const prismaClient = tx || prisma;
@@ -368,8 +378,8 @@ export class ReviewService {
         await prismaClient.business.update({
           where: { id: businessId },
           data: {
-            rating: 0,
-            reviewCount: 0,
+            averageRating: 0,
+            totalReviews: 0,
           },
         });
         return;
@@ -386,8 +396,8 @@ export class ReviewService {
       await prismaClient.business.update({
         where: { id: businessId },
         data: {
-          rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-          reviewCount,
+          averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+          totalReviews: reviewCount,
         },
       });
     } catch (error) {
@@ -399,16 +409,16 @@ export class ReviewService {
     try {
       const [totalReviews, approvedReviews, pendingReviews, totalEarnings] =
         await Promise.all([
-          prisma.review.count({ where: { userId } }),
+          prisma.review.count({ where: { reviewerId: userId } }),
           prisma.review.count({
-            where: { userId, status: ReviewStatus.APPROVED },
+            where: { reviewerId: userId, status: ReviewStatus.APPROVED },
           }),
           prisma.review.count({
-            where: { userId, status: ReviewStatus.PENDING },
+            where: { reviewerId: userId, status: ReviewStatus.PENDING },
           }),
           prisma.reward.aggregate({
             where: {
-              userId,
+              referrerId: userId,
               reviewId: { not: null },
               isRedeemed: false,
             },
@@ -420,7 +430,7 @@ export class ReviewService {
         totalReviews,
         approvedReviews,
         pendingReviews,
-        totalEarnings: totalEarnings._sum.amount || 0,
+        totalEarnings: totalEarnings._sum?.amount || 0,
       };
     } catch (error) {
       throw new Error(

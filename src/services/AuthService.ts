@@ -39,7 +39,6 @@ export class AuthService implements IAuthService {
         address: userData.address,
       });
 
-      // Validate required fields
       if (!userData.state || !userData.city || !userData.address) {
         logger.error("User signup failed - missing required fields", {
           email: userData.email,
@@ -50,7 +49,6 @@ export class AuthService implements IAuthService {
         throw new Error("State, city, and address are required fields");
       }
 
-      // Check if user already exists
       logger.debug("Checking for existing user", {
         email: userData.email,
         phone: userData.phone,
@@ -72,15 +70,12 @@ export class AuthService implements IAuthService {
 
       logger.debug("No existing user found, proceeding with signup");
 
-      // Hash password
       logger.debug("Hashing user password");
       const hashedPassword = await bcrypt.hash(userData.password, 12);
 
-      // Generate unique referral code
       logger.debug("Generating unique referral code");
       const newReferralCode = await generateReferralCode();
 
-      // Find referring user if referral code is provided
       let referredByUserId: string | undefined;
       if (userData.referralCode) {
         logger.debug("Processing referral code", {
@@ -101,19 +96,15 @@ export class AuthService implements IAuthService {
             referralCode: userData.referralCode,
           });
         }
-        // If referral code is invalid, we'll just ignore it instead of throwing an error
       }
 
-      // Generate verification token
       logger.debug("Generating verification token");
       const emailVerificationToken = crypto.randomBytes(32).toString("hex");
 
-      // Set expiry time (24 hours for email)
       const emailVerificationExpiry = new Date(
         Date.now() + 24 * 60 * 60 * 1000,
       );
 
-      // Create user
       logger.debug("Creating user in database");
       const user = await prisma.user.create({
         data: {
@@ -124,7 +115,7 @@ export class AuthService implements IAuthService {
           role: userData.role || UserRole.REVIEWER,
           status: AccountStatus.PENDING,
           referralCode: newReferralCode,
-          referredBy: referredByUserId || undefined, // Only set if we found a valid referring user
+          referredBy: referredByUserId || undefined,
           state: userData.state,
           city: userData.city,
           address: userData.address,
@@ -145,10 +136,8 @@ export class AuthService implements IAuthService {
         referralCode: newReferralCode,
       });
 
-      // Generate JWT token (in a real app, you'd use a proper JWT library)
       const token = this.generateToken(user.id);
 
-      // Create referral reward if user was referred
       if (referredByUserId) {
         try {
           await prisma.reward.create({
@@ -174,7 +163,6 @@ export class AuthService implements IAuthService {
         }
       }
 
-      // Send verification email
       logger.debug("Sending verification email");
       await this.sendVerificationEmail(
         userData.email,
@@ -214,7 +202,6 @@ export class AuthService implements IAuthService {
     try {
       logger.info("User signin attempt", { email: credentials.email });
 
-      // Find user by email
       logger.debug("Looking up user by email", { email: credentials.email });
       const user = await prisma.user.findUnique({
         where: { email: credentials.email },
@@ -239,7 +226,6 @@ export class AuthService implements IAuthService {
         isVerified: user.isVerified,
       });
 
-      // Check if email is verified first
       if (!user.emailVerified) {
         logger.warn("Signin failed - email not verified", {
           email: credentials.email,
@@ -250,7 +236,6 @@ export class AuthService implements IAuthService {
         );
       }
 
-      // Check if account is active (only after email verification)
       if (user.status !== AccountStatus.ACTIVE) {
         logger.warn("Signin failed - account not active", {
           email: credentials.email,
@@ -262,7 +247,6 @@ export class AuthService implements IAuthService {
         );
       }
 
-      // Verify password
       logger.debug("Verifying user password", { userId: user.id });
       const isPasswordValid = await bcrypt.compare(
         credentials.password,
@@ -278,7 +262,6 @@ export class AuthService implements IAuthService {
 
       logger.debug("Password verified successfully", { userId: user.id });
 
-      // Generate JWT token
       const token = this.generateToken(user.id);
 
       logger.info("User signin successful", {
@@ -307,8 +290,6 @@ export class AuthService implements IAuthService {
   }
 
   async signOut(): Promise<void> {
-    // In a real app, you'd invalidate the JWT token
-    // For now, we'll just return successfully
     return Promise.resolve();
   }
 
@@ -318,12 +299,11 @@ export class AuthService implements IAuthService {
         tokenPrefix: token.substring(0, 8) + "...",
       });
 
-      // Find user by verification token
       const user = await prisma.user.findFirst({
         where: {
           emailVerificationToken: token,
           emailVerificationExpiry: {
-            gt: new Date(), // Token hasn't expired
+            gt: new Date(),
           },
         },
       });
@@ -335,15 +315,14 @@ export class AuthService implements IAuthService {
         throw new Error("Invalid or expired verification token");
       }
 
-      // Update user verification status
       await prisma.user.update({
         where: { id: user.id },
         data: {
           emailVerified: new Date(),
-          emailVerificationToken: null, // Clear the token
-          emailVerificationExpiry: null, // Clear the expiry
-          isVerified: true, // Set verified since we only have email verification now
-          status: AccountStatus.ACTIVE, // Activate the account after email verification
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
+          isVerified: true,
+          status: AccountStatus.ACTIVE,
         },
       });
 
@@ -373,14 +352,9 @@ export class AuthService implements IAuthService {
     token: string,
   ): Promise<void> {
     try {
-      // In a real app, you'd send an actual email
-      // For now, we'll just log it
       logger.info("Sending verification email", { email, name });
 
-      // Create verification URL
-      const verificationUrl = `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/auth/verify?token=${token}`;
+      const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
 
       await this.emailService.sendVerificationEmail({
         to: email,
@@ -417,10 +391,8 @@ export class AuthService implements IAuthService {
         throw new Error("User not found");
       }
 
-      // Generate reset token
       const resetToken = this.generateResetToken();
 
-      // Set expiry time (1 hour from now)
       const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
       logger.debug("Generated password reset token", {
@@ -429,7 +401,6 @@ export class AuthService implements IAuthService {
         expiry: resetTokenExpiry,
       });
 
-      // Store reset token in database
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -440,7 +411,6 @@ export class AuthService implements IAuthService {
 
       logger.info("Password reset token stored in database", { email });
 
-      // Send reset email
       await this.emailService.sendPasswordResetEmail(
         email,
         user.name || "User",
@@ -476,7 +446,6 @@ export class AuthService implements IAuthService {
         throw new Error("User not found");
       }
 
-      // Verify old password
       const isOldPasswordValid = await bcrypt.compare(
         oldPassword,
         user.password,
@@ -485,10 +454,8 @@ export class AuthService implements IAuthService {
         throw new Error("Old password is incorrect");
       }
 
-      // Hash new password
       const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
-      // Update password
       await prisma.user.update({
         where: { id: userId },
         data: { password: hashedNewPassword },
@@ -511,12 +478,11 @@ export class AuthService implements IAuthService {
         tokenPrefix: token.substring(0, 8) + "...",
       });
 
-      // Find user with valid reset token
       const user = await prisma.user.findFirst({
         where: {
           passwordResetToken: token,
           passwordResetExpiry: {
-            gt: new Date(), // Token not expired
+            gt: new Date(),
           },
         },
       });
@@ -536,10 +502,8 @@ export class AuthService implements IAuthService {
         email: user.email,
       });
 
-      // Hash new password
       const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
-      // Update password and clear reset token
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -571,8 +535,6 @@ export class AuthService implements IAuthService {
 
   async validateToken(token: string): Promise<BaseUser | null> {
     try {
-      // In a real app, you'd verify the JWT token
-      // For now, we'll simulate token validation
       const userId = this.extractUserIdFromToken(token);
 
       if (!userId) {
@@ -589,6 +551,11 @@ export class AuthService implements IAuthService {
 
       return user as BaseUser;
     } catch (error) {
+      logger.error("Failed to validate token", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return null;
     }
   }
@@ -600,7 +567,6 @@ export class AuthService implements IAuthService {
     try {
       logger.info("Resending verification email", { email });
 
-      // Find user by email
       const user = await prisma.user.findUnique({
         where: { email },
         select: { id: true, name: true, email: true, emailVerified: true },
@@ -618,13 +584,11 @@ export class AuthService implements IAuthService {
         throw new Error("Email is already verified");
       }
 
-      // Generate new verification token
       const newEmailVerificationToken = crypto.randomBytes(32).toString("hex");
       const newEmailVerificationExpiry = new Date(
         Date.now() + 24 * 60 * 60 * 1000,
       );
 
-      // Update user with new token
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -662,8 +626,6 @@ export class AuthService implements IAuthService {
   }
 
   private generateToken(userId: string): string {
-    // In a real app, you'd use a proper JWT library
-    // For now, we'll create a simple token
     const payload = {
       userId,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days
@@ -673,22 +635,27 @@ export class AuthService implements IAuthService {
   }
 
   private generateResetToken(): string {
-    // Generate a cryptographically secure random 32-character token
     return crypto.randomBytes(32).toString("hex");
   }
 
   private extractUserIdFromToken(token: string): string | null {
     try {
-      // In a real app, you'd properly decode the JWT token
-      // For now, we'll decode our simple base64 token
       const payload = JSON.parse(Buffer.from(token, "base64").toString());
 
       if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-        return null; // Token expired
+        logger.warn("Token expired", {
+          tokenPrefix: token.substring(0, 8) + "...",
+        });
+        return null;
       }
 
       return payload.userId;
     } catch (error) {
+      logger.error("Failed to extract user ID from token", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return null;
     }
   }
