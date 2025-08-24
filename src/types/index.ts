@@ -119,6 +119,8 @@ export enum CouponStatus {
   ACTIVE = "ACTIVE",
   PAUSED = "PAUSED",
   EXPIRED = "EXPIRED",
+  USED = "USED",
+  DELETED = "DELETED",
 }
 
 export enum RewardType {
@@ -288,6 +290,7 @@ export interface Coupon {
   minimumOrderAmount?: number;
   maximumDiscount?: number;
   maxUses?: number;
+  currentUses: number;
   totalIssued: number;
   totalRedeemed: number;
   validFrom: Date;

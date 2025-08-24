@@ -10,23 +10,26 @@ export async function GET(
   try {
     const { id: businessId } = await params;
     const session = await getServerSession(authOptions);
-    
+
     // Check if user has access to view business analytics
     // Business owners can view their own analytics, admins can view all
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    const businessViewService = BusinessViewService.getInstance();
-    
+    const businessViewService = new BusinessViewService();
+
     // Get view statistics
     const stats = await businessViewService.getBusinessViewStats(businessId);
-    
+
     // Get recent views (only for business owners and admins)
-    const recentViews = await businessViewService.getRecentViews(businessId, 10);
+    const recentViews = await businessViewService.getRecentViews(
+      businessId,
+      10,
+    );
 
     return NextResponse.json({
       success: true,
@@ -39,7 +42,7 @@ export async function GET(
     console.error("Failed to get business view stats:", error);
     return NextResponse.json(
       { success: false, error: "Failed to get business view statistics" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

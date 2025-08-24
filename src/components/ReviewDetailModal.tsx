@@ -23,9 +23,10 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import Image from "next/image";
+import { Review } from "@/types";
 
 interface ReviewDetailModalProps {
-  review: unknown;
+  review: Review;
   isOpen: boolean;
   onClose: () => void;
   onAction: (reviewId: string, action: "APPROVE" | "REJECT" | "VERIFY") => void;

@@ -7,6 +7,7 @@ import {
   BusinessCategory,
   State,
 } from "@/types";
+import { Prisma } from "@prisma/client";
 
 export class AgentService implements IAgentService {
   async createAgentProfile(
@@ -100,7 +101,7 @@ export class AgentService implements IAgentService {
     try {
       const agentProfile = await prisma.agent.update({
         where: { id },
-        data,
+        data: data as Prisma.AgentUpdateInput,
         include: {
           user: true,
           onboardedBusinesses: true,

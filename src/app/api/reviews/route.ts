@@ -354,9 +354,11 @@ export async function GET(request: NextRequest) {
     if (userId) {
       try {
         const skip = (page - 1) * limit;
-        const where = { reviewerId: userId };
+        const where: { reviewerId: string; status?: ReviewStatus } = {
+          reviewerId: userId,
+        };
         if (status) {
-          where.status = status;
+          where.status = status as ReviewStatus;
         }
 
         const [reviews, total] = await Promise.all([

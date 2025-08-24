@@ -422,6 +422,18 @@ export class AdminService implements IAdminService {
         include: {
           business: true,
           agentProfile: true,
+          referrals: true,
+          accounts: true,
+          sessions: true,
+          agentApplications: true,
+          adminInvitations: true,
+          adminActions: true,
+          reportedContent: true,
+          rewards: true,
+          reviews: true,
+          businessRecommendations: true,
+          businessViews: true,
+          resolvedReports: true,
         },
       });
 
@@ -435,7 +447,7 @@ export class AdminService implements IAdminService {
         { reason, previousStatus: user.status },
       );
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to suspend user: ${
@@ -459,6 +471,18 @@ export class AdminService implements IAdminService {
         include: {
           business: true,
           agentProfile: true,
+          referrals: true,
+          accounts: true,
+          sessions: true,
+          agentApplications: true,
+          adminInvitations: true,
+          adminActions: true,
+          reportedContent: true,
+          rewards: true,
+          reviews: true,
+          businessRecommendations: true,
+          businessViews: true,
+          resolvedReports: true,
         },
       });
 
@@ -468,7 +492,7 @@ export class AdminService implements IAdminService {
         previousStatus: user.status,
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to ban user: ${
@@ -488,6 +512,18 @@ export class AdminService implements IAdminService {
         include: {
           business: true,
           agentProfile: true,
+          referrals: true,
+          accounts: true,
+          sessions: true,
+          agentApplications: true,
+          adminInvitations: true,
+          adminActions: true,
+          reportedContent: true,
+          rewards: true,
+          reviews: true,
+          businessRecommendations: true,
+          businessViews: true,
+          resolvedReports: true,
         },
       });
 
@@ -501,7 +537,7 @@ export class AdminService implements IAdminService {
         { previousStatus: user.status },
       );
 
-      return user as BaseUser;
+      return user as unknown as BaseUser;
     } catch (error) {
       throw new Error(
         `Failed to activate user: ${
@@ -727,6 +763,18 @@ export class AdminService implements IAdminService {
           include: {
             business: true,
             agentProfile: true,
+            referrals: true,
+            accounts: true,
+            sessions: true,
+            agentApplications: true,
+            adminInvitations: true,
+            adminActions: true,
+            reportedContent: true,
+            rewards: true,
+            reviews: true,
+            businessRecommendations: true,
+            businessViews: true,
+            resolvedReports: true,
           },
           orderBy: { updatedAt: "desc" },
         }),

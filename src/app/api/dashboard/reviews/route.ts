@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ReviewStatus } from "@/types";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const status = searchParams.get("status") as string | null;
+    const status = searchParams.get("status") as ReviewStatus | null;
 
     // Get user by email
     const user = await prisma.user.findUnique({
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // Get user reviews
     const skip = (page - 1) * limit;
-    const where: { reviewerId: string; status?: string } = {
+    const where: { reviewerId: string; status?: ReviewStatus } = {
       reviewerId: userId,
     };
     if (status) {

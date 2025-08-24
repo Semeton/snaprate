@@ -94,6 +94,8 @@ enum CouponStatus {
   ACTIVE
   PAUSED
   EXPIRED
+  USED
+  DELETED
 }
 
 enum CouponType {
@@ -224,6 +226,7 @@ model Business {
   utilityBill           String?                   // Utility bill URL for verification
   createdAt             DateTime                  @default(now())
   updatedAt             DateTime                  @updatedAt
+  deletedAt             DateTime?
   
   // Relations
   owner                 User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
@@ -302,6 +305,8 @@ model Review {
   business          Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewer          User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   rewards           Reward[]
+  deletedAt         DateTime?
+
   @@map("reviews")
 }
 
@@ -318,12 +323,13 @@ model Coupon {
   validFrom           DateTime
   validUntil          DateTime
   maxUses             Int?
+  currentUses         Int         @default(0)
   totalIssued         Int         @default(0)
   totalRedeemed       Int         @default(0)
   status              CouponStatus @default(DRAFT)
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
-
+  deletedAt           DateTime?
   // Relations
   business            Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
   redemptions         CouponRedemption[]
@@ -341,7 +347,7 @@ model CouponRedemption {
 
   // Relations
   coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
-
+  deletedAt DateTime?
   @@map("coupon_redemptions")
 }
 
@@ -365,7 +371,7 @@ model Agent {
 
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   onboardedBusinesses Business[] @relation("OnboardedBusinesses")
-  
+  deletedAt           DateTime?
   @@map("agents")
 }
 
@@ -382,7 +388,6 @@ model Reward {
 
   referrer    User     @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
   review      Review?  @relation(fields: [reviewId], references: [id])
-  // business    Business? @relation(fields: [businessId], references: [id])
 
   @@map("rewards")
 }

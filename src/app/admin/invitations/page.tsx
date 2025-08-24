@@ -76,7 +76,7 @@ export default function AdminInvitationsPage() {
 
   const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.role) {
       toast({
         title: "Validation Error",
@@ -345,9 +345,7 @@ export default function AdminInvitationsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Invitation History</span>
-                  <Badge variant="outline">
-                    {invitations.length} total
-                  </Badge>
+                  <Badge variant="outline">{invitations.length} total</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -357,7 +355,8 @@ export default function AdminInvitationsPage() {
                       <div
                         key={invitation.id}
                         className={`p-4 border rounded-lg ${
-                          invitation.status === "EXPIRED" || isExpired(invitation.expiresAt)
+                          invitation.status === "EXPIRED" ||
+                          isExpired(invitation.expiresAt)
                             ? "bg-gray-50 border-gray-200"
                             : "bg-white"
                         }`}
@@ -383,8 +382,12 @@ export default function AdminInvitationsPage() {
                         </div>
 
                         <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                          <span>Created: {formatDate(invitation.createdAt)}</span>
-                          <span>Expires: {formatDate(invitation.expiresAt)}</span>
+                          <span>
+                            Created: {formatDate(invitation.createdAt)}
+                          </span>
+                          <span>
+                            Expires: {formatDate(invitation.expiresAt)}
+                          </span>
                         </div>
 
                         <div className="flex items-center space-x-2">
@@ -410,12 +413,16 @@ export default function AdminInvitationsPage() {
                             </>
                           )}
                           {invitation.status === "ACCEPTED" && (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
+                            <Badge
+                              variant="default"
+                              className="bg-green-100 text-green-800"
+                            >
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Account Created
                             </Badge>
                           )}
-                          {(invitation.status === "EXPIRED" || isExpired(invitation.expiresAt)) && (
+                          {(invitation.status === "EXPIRED" ||
+                            isExpired(invitation.expiresAt)) && (
                             <Badge variant="outline" className="text-gray-500">
                               Expired
                             </Badge>
@@ -427,9 +434,12 @@ export default function AdminInvitationsPage() {
                 ) : (
                   <div className="text-center py-12 text-gray-500">
                     <Mail className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                    <p className="text-lg font-medium mb-2">No invitations yet</p>
+                    <p className="text-lg font-medium mb-2">
+                      No invitations yet
+                    </p>
                     <p className="text-sm">
-                      Send your first admin invitation using the form on the left
+                      Send your first admin invitation using the form on the
+                      left
                     </p>
                   </div>
                 )}

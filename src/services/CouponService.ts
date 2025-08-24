@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Coupon, CouponStatus } from "@/types";
+import { Coupon, CouponStatus, CouponType } from "@/types";
 import { generateCouponCode } from "@/lib/utils";
 
 export class CouponService {
@@ -7,7 +7,7 @@ export class CouponService {
     businessId: string;
     title: string;
     description?: string;
-    discountType: "PERCENTAGE" | "FIXED_AMOUNT";
+    discountType: CouponType;
     discountValue: number;
     minPurchase?: number;
     maxDiscount?: number;
@@ -24,14 +24,18 @@ export class CouponService {
           code,
           title: couponData.title,
           description: couponData.description,
-          discountType: couponData.discountType,
-          discountValue: couponData.discountValue,
-          minPurchase: couponData.minPurchase,
-          maxDiscount: couponData.maxDiscount,
+          type: couponData.discountType as CouponType,
+          value: couponData.discountValue,
+          minimumOrderAmount: couponData.minPurchase,
+          maximumDiscount: couponData.maxDiscount,
           maxUses: couponData.maxUses,
           validFrom: couponData.validFrom,
           validUntil: couponData.validUntil,
           businessId: couponData.businessId,
+          currentUses: 0,
+          totalIssued: 0,
+          totalRedeemed: 0,
+          status: "DRAFT",
         },
         include: {
           business: {
@@ -44,7 +48,7 @@ export class CouponService {
         },
       });
 
-      return coupon as Coupon;
+      return coupon as unknown as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to create coupon: ${
@@ -59,21 +63,26 @@ export class CouponService {
     options: {
       page: number;
       limit: number;
-      status?: CouponStatus;
+      status: CouponStatus;
     },
   ) {
     try {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where = { businessId };
+      const where: { businessId: string; status?: CouponStatus } = {
+        businessId,
+      };
       if (status) {
         where.status = status;
       }
 
       const [coupons, total] = await Promise.all([
         prisma.coupon.findMany({
-          where,
+          where: {
+            businessId,
+            status: status as CouponStatus,
+          },
           include: {
             business: {
               select: {
@@ -87,11 +96,16 @@ export class CouponService {
           skip,
           take: limit,
         }),
-        prisma.coupon.count({ where }),
+        prisma.coupon.count({
+          where: {
+            businessId,
+            status: status as CouponStatus,
+          },
+        }),
       ]);
 
       return {
-        coupons: coupons as Coupon[],
+        coupons: coupons as unknown as Coupon[],
         pagination: {
           page,
           limit,
@@ -125,7 +139,7 @@ export class CouponService {
         },
       });
 
-      return coupon as Coupon;
+      return coupon as unknown as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to get coupon by code: ${
@@ -166,10 +180,13 @@ export class CouponService {
       }
 
       // Check minimum purchase requirement
-      if (coupon.minPurchase && purchaseAmount < coupon.minPurchase) {
+      if (
+        coupon.minimumOrderAmount &&
+        purchaseAmount < coupon.minimumOrderAmount
+      ) {
         return {
           isValid: false,
-          error: `Minimum purchase amount of ₦${coupon.minPurchase} required`,
+          error: `Minimum purchase amount of ₦${coupon.minimumOrderAmount} required`,
         };
       }
 
@@ -191,7 +208,7 @@ export class CouponService {
           currentUses: {
             increment: 1,
           },
-          status: "USED",
+          status: "USED" as CouponStatus,
         },
         include: {
           business: {
@@ -204,7 +221,7 @@ export class CouponService {
         },
       });
 
-      return coupon as Coupon;
+      return coupon as unknown as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to use coupon: ${
@@ -219,25 +236,18 @@ export class CouponService {
     updateData: Partial<Coupon>,
   ): Promise<Coupon> {
     try {
-      // Remove fields that shouldn't be updated
-      // const { id, code, businessId, currentUses, ...allowedUpdates } =
-      // updateData;
-
       const coupon = await prisma.coupon.update({
         where: { id: couponId },
-        data: updateData,
+        data: {
+          ...updateData,
+          status: updateData.status as CouponStatus,
+        },
         include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-            },
-          },
+          business: true,
         },
       });
 
-      return coupon as Coupon;
+      return coupon as unknown as Coupon;
     } catch (error) {
       throw new Error(
         `Failed to update coupon: ${
@@ -273,7 +283,7 @@ export class CouponService {
             where: { businessId, status: "USED" },
           }),
           prisma.coupon.count({
-            where: { businessId, status: "EXPIRED" },
+            where: { businessId, status: "EXPIRED" as CouponStatus },
           }),
         ]);
 

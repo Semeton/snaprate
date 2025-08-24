@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { UserService } from "@/services/UserService";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user by email since session doesn't have ID
+    const userService = new UserService();
     const user = await userService.findByEmail(session.user.email);
     if (!user) {
       return NextResponse.json(
@@ -53,6 +55,8 @@ export async function GET(request: NextRequest) {
         },
       }),
     ]);
+
+    console.log("totalRewards", totalRewards);
 
     const rewardStats = {
       totalEarnings: totalAmount._sum.amount || 0,

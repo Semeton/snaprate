@@ -23,10 +23,10 @@ import {
   Eye,
   FileText,
 } from "lucide-react";
-import { Business, Review } from "@prisma/client";
+import { Business, Review } from "@/types";
 
 interface BusinessDetailModalProps {
-  business: unknown;
+  business: Business;
   isOpen: boolean;
   onClose: () => void;
   onVerification: (businessId: string, status: "VERIFIED" | "REJECTED") => void;

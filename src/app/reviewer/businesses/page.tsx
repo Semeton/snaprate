@@ -113,7 +113,7 @@ export default function BusinessesPage() {
         const reviewedBusinessIds = new Set(
           data.data?.map((r: Review) => r.businessId) || [],
         );
-        setHasReviewed(reviewedBusinessIds);
+        setHasReviewed(reviewedBusinessIds as Set<string>);
       }
     } catch (error) {
       console.error("Failed to fetch user reviews:", error);

@@ -38,25 +38,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-
-interface Business {
-  id: string;
-  name: string;
-  category: string;
-  city: string;
-  state: string;
-  address: string;
-  phone: string;
-  email: string;
-  website?: string;
-  description?: string;
-  verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
-  createdAt: string;
-  owner: {
-    name: string;
-    email: string;
-  };
-}
+import { Business } from "@/types";
 
 export default function AdminBusinessesPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -521,7 +503,7 @@ export default function AdminBusinessesPage() {
       {/* Business Detail Modal */}
       {selectedBusiness && (
         <BusinessDetailModal
-          business={selectedBusiness}
+          business={selectedBusiness as Business}
           isOpen={showBusinessModal}
           onClose={() => {
             setShowBusinessModal(false);

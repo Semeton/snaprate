@@ -37,30 +37,7 @@ import {
   ChevronRight,
   Shield,
 } from "lucide-react";
-
-interface Review {
-  id: string;
-  rating: number;
-  content: string;
-  images: string[];
-  video?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
-  isVerified: boolean;
-  helpfulCount: number;
-  businessResponse?: string;
-  businessResponseDate?: string;
-  createdAt: string;
-  business: {
-    id: string;
-    name: string;
-    category: string;
-  };
-  reviewer: {
-    id: string;
-    name: string;
-    email: string;
-  };
-}
+import { Review, ReviewStatus } from "@/types";
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -219,8 +196,9 @@ export default function AdminReviewsPage() {
     pending: reviews.filter((r) => r.status === "PENDING").length,
     approved: reviews.filter((r) => r.status === "APPROVED").length,
     rejected: reviews.filter((r) => r.status === "REJECTED").length,
-    flagged: reviews.filter((r) => r.status === "FLAGGED").length,
-    verified: reviews.filter((r) => r.isVerified).length,
+    flagged: reviews.filter((r) => r.status === ("FLAGGED" as ReviewStatus))
+      .length,
+    verified: reviews.filter((r) => r.isVerified as boolean).length,
     averageRating:
       reviews.length > 0
         ? (
@@ -522,19 +500,20 @@ export default function AdminReviewsPage() {
                             </Button>
                           </>
                         )}
-                        {review.status === "APPROVED" && !review.isVerified && (
-                          <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
-                            onClick={() =>
-                              handleReviewAction(review.id, "VERIFY")
-                            }
-                          >
-                            <Shield className="h-4 w-4 mr-1" />
-                            Verify
-                          </Button>
-                        )}
-                        {review.status === "FLAGGED" && (
+                        {review.status === "APPROVED" &&
+                          (!review.isVerified as boolean) && (
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700"
+                              onClick={() =>
+                                handleReviewAction(review.id, "VERIFY")
+                              }
+                            >
+                              <Shield className="h-4 w-4 mr-1" />
+                              Verify
+                            </Button>
+                          )}
+                        {review.status === ("FLAGGED" as ReviewStatus) && (
                           <>
                             <Button
                               size="sm"
@@ -638,7 +617,7 @@ export default function AdminReviewsPage() {
       {/* Review Detail Modal */}
       {selectedReview && (
         <ReviewDetailModal
-          review={selectedReview}
+          review={selectedReview as Review}
           isOpen={showReviewModal}
           onClose={() => {
             setShowReviewModal(false);

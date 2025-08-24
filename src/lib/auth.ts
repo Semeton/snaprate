@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
             role: user.role as UserRole,
             status: user.status as AccountStatus,
             referralCode: user.referralCode,
-            avatar: user.avatar,
+            avatar: user.avatar as string,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -94,7 +94,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/auth/signin",
-    signUp: "/auth/signup",
+    // signUp: "/auth/signup",
     error: "/auth/error",
   },
   secret: process.env.NEXTAUTH_SECRET,

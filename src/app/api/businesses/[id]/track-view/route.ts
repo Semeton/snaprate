@@ -35,8 +35,17 @@ export async function POST(
       ipAddress: ipAddress.toString(),
       userAgent,
       referrer,
-      source,
-      viewType,
+      source: source as
+        | "DIRECT"
+        | "SEARCH"
+        | "SOCIAL"
+        | "REFERRAL"
+        | "FEATURED",
+      viewType: viewType as
+        | "PROFILE"
+        | "SEARCH_RESULT"
+        | "FEATURED_LIST"
+        | "RECOMMENDATION",
       sessionId,
     });
 
