@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
-import { PlatformSettingsService } from "./PlatformSettingsService";
+import {
+  PlatformSettingsService,
+  PlatformSettings,
+} from "./PlatformSettingsService";
 import logger from "@/lib/logger";
 
 export interface EmailOptions {
@@ -1022,8 +1025,10 @@ The SnapRate Team
    */
   private generateAccountVerifiedEmailHTML(
     name: string,
-    platformSettings: unknown,
+    platformSettings: PlatformSettings,
   ): string {
+    const reviewRewardAmount = platformSettings?.reviewRewardAmount || 50; // Default fallback
+
     return `
       <!DOCTYPE html>
       <html>
@@ -1056,7 +1061,7 @@ The SnapRate Team
               
               <h3>What you can do now:</h3>
               <ul>
-                <li>📝 Write reviews and earn ₦${platformSettings.reviewRewardAmount} per review</li>
+                <li>📝 Write reviews and earn ₦${reviewRewardAmount} per review</li>
                 <li>👥 Refer friends and earn referral bonuses</li>
                 <li>🏆 Level up and unlock higher rewards</li>
                 <li>💰 Redeem your earnings for airtime, coupons, or bank transfer</li>
@@ -1079,8 +1084,10 @@ The SnapRate Team
    */
   private generateAccountVerifiedEmailText(
     name: string,
-    platformSettings: unknown,
+    platformSettings: PlatformSettings,
   ): string {
+    const reviewRewardAmount = platformSettings?.reviewRewardAmount || 50; // Default fallback
+
     return `
 Welcome to SnapRate!
 
@@ -1089,7 +1096,7 @@ Hi ${name},
 Congratulations! Your SnapRate account has been successfully verified. You're now ready to start earning rewards by reviewing businesses!
 
 What you can do now:
-- Write reviews and earn ₦${platformSettings.reviewRewardAmount} per review
+- Write reviews and earn ₦${reviewRewardAmount} per review
 - Refer friends and earn referral bonuses
 - Level up and unlock higher rewards
 - Redeem your earnings for airtime, coupons, or bank transfer

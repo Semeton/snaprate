@@ -67,7 +67,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to create user: ${
@@ -93,7 +93,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to find user: ${
@@ -113,7 +113,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to find user by email: ${
@@ -125,15 +125,15 @@ export class UserService implements IUserService {
 
   async findByPhone(phone: string): Promise<User | null> {
     try {
-      const user = await prisma.user.findUnique({
-        where: { phone: phone as string },
+      const user = await prisma.user.findFirst({
+        where: { phone },
         include: {
           business: true,
           agentProfile: true,
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to find user by phone: ${
@@ -145,21 +145,45 @@ export class UserService implements IUserService {
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
     try {
+      // Extract only the fields that can be updated, excluding relation fields
+      const {
+        business,
+        agentProfile,
+        reviews,
+        rewards,
+        referrals,
+        accounts,
+        sessions,
+        rewardRedemptions,
+        businessRecommendations,
+        agentApplications,
+        adminInvitations,
+        adminActions,
+        reportedContent,
+        resolvedReports,
+        businessViews,
+        referredByUser,
+        ...updatableFields
+      } = data;
+
       // Hash password if it's being updated
-      if (data.password) {
-        data.password = await bcrypt.hash(data.password, 12);
+      if (updatableFields.password) {
+        updatableFields.password = await bcrypt.hash(
+          updatableFields.password,
+          12,
+        );
       }
 
       const user = await prisma.user.update({
         where: { id },
-        data,
+        data: updatableFields,
         include: {
           business: true,
           agentProfile: true,
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to update user: ${
@@ -197,7 +221,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to verify email: ${
@@ -221,7 +245,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to verify phone: ${
@@ -233,18 +257,52 @@ export class UserService implements IUserService {
 
   async updateProfile(id: string, data: Partial<User>): Promise<User> {
     try {
-      // const { password, email, phone, role, status, ...profileData } = data;
+      // Extract only the fields that can be updated, excluding relation fields
+      const {
+        business,
+        agentProfile,
+        reviews,
+        rewards,
+        referrals,
+        accounts,
+        sessions,
+        rewardRedemptions,
+        businessRecommendations,
+        agentApplications,
+        adminInvitations,
+        adminActions,
+        reportedContent,
+        resolvedReports,
+        businessViews,
+        referredByUser,
+        password,
+        email,
+        phone,
+        role,
+        status,
+        referralCode,
+        referredBy,
+        emailVerificationToken,
+        emailVerificationExpiry,
+        passwordResetToken,
+        passwordResetExpiry,
+        lastLoginAt,
+        deletedAt,
+        createdAt,
+        updatedAt,
+        ...profileData
+      } = data;
 
       const user = await prisma.user.update({
         where: { id },
-        data,
+        data: profileData,
         include: {
           business: true,
           agentProfile: true,
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to update profile: ${
@@ -264,7 +322,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return referrals as User[];
+      return referrals as unknown as User[];
     } catch (error) {
       throw new Error(
         `Failed to get referrals: ${
@@ -318,7 +376,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to activate account: ${
@@ -341,7 +399,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to suspend account: ${
@@ -364,7 +422,7 @@ export class UserService implements IUserService {
         },
       });
 
-      return user as User;
+      return user as unknown as User;
     } catch (error) {
       throw new Error(
         `Failed to ban account: ${

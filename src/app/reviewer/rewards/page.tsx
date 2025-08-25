@@ -391,7 +391,8 @@ export default function RewardsPage() {
                 <span>Current Reward Rates</span>
               </CardTitle>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                These rates are set by the platform and may change over time
+                These rates apply to new rewards earned going forward. Existing
+                rewards remain unchanged.
               </p>
             </CardHeader>
             <CardContent>
@@ -436,6 +437,9 @@ export default function RewardsPage() {
                 <Gift className="h-5 w-5 text-green-600" />
                 <span>Reward Breakdown</span>
               </CardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Based on your actual earned rewards stored in the database
+              </p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -448,8 +452,7 @@ export default function RewardsPage() {
                     From Reviews
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    ₦{stats?.currentRates?.reviewReward || 50} ×{" "}
-                    {stats?.totalReviews || 0} reviews
+                    {stats?.totalReviews || 0} reviews earned
                   </p>
                 </div>
 
@@ -462,8 +465,7 @@ export default function RewardsPage() {
                     From Referrals
                   </p>
                   <p className="text-xs text-green-600 mt-1">
-                    ₦{stats?.currentRates?.referralReward || 20} ×{" "}
-                    {stats?.totalReferrals || 0} referrals
+                    {stats?.totalReferrals || 0} referrals earned
                   </p>
                 </div>
 
@@ -476,8 +478,7 @@ export default function RewardsPage() {
                     From Business Recs
                   </p>
                   <p className="text-xs text-purple-600 mt-1">
-                    ₦{stats?.currentRates?.businessRecommendationReward || 100}{" "}
-                    × approved businesses
+                    Approved recommendations earned
                   </p>
                 </div>
               </div>

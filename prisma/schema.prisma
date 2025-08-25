@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,484 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  phone                   String?
+  password                String
+  role                    UserRole                 @default(REVIEWER)
+  status                  AccountStatus            @default(PENDING)
+  referralCode            String                   @unique @default(cuid())
+  referredBy              String?
+  state                   State
+  city                    String
+  address                 String
+  avatar                  String?
+  dateOfBirth             DateTime?
+  gender                  String?
+  emailVerified           DateTime?
+  phoneVerified           DateTime?
+  isVerified              Boolean                  @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  passwordResetToken      String?
+  passwordResetExpiry     DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  deletedAt               DateTime?
+  lastLoginAt             DateTime?
+  accounts                Account[]
+  adminActions            AdminAction[]            @relation("AdminActions")
+  adminInvitations        AdminInvitation[]        @relation("AdminInvitations")
+  agentApplications       AgentApplication[]
+  agentProfile            Agent?
+  businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
+  businessViews           BusinessView[]           @relation("UserBusinessViews")
+  business                Business?
+  commentVotes            CommentVote[]            @relation("CommentVoter")
+  reportedContent         ReportedContent[]        @relation("UserReports")
+  resolvedReports         ReportedContent[]        @relation("AdminResolutions")
+  comments                ReviewComment[]          @relation("CommentAuthor")
+  reviewVotes             ReviewVote[]             @relation("ReviewVoter")
+  reviews                 Review[]
+  rewardRedemptions       RewardRedemption[]
+  rewards                 Reward[]                 @relation("ReferrerRewards")
+  sessions                Session[]
+  referredByUser          User?                    @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals               User[]                   @relation("UserReferrals")
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Business {
+  id                    String                     @id @default(cuid())
+  ownerId               String                     @unique
+  name                  String
+  description           String?
+  category              BusinessCategory
+  phone                 String
+  email                 String
+  website               String?
+  logo                  String?
+  coverImage            String?
+  address               String
+  city                  String
+  state                 State
+  latitude              Float?
+  longitude             Float?
+  verificationStatus    BusinessVerificationStatus @default(PENDING)
+  verificationDocuments String[]
+  averageRating         Float                      @default(0)
+  totalReviews          Int                        @default(0)
+  totalVisits           Int                        @default(0)
+  isActive              Boolean                    @default(true)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  verificationNotes     String?
+  verifiedAt            DateTime?
+  cacNumber             String?
+  onboardedByAgentId    String?
+  utilityBill           String?
+  deletedAt             DateTime?
+  analytics             BusinessAnalytics[]
+  businessHours         BusinessHours[]
+  businessSettings      BusinessSettings?
+  views                 BusinessView[]
+  onboardedByAgent      Agent?                     @relation("OnboardedBusinesses", fields: [onboardedByAgentId], references: [id])
+  owner                 User                       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  coupons               Coupon[]
+  reviews               Review[]
+
+  @@map("businesses")
+}
+
+model BusinessHours {
+  id         String   @id @default(cuid())
+  businessId String
+  dayOfWeek  Int
+  openTime   String
+  closeTime  String
+  isOpen     Boolean  @default(true)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, dayOfWeek])
+  @@map("business_hours")
+}
+
+model BusinessSettings {
+  id                  String   @id @default(cuid())
+  businessId          String   @unique
+  emailNotifications  Boolean  @default(true)
+  smsNotifications    Boolean  @default(false)
+  reviewAlerts        Boolean  @default(true)
+  couponRedemptions   Boolean  @default(true)
+  weeklyReports       Boolean  @default(true)
+  marketingUpdates    Boolean  @default(false)
+  profileVisibility   String   @default("PUBLIC")
+  showContactInfo     Boolean  @default(true)
+  showRevenue         Boolean  @default(false)
+  allowDirectMessages Boolean  @default(true)
+  twoFactorAuth       Boolean  @default(false)
+  sessionTimeout      Int      @default(30)
+  loginNotifications  Boolean  @default(true)
+  googleAnalytics     Boolean  @default(false)
+  facebookPixel       Boolean  @default(false)
+  mailchimp           Boolean  @default(false)
+  zapier              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_settings")
+}
+
+model Review {
+  id                   String          @id @default(cuid())
+  businessId           String
+  reviewerId           String
+  rating               Int
+  content              String
+  images               String[]
+  video                String?
+  status               ReviewStatus    @default(PENDING)
+  isVerified           Boolean         @default(false)
+  helpfulCount         Int             @default(0)
+  businessResponse     String?
+  businessResponseDate DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  isAnonymous          Boolean         @default(false)
+  reportReason         String?
+  reported             Boolean         @default(false)
+  deletedAt            DateTime?
+  comments             ReviewComment[]
+  votes                ReviewVote[]
+  business             Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer             User            @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  rewards              Reward[]
+
+  @@map("reviews")
+}
+
+model ReviewComment {
+  id         String          @id @default(cuid())
+  reviewId   String
+  authorId   String
+  authorType String
+  content    String
+  parentId   String?
+  isEdited   Boolean         @default(false)
+  editedAt   DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  deletedAt  DateTime?
+  votes      CommentVote[]
+  author     User            @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent     ReviewComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    ReviewComment[] @relation("CommentReplies")
+  review     Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_comments")
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  voteType  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation("ReviewVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
+}
+
+model CommentVote {
+  id        String        @id @default(cuid())
+  commentId String
+  userId    String
+  voteType  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  comment   ReviewComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User          @relation("CommentVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@map("comment_votes")
+}
+
+model Coupon {
+  id                 String             @id @default(cuid())
+  businessId         String
+  title              String
+  description        String?
+  code               String             @unique
+  type               CouponType
+  value              Float
+  minimumOrderAmount Float?
+  maximumDiscount    Float?
+  validFrom          DateTime
+  validUntil         DateTime
+  maxUses            Int?
+  totalIssued        Int                @default(0)
+  totalRedeemed      Int                @default(0)
+  status             CouponStatus       @default(DRAFT)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  currentUses        Int                @default(0)
+  deletedAt          DateTime?
+  redemptions        CouponRedemption[]
+  business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id              String    @id @default(cuid())
+  couponId        String
+  userId          String
+  redeemedAt      DateTime  @default(now())
+  orderAmount     Float?
+  discountApplied Float
+  deletedAt       DateTime?
+  coupon          Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@map("coupon_redemptions")
+}
+
+model Agent {
+  id                  String     @id @default(cuid())
+  userId              String     @unique
+  businessName        String?
+  businessAddress     String?
+  businessPhone       String?
+  businessEmail       String?
+  bankName            String?
+  accountNumber       String?
+  accountName         String?
+  totalBusinesses     Int        @default(0)
+  totalEarnings       Float      @default(0)
+  isApproved          Boolean    @default(false)
+  approvedAt          DateTime?
+  approvedBy          String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  deletedAt           DateTime?
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  onboardedBusinesses Business[] @relation("OnboardedBusinesses")
+
+  @@map("agents")
+}
+
+model Reward {
+  id          String    @id @default(cuid())
+  referrerId  String
+  amount      Float
+  type        String
+  description String
+  isRedeemed  Boolean   @default(false)
+  redeemedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  reviewId    String?
+  referrer    User      @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
+  review      Review?   @relation(fields: [reviewId], references: [id])
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  amount      Float
+  phone       String?
+  status      String    @default("PENDING")
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reward_redemptions")
+}
+
+model BusinessAnalytics {
+  id                String   @id @default(cuid())
+  businessId        String
+  date              DateTime
+  visits            Int      @default(0)
+  uniqueVisitors    Int      @default(0)
+  pageViews         Int      @default(0)
+  reviews           Int      @default(0)
+  averageRating     Float    @default(0)
+  couponViews       Int      @default(0)
+  couponRedemptions Int      @default(0)
+  revenue           Float    @default(0)
+  createdAt         DateTime @default(now())
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, date])
+  @@map("business_analytics")
+}
+
+model BusinessView {
+  id         String   @id @default(cuid())
+  businessId String
+  viewerId   String?
+  ipAddress  String?
+  userAgent  String?
+  referrer   String?
+  source     String   @default("DIRECT")
+  viewType   String   @default("PROFILE")
+  sessionId  String?
+  duration   Int?
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  viewer     User?    @relation("UserBusinessViews", fields: [viewerId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([viewerId, createdAt])
+  @@index([source, createdAt])
+  @@map("business_views")
+}
+
+model BusinessRecommendation {
+  id                String           @id @default(cuid())
+  businessName      String
+  category          BusinessCategory
+  phone             String?
+  email             String?
+  address           String
+  city              String
+  state             State
+  description       String?
+  reason            String?
+  recommendedBy     String
+  status            String           @default("PENDING")
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  recommendedByUser User             @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
+
+  @@map("business_recommendations")
+}
+
+model AgentApplication {
+  id                String    @id @default(cuid())
+  userId            String
+  motivation        String
+  experience        String
+  businessKnowledge String
+  commitment        String
+  status            String    @default("PENDING")
+  adminNotes        String?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_applications")
+}
+
+model PlatformSettings {
+  id                                 String   @id
+  minimumRedemptionAmount            Int      @default(5000)
+  reviewRewardAmount                 Int      @default(50)
+  referralRewardAmount               Int      @default(20)
+  businessRecommendationRewardAmount Int      @default(100)
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+model AdminInvitation {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  role            UserRole
+  invitedBy       String
+  invitationToken String           @unique
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+  invitedByUser   User             @relation("AdminInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("admin_invitations")
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+  adminName  String?
+  ipAddress  String?
+  admin      User     @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_actions")
+}
+
+model ReportedContent {
+  id          String       @id @default(cuid())
+  contentType ContentType
+  contentId   String
+  reporterId  String
+  reason      ReportReason
+  description String?
+  status      ReportStatus @default(PENDING)
+  adminNotes  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  reporter    User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver    User?        @relation("AdminResolutions", fields: [resolvedBy], references: [id])
+
+  @@map("reported_content")
 }
 
 enum UserRole {
@@ -109,454 +584,10 @@ enum BusinessVerificationStatus {
   REJECTED
 }
 
-model User {
-  id                      String    @id @default(cuid())
-  name                    String
-  email                   String    @unique
-  phone                   String?
-  password                String
-  role                    UserRole  @default(REVIEWER)
-  status                  AccountStatus @default(PENDING)
-  referralCode            String    @unique @default(cuid())
-  referredBy              String?
-  state                   State
-  city                    String
-  address                 String
-  avatar                  String?
-  dateOfBirth            DateTime?
-  gender                  String?
-  emailVerified           DateTime?
-  phoneVerified           DateTime?
-  isVerified             Boolean   @default(false)
-  emailVerificationToken String?
-  emailVerificationExpiry DateTime?
-  passwordResetToken      String?
-  passwordResetExpiry     DateTime?
-  lastLoginAt             DateTime?                 // Last login timestamp
-  deletedAt               DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
-  
-  // Relations
-  referredByUser          User?     @relation("UserReferrals", fields: [referredBy], references: [id])
-  referrals               User[]    @relation("UserReferrals")
-  accounts                Account[]
-  sessions                Session[]
-  reviews                 Review[]
-  rewards                 Reward[]  @relation("ReferrerRewards")
-  rewardRedemptions       RewardRedemption[]
-  business                Business?
-  agentProfile            Agent?
-  businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
-  agentApplications       AgentApplication[]
-  adminInvitations       AdminInvitation[] @relation("AdminInvitations")
-  adminActions            AdminAction[] @relation("AdminActions")
-  reportedContent        ReportedContent[] @relation("UserReports")
-  resolvedReports        ReportedContent[] @relation("AdminResolutions")
-  businessViews           BusinessView[] @relation("UserBusinessViews")
-  
-  @@map("users")
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
-}
-
-model Business {
-  id                    String                    @id @default(cuid())
-  ownerId               String                    @unique
-  name                  String
-  description           String?
-  category              BusinessCategory
-  phone                 String
-  email                 String
-  website               String?
-  logo                  String?
-  coverImage            String?
-  address               String
-  city                  String
-  state                 State
-  latitude              Float?
-  longitude             Float?
-  verificationStatus    BusinessVerificationStatus @default(PENDING)
-  verificationNotes     String?                   // Admin notes for verification
-  verifiedAt            DateTime?                 // When business was verified
-  verificationDocuments String[]                  // Array of document URLs
-  averageRating         Float                     @default(0)
-  totalReviews          Int                       @default(0)
-  totalVisits           Int                       @default(0)
-  isActive              Boolean                   @default(true)
-  onboardedByAgentId    String?                   // Agent who onboarded this business
-  cacNumber             String?                   // CAC registration number
-  utilityBill           String?                   // Utility bill URL for verification
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
-  deletedAt             DateTime?
-  
-  // Relations
-  owner                 User                      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  onboardedByAgent      Agent?                    @relation("OnboardedBusinesses", fields: [onboardedByAgentId], references: [id])
-  reviews               Review[]
-  coupons               Coupon[]
-  businessHours         BusinessHours[]
-  businessSettings      BusinessSettings?
-  analytics             BusinessAnalytics[]
-  views                 BusinessView[]
-  
-  @@map("businesses")
-}
-
-model BusinessHours {
-  id          String   @id @default(cuid())
-  businessId  String
-  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, etc.
-  openTime    String   // Format: "09:00"
-  closeTime   String   // Format: "17:00"
-  isOpen      Boolean  @default(true)
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  @@unique([businessId, dayOfWeek])
-  @@map("business_hours")
-}
-
-model BusinessSettings {
-  id                    String   @id @default(cuid())
-  businessId            String   @unique
-  emailNotifications    Boolean  @default(true)
-  smsNotifications      Boolean  @default(false)
-  reviewAlerts          Boolean  @default(true)
-  couponRedemptions     Boolean  @default(true)
-  weeklyReports         Boolean  @default(true)
-  marketingUpdates      Boolean  @default(false)
-  profileVisibility     String   @default("PUBLIC")
-  showContactInfo       Boolean  @default(true)
-  showRevenue           Boolean  @default(false)
-  allowDirectMessages   Boolean  @default(true)
-  twoFactorAuth         Boolean  @default(false)
-  sessionTimeout        Int      @default(30)
-  loginNotifications    Boolean  @default(true)
-  googleAnalytics       Boolean  @default(false)
-  facebookPixel         Boolean  @default(false)
-  mailchimp             Boolean  @default(false)
-  zapier                Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@map("business_settings")
-}
-
-model Review {
-  id                String      @id @default(cuid())
-  businessId        String
-  reviewerId        String
-  rating            Int         // 1-5 stars
-  content           String
-  images            String[]    // Array of image URLs
-  video             String?     // Video URL
-  status            ReviewStatus @default(PENDING)
-  isAnonymous       Boolean     @default(false)
-  isVerified        Boolean     @default(false)
-  helpfulCount      Int         @default(0)
-  businessResponse  String?
-  businessResponseDate DateTime?
-  reported          Boolean     @default(false)
-  reportReason      String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  
-  // Relations
-  business          Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  reviewer          User        @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
-  rewards           Reward[]
-  deletedAt         DateTime?
-
-  @@map("reviews")
-}
-
-model Coupon {
-  id                  String      @id @default(cuid())
-  businessId          String
-  title               String
-  description         String?
-  code                String      @unique
-  type                CouponType
-  value               Float       // Percentage or fixed amount
-  minimumOrderAmount  Float?
-  maximumDiscount     Float?
-  validFrom           DateTime
-  validUntil          DateTime
-  maxUses             Int?
-  currentUses         Int         @default(0)
-  totalIssued         Int         @default(0)
-  totalRedeemed       Int         @default(0)
-  status              CouponStatus @default(DRAFT)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  deletedAt           DateTime?
-  // Relations
-  business            Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  redemptions         CouponRedemption[]
-
-  @@map("coupons")
-}
-
-model CouponRedemption {
-  id        String   @id @default(cuid())
-  couponId  String
-  userId    String
-  redeemedAt DateTime @default(now())
-  orderAmount Float?
-  discountApplied Float
-
-  // Relations
-  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
-  deletedAt DateTime?
-  @@map("coupon_redemptions")
-}
-
-model Agent {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  businessName      String?
-  businessAddress   String?
-  businessPhone     String?
-  businessEmail     String?
-  bankName          String?
-  accountNumber     String?
-  accountName       String?
-  totalBusinesses   Int      @default(0)
-  totalEarnings     Float    @default(0)
-  isApproved        Boolean  @default(false)
-  approvedAt        DateTime?
-  approvedBy        String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  onboardedBusinesses Business[] @relation("OnboardedBusinesses")
-  deletedAt           DateTime?
-  @@map("agents")
-}
-
-model Reward {
-  id          String   @id @default(cuid())
-  referrerId  String
-  amount      Float
-  type        String   // "REFERRAL", "REVIEW", "BUSINESS_RECOMMENDATION", "BUSINESS_ONBOARDING"
-  description String
-  reviewId    String?  // For review rewards
-  isRedeemed  Boolean  @default(false)
-  redeemedAt  DateTime?
-  createdAt   DateTime @default(now())
-
-  referrer    User     @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
-  review      Review?  @relation(fields: [reviewId], references: [id])
-
-  @@map("rewards")
-}
-
-model RewardRedemption {
-  id          String    @id @default(cuid())
-  userId      String
-  type        String    // "AIRTIME" or "COUPON"
-  amount      Float
-  phone       String?   // For airtime redemption
-  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
-  processedAt DateTime?
-  createdAt   DateTime  @default(now())
-
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("reward_redemptions")
-}
-
-model BusinessAnalytics {
-  id                String   @id @default(cuid())
-  businessId        String
-  date              DateTime
-  visits            Int      @default(0)
-  uniqueVisitors    Int      @default(0)
-  pageViews         Int      @default(0)
-  reviews          Int      @default(0)
-  averageRating     Float    @default(0)
-  couponViews       Int      @default(0)
-  couponRedemptions Int      @default(0)
-  revenue           Float    @default(0)
-  createdAt         DateTime @default(now())
-
-  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  @@unique([businessId, date])
-  @@map("business_analytics")
-}
-
-model BusinessView {
-  id          String   @id @default(cuid())
-  businessId  String
-  viewerId    String?  // Can be null for anonymous views
-  ipAddress   String?
-  userAgent   String?
-  referrer    String?
-  source      String   @default("DIRECT") // DIRECT, SEARCH, SOCIAL, REFERRAL, FEATURED
-  viewType    String   @default("PROFILE") // PROFILE, SEARCH_RESULT, FEATURED_LIST, RECOMMENDATION
-  sessionId   String?
-  duration    Int?     // Time spent in seconds
-  createdAt   DateTime @default(now())
-  
-  // Relations
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  viewer      User?    @relation("UserBusinessViews", fields: [viewerId], references: [id], onDelete: SetNull)
-  
-  @@index([businessId, createdAt])
-  @@index([viewerId, createdAt])
-  @@index([source, createdAt])
-  @@map("business_views")
-}
-
-model BusinessRecommendation {
-  id            String   @id @default(cuid())
-  businessName  String
-  category      BusinessCategory
-  phone         String?
-  email         String?
-  address       String
-  city          String
-  state         State
-  description   String?
-  reason        String?
-  recommendedBy String
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  recommendedByUser User @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
-
-  @@map("business_recommendations")
-}
-
-model AgentApplication {
-  id                String    @id @default(cuid())
-  userId            String
-  motivation        String
-  experience        String
-  businessKnowledge String
-  commitment        String
-  status            String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  adminNotes        String?
-  reviewedAt        DateTime?
-  reviewedBy        String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("agent_applications")
-}
-
-model PlatformSettings {
-  id                                    String   @id
-  minimumRedemptionAmount               Int      @default(5000)
-  reviewRewardAmount                    Int      @default(50)
-  referralRewardAmount                  Int      @default(20)
-  businessRecommendationRewardAmount    Int      @default(100)
-  createdAt                             DateTime @default(now())
-  updatedAt                             DateTime @updatedAt
-
-  @@map("platform_settings")
-}
-
-model AdminInvitation {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  role            UserRole         // ADMIN or SUPER_ADMIN
-  invitedBy       String
-  invitationToken String           @unique
-  expiresAt       DateTime
-  status          InvitationStatus @default(PENDING)
-  createdAt       DateTime         @default(now())
-
-  invitedByUser   User             @relation("AdminInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
-
-  @@map("admin_invitations")
-}
-
-model AdminAction {
-  id         String   @id @default(cuid())
-  adminId    String
-  action     String   // "USER_APPROVED", "BUSINESS_VERIFIED", "AGENT_APPROVED", etc.
-  targetType String   // "USER", "BUSINESS", "AGENT", "REVIEW"
-  targetId   String
-  adminName  String?   // Name of the admin who performed the action
-  details    Json?    // Additional action details
-  ipAddress  String?  // IP address of the admin
-  createdAt  DateTime @default(now())
-
-  admin      User     @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
-
-  @@map("admin_actions")
-}
-
 enum InvitationStatus {
   PENDING
   ACCEPTED
   EXPIRED
-}
-
-model ReportedContent {
-  id          String              @id @default(cuid())
-  contentType ContentType         // REVIEW, BUSINESS, USER
-  contentId   String              // ID of the reported content
-  reporterId  String              // User who reported the content
-  reason      ReportReason        // Why the content was reported
-  description String?             // Additional details about the report
-  status      ReportStatus        @default(PENDING) // PENDING, INVESTIGATED, RESOLVED, DISMISSED
-  adminNotes  String?             // Admin's notes about the investigation
-  resolvedBy  String?             // Admin who resolved the report
-  resolvedAt  DateTime?           // When the report was resolved
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  reporter    User                @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
-  resolver    User?               @relation("AdminResolutions", fields: [resolvedBy], references: [id], onDelete: SetNull)
-
-  @@map("reported_content")
 }
 
 enum ContentType {

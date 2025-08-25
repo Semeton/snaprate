@@ -261,6 +261,7 @@ export interface Review {
   reportReason?: string;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date;
   business: Business;
   reviewer: BaseUser;
 }

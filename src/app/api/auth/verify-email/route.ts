@@ -24,16 +24,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the email with the provided token
-    const isVerified = await authService.verifyEmail(code);
+    const result = await authService.verifyEmail(code);
 
-    if (isVerified) {
+    if (result.success) {
       logger.info("Email verification successful", {
         codePrefix: code.substring(0, 8) + "...",
+        userId: result.user?.id,
       });
 
       return NextResponse.json({
         success: true,
         message: "Email verified successfully",
+        user: result.user,
+        token: result.token,
       });
     } else {
       logger.warn("Email verification failed - invalid result", {

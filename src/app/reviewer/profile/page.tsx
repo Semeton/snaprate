@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/use-toast";
 import {
   User,
   Mail,
@@ -16,6 +17,8 @@ import {
   Gift,
   MessageSquare,
   Shield,
+  Copy,
+  Link as LinkIcon,
 } from "lucide-react";
 import { State } from "@/types";
 import ReviewerSidebar from "@/components/ReviewerSidebar";
@@ -484,16 +487,50 @@ export default function ProfilePage() {
                         {profile.referralCode}
                       </p>
                     </div>
-                    <Button
-                      onClick={() => {
-                        navigator.clipboard.writeText(profile.referralCode);
-                        // You could add a toast notification here
-                      }}
-                      className="mt-3 w-full bg-blue-600 hover:bg-blue-700"
-                      size="sm"
-                    >
-                      Copy Code
-                    </Button>
+                    <div className="mt-2 text-xs text-gray-500">
+                      <p>Referral Link:</p>
+                      <p className="font-mono text-blue-600 break-all">
+                        {typeof window !== "undefined"
+                          ? `${window.location.origin}/auth/signup?ref=${profile.referralCode}`
+                          : "Loading..."}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2 mt-3">
+                      <Button
+                        onClick={() => {
+                          navigator.clipboard.writeText(profile.referralCode);
+                          toast({
+                            title: "Referral Code Copied!",
+                            description:
+                              "Your referral code has been copied to your clipboard.",
+                          });
+                        }}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        size="sm"
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          const referralLink = `${window.location.origin}/auth/signup?ref=${profile.referralCode}`;
+                          navigator.clipboard.writeText(referralLink);
+                          toast({
+                            title: "Referral Link Copied!",
+                            description:
+                              "Your referral link has been copied to your clipboard.",
+                          });
+                        }}
+                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        size="sm"
+                      >
+                        <LinkIcon className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </Button>
+                    </div>
+                    <div className="mt-3 text-xs text-blue-600">
+                      <p>Share the link with friends to earn rewards!</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

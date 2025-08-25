@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,11 +21,20 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { State } from "@/types";
-import { CheckCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import {
+  CheckCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Link as LinkIcon,
+  Gift,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import PublicNavigation from "@/components/PublicNavigation";
 
 export default function SignUpPage() {
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +52,17 @@ export default function SignUpPage() {
     city: "",
     address: "",
   });
+
+  // Check for referral code in URL on component mount
+  useEffect(() => {
+    const refCode = searchParams.get("ref");
+    if (refCode) {
+      setFormData((prev) => ({
+        ...prev,
+        referralCode: refCode,
+      }));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -145,6 +166,9 @@ export default function SignUpPage() {
     }
   };
 
+  // Check if referral code is from URL
+  const isReferralFromUrl = searchParams.get("ref") === formData.referralCode;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-blue-950">
       {/* Navigation */}
@@ -158,6 +182,34 @@ export default function SignUpPage() {
             Join SnapRate and start earning rewards today
           </p>
         </div>
+
+        {/* Referral Banner */}
+        {isReferralFromUrl && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <Gift className="w-5 h-5 text-green-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-green-800">
+                  🎉 You were invited by a friend!
+                </h3>
+                <p className="text-sm text-green-700 mt-1">
+                  Using referral code:{" "}
+                  <span className="font-mono font-semibold">
+                    {formData.referralCode}
+                  </span>
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  You&apos;ll both earn rewards when you complete your
+                  registration!
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Signup Form */}
         <Card className="apple-card">
@@ -231,7 +283,18 @@ export default function SignUpPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+                  <Label
+                    htmlFor="referralCode"
+                    className="flex items-center space-x-2"
+                  >
+                    <span>Referral Code</span>
+                    {isReferralFromUrl && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center">
+                        <LinkIcon className="w-3 h-3 mr-1" />
+                        From Link
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     id="referralCode"
                     type="text"
@@ -240,8 +303,17 @@ export default function SignUpPage() {
                     onChange={(e) =>
                       handleInputChange("referralCode", e.target.value)
                     }
-                    className="apple-input mt-2"
+                    className={`apple-input mt-2 ${
+                      isReferralFromUrl ? "bg-gray-100 cursor-not-allowed" : ""
+                    }`}
+                    disabled={isReferralFromUrl}
                   />
+                  {isReferralFromUrl && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Referral code automatically filled from your invitation
+                      link
+                    </p>
+                  )}
                 </div>
               </div>
 

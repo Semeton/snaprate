@@ -29,19 +29,20 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const sortField = searchParams.get("sortField") || "createdAt";
     const sortDirection = searchParams.get("sortDirection") || "desc";
+    const showDeleted = searchParams.get("showDeleted") === "true";
 
     // Build where clause
-    const where: {
-      status?: ReviewStatus;
-      OR?: {
-        content?: { contains: string; mode: "insensitive" };
-        business?: { name?: { contains: string; mode: "insensitive" } };
-        reviewer?: { name?: { contains: string; mode: "insensitive" } };
-      }[];
-    } = {};
+    const where: any = {};
 
     if (filter !== "ALL") {
-      where.status = filter as ReviewStatus;
+      if (filter === "DELETED") {
+        where.deletedAt = { not: null };
+      } else {
+        where.status = filter;
+        where.deletedAt = null; // Only show non-deleted reviews for other filters
+      }
+    } else if (!showDeleted) {
+      where.deletedAt = null; // Only show non-deleted reviews by default
     }
 
     if (search) {

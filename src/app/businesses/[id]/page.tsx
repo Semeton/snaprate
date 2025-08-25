@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/user-avatar";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useBusinessViewTracking } from "@/hooks/useBusinessViewTracking";
 import {
   ArrowLeft,
@@ -18,6 +20,13 @@ import {
   MessageSquare,
   Plus,
   Building2,
+  ThumbsUp,
+  ThumbsDown,
+  Reply,
+  Send,
+  X,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 import Image from "next/image";
@@ -46,6 +55,27 @@ interface Business {
   };
 }
 
+interface ReviewComment {
+  id: string;
+  content: string;
+  authorId: string;
+  authorType: string;
+  author: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    role: string;
+  };
+  isEdited: boolean;
+  editedAt: string | null;
+  createdAt: string;
+  replies: ReviewComment[];
+  votes: Array<{
+    voteType: string;
+    userId: string;
+  }>;
+}
+
 interface Review {
   id: string;
   rating: number;
@@ -53,12 +83,19 @@ interface Review {
   images: string[];
   video: string;
   status: string;
+  helpfulCount: number;
   createdAt: string;
   reviewer: {
     id: string;
     name: string;
     avatar: string;
   };
+  comments: ReviewComment[];
+  votes: Array<{
+    voteType: string;
+    userId: string;
+  }>;
+  userVote?: string | null;
 }
 
 export default function BusinessViewPage() {
@@ -70,6 +107,22 @@ export default function BusinessViewPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Comment and interaction states
+  const [expandedReviews, setExpandedReviews] = useState<Set<string>>(
+    new Set(),
+  );
+  const [commentText, setCommentText] = useState<{ [key: string]: string }>({});
+  const [replyText, setReplyText] = useState<{
+    [key: string]: string | undefined;
+  }>({});
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editCommentText, setEditCommentText] = useState<{
+    [key: string]: string;
+  }>({});
+  const [submittingComment, setSubmittingComment] = useState<string | null>(
+    null,
+  );
 
   const businessId = params.id as string;
 
@@ -107,29 +160,470 @@ export default function BusinessViewPage() {
 
   const fetchBusinessReviews = async () => {
     try {
-      const response = await fetch(
-        `/api/reviews?businessId=${businessId}&limit=10`,
-      );
+      const response = await fetch(`/api/businesses/${businessId}/reviews`);
       if (response.ok) {
-        const reviewsData = await response.json();
-        console.log("Reviews API response:", reviewsData);
-        // The API now returns { success: true, data: { reviews, pagination } }
-        setReviews(reviewsData.data?.reviews || []);
-        console.log("Set reviews:", reviewsData.data?.reviews || []);
+        const data = await response.json();
+        const reviewsData = data.data || [];
+
+        // Fetch user votes for each review if user is logged in
+        if (session?.user) {
+          const reviewsWithVotes = await Promise.all(
+            reviewsData.map(async (review: Review) => {
+              try {
+                const voteResponse = await fetch(
+                  `/api/reviews/${review.id}/vote`,
+                );
+                const userVote = voteResponse.ok
+                  ? (await voteResponse.json()).data.voteType
+                  : null;
+                return { ...review, userVote };
+              } catch (error) {
+                console.error("Failed to fetch user vote:", error);
+                return { ...review, userVote: null };
+              }
+            }),
+          );
+          setReviews(reviewsWithVotes);
+        } else {
+          setReviews(reviewsData);
+        }
       } else {
-        console.error(
-          "Reviews API error:",
-          response.status,
-          response.statusText,
-        );
+        setError("Failed to load reviews");
       }
     } catch (error) {
-      console.error("Error fetching reviews:", error);
+      console.error("Failed to fetch reviews:", error);
+      setError("Failed to load reviews");
     }
   };
 
   const handleAddReview = () => {
     router.push(`/reviewer/submit-review?businessId=${businessId}`);
+  };
+
+  const handleVote = async (
+    reviewId: string,
+    voteType: "HELPFUL" | "UNHELPFUL",
+  ) => {
+    if (!session?.user) {
+      // For now, just log - we'll add toast notifications later
+      console.log("Authentication required for voting");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ voteType }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update the review's helpful count and user vote
+        setReviews((prev) =>
+          prev.map((review) => {
+            if (review.id === reviewId) {
+              return {
+                ...review,
+                helpfulCount:
+                  review.helpfulCount + (data.data.helpfulCountChange || 0),
+                userVote: data.data.voteType,
+              };
+            }
+            return review;
+          }),
+        );
+
+        console.log("Vote successful:", data.message);
+      } else {
+        const errorData = await response.json();
+        console.error("Vote failed:", errorData.error || "Failed to vote");
+      }
+    } catch (error) {
+      console.error("Failed to vote:", error);
+    }
+  };
+
+  const toggleReviewExpansion = (reviewId: string) => {
+    setExpandedReviews((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(reviewId)) {
+        newSet.delete(reviewId);
+      } else {
+        newSet.add(reviewId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddComment = async (reviewId: string, parentId?: string) => {
+    if (!session?.user) {
+      console.log("Authentication required for commenting");
+      return;
+    }
+
+    const text = parentId ? replyText[reviewId] : commentText[reviewId];
+    if (!text || !text.trim()) return;
+
+    setSubmittingComment(reviewId);
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: text.trim(),
+          parentId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Add the new comment to the review
+        setReviews((prev) =>
+          prev.map((review) => {
+            if (review.id === reviewId) {
+              const newComment = data.data;
+              if (parentId) {
+                // Add reply to existing comment
+                const updatedComments =
+                  review.comments?.map((comment) => {
+                    if (comment.id === parentId) {
+                      return {
+                        ...comment,
+                        replies: [...(comment.replies || []), newComment],
+                      };
+                    }
+                    return comment;
+                  }) || [];
+                return { ...review, comments: updatedComments };
+              } else {
+                // Add top-level comment
+                return {
+                  ...review,
+                  comments: [...(review.comments || []), newComment],
+                };
+              }
+            }
+            return review;
+          }),
+        );
+
+        // Clear the input
+        if (parentId) {
+          setReplyText((prev) => ({ ...prev, [reviewId]: undefined }));
+        } else {
+          setCommentText((prev) => ({ ...prev, [reviewId]: "" }));
+        }
+
+        console.log("Comment added successfully");
+      } else {
+        const errorData = await response.json();
+        console.error(
+          "Failed to add comment:",
+          errorData.error || "Failed to add comment",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+    } finally {
+      setSubmittingComment(null);
+    }
+  };
+
+  const handleEditComment = async (reviewId: string, commentId: string) => {
+    const text = editCommentText[commentId];
+    if (!text || !text.trim()) return;
+
+    try {
+      const response = await fetch(
+        `/api/reviews/${reviewId}/comments/${commentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: text.trim() }),
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update the comment in the review
+        setReviews((prev) =>
+          prev.map((review) => {
+            if (review.id === reviewId) {
+              const updatedComments =
+                review.comments?.map((comment) => {
+                  if (comment.id === commentId) {
+                    return { ...comment, ...data.data };
+                  }
+                  // Check replies too
+                  const updatedReplies =
+                    comment.replies?.map((reply) => {
+                      if (reply.id === commentId) {
+                        return { ...reply, ...data.data };
+                      }
+                      return reply;
+                    }) || [];
+                  return { ...comment, replies: updatedReplies };
+                }) || [];
+              return { ...review, comments: updatedComments };
+            }
+            return review;
+          }),
+        );
+
+        setEditingComment(null);
+        setEditCommentText((prev) => ({ ...prev, [commentId]: "" }));
+
+        console.log("Comment updated successfully");
+      } else {
+        const errorData = await response.json();
+        console.error(
+          "Failed to update comment:",
+          errorData.error || "Failed to update comment",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update comment:", error);
+    }
+  };
+
+  const handleDeleteComment = async (reviewId: string, commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+
+    try {
+      const response = await fetch(
+        `/api/reviews/${reviewId}/comments/${commentId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (response.ok) {
+        // Remove the comment from the review
+        setReviews((prev) =>
+          prev.map((review) => {
+            if (review.id === reviewId) {
+              const updatedComments =
+                review.comments?.filter(
+                  (comment) => comment.id !== commentId,
+                ) || [];
+              // Also check replies
+              const commentsWithUpdatedReplies = updatedComments.map(
+                (comment) => ({
+                  ...comment,
+                  replies:
+                    comment.replies?.filter(
+                      (reply) => reply.id !== commentId,
+                    ) || [],
+                }),
+              );
+              return { ...review, comments: updatedComments };
+            }
+            return review;
+          }),
+        );
+
+        console.log("Comment deleted successfully");
+      } else {
+        const errorData = await response.json();
+        console.error(
+          "Failed to delete comment:",
+          errorData.error || "Failed to delete comment",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+    }
+  };
+
+  const renderComment = (
+    comment: ReviewComment,
+    reviewId: string,
+    isReply = false,
+  ) => {
+    const canEdit =
+      comment.authorId === session?.user?.id ||
+      ["ADMIN", "SUPER_ADMIN"].includes(session?.user?.role || "");
+    const canDelete =
+      canEdit ||
+      (session?.user?.role === "BUSINESS_OWNER" &&
+        comment.authorType === "BUSINESS_OWNER");
+
+    return (
+      <div
+        key={comment.id}
+        className={`${isReply ? "ml-8 border-l-2 border-gray-200 pl-4" : ""}`}
+      >
+        <div className="flex items-start space-x-3 mb-2">
+          <div className="flex-shrink-0">
+            {comment.author.avatar ? (
+              <Image
+                src={comment.author.avatar}
+                alt={comment.author.name}
+                className="w-8 h-8 rounded-full object-cover"
+                width={32}
+                height={32}
+              />
+            ) : (
+              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                <span className="text-gray-500 text-xs font-medium">
+                  {comment.author.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="text-sm font-medium text-gray-900">
+                {comment.author.name}
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {comment.authorType === "BUSINESS_OWNER"
+                  ? "Business"
+                  : comment.authorType === "AGENT"
+                  ? "Agent"
+                  : "Reviewer"}
+              </Badge>
+              {comment.isEdited && (
+                <span className="text-xs text-gray-500">(edited)</span>
+              )}
+            </div>
+
+            {editingComment === comment.id ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={editCommentText[comment.id] || comment.content}
+                  onChange={(e) =>
+                    setEditCommentText((prev) => ({
+                      ...prev,
+                      [comment.id]: e.target.value,
+                    }))
+                  }
+                  className="min-h-[80px]"
+                />
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleEditComment(reviewId, comment.id)}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingComment(null);
+                      setEditCommentText((prev) => ({
+                        ...prev,
+                        [comment.id]: "",
+                      }));
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 mb-2">{comment.content}</p>
+            )}
+
+            <div className="flex items-center space-x-4 text-xs text-gray-500">
+              <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+              {!isReply && (
+                <button
+                  onClick={() =>
+                    setReplyText((prev) => ({ ...prev, [reviewId]: "" }))
+                  }
+                  className="flex items-center space-x-1 hover:text-blue-600"
+                >
+                  <Reply className="h-3 w-3" />
+                  <span>Reply</span>
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setEditingComment(comment.id);
+                    setEditCommentText((prev) => ({
+                      ...prev,
+                      [comment.id]: comment.content,
+                    }));
+                  }}
+                  className="flex items-center space-x-1 hover:text-blue-600"
+                >
+                  <Edit className="h-3 w-3" />
+                  <span>Edit</span>
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={() => handleDeleteComment(reviewId, comment.id)}
+                  className="flex items-center space-x-1 hover:text-red-600"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Reply input */}
+        {!isReply && replyText[reviewId] !== undefined && (
+          <div className="ml-11 mb-3">
+            <div className="flex space-x-2">
+              <Textarea
+                value={replyText[reviewId] || ""}
+                onChange={(e) =>
+                  setReplyText((prev) => ({
+                    ...prev,
+                    [reviewId]: e.target.value,
+                  }))
+                }
+                placeholder="Write a reply..."
+                className="flex-1 min-h-[80px]"
+              />
+              <div className="flex flex-col space-y-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleAddComment(reviewId, comment.id)}
+                  disabled={submittingComment === reviewId}
+                >
+                  <Send className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setReplyText((prev) => ({ ...prev, [reviewId]: undefined }))
+                  }
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Render replies */}
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-3">
+            {comment.replies.map((reply) =>
+              renderComment(reply, reviewId, true),
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const formatCategory = (category: string) => {
@@ -405,17 +899,10 @@ export default function BusinessViewPage() {
                           </div>
                         </div>
                         <p className="text-gray-700 mb-3">{review.content}</p>
-                        <div className="flex items-center justify-between">
-                          <Badge
-                            variant={
-                              review.status === "APPROVED"
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {review.status}
-                          </Badge>
-                          {review.images && review.images.length > 0 && (
+
+                        {/* Media */}
+                        {review.images && review.images.length > 0 && (
+                          <div className="mb-4">
                             <div className="flex space-x-2">
                               {review.images.slice(0, 3).map((image, index) => (
                                 <Image
@@ -433,6 +920,123 @@ export default function BusinessViewPage() {
                                     +{review.images.length - 3}
                                   </span>
                                 </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Status Badge */}
+                        <div className="flex justify-end">
+                          <Badge
+                            variant={
+                              review.status === "APPROVED"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {review.status}
+                          </Badge>
+                        </div>
+
+                        {/* Voting Section */}
+                        <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleVote(review.id, "HELPFUL")}
+                              className={`${
+                                review.userVote === "HELPFUL"
+                                  ? "text-green-600 bg-green-100"
+                                  : "text-gray-600 hover:text-green-600"
+                              }`}
+                            >
+                              <ThumbsUp className="h-4 w-4 mr-1" />
+                              Helpful ({review.helpfulCount || 0})
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleVote(review.id, "UNHELPFUL")}
+                              className={`${
+                                review.userVote === "UNHELPFUL"
+                                  ? "text-red-600 bg-red-100"
+                                  : "text-gray-600 hover:text-red-600"
+                              }`}
+                            >
+                              <ThumbsDown className="h-4 w-4 mr-1" />
+                              Unhelpful
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Comments Section */}
+                        <div className="border-t pt-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="font-medium text-gray-900">
+                              Comments ({review.comments?.length || 0})
+                            </h4>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleReviewExpansion(review.id)}
+                            >
+                              {expandedReviews.has(review.id) ? "Hide" : "Show"}{" "}
+                              Comments
+                            </Button>
+                          </div>
+
+                          {expandedReviews.has(review.id) && (
+                            <div className="space-y-4">
+                              {/* Add Comment */}
+                              {session?.user && (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={commentText[review.id] || ""}
+                                    onChange={(e) =>
+                                      setCommentText((prev) => ({
+                                        ...prev,
+                                        [review.id]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Add a comment to this review..."
+                                    className="min-h-[80px]"
+                                  />
+                                  <div className="flex justify-end">
+                                    <Button
+                                      size="sm"
+                                      onClick={() =>
+                                        handleAddComment(review.id)
+                                      }
+                                      disabled={submittingComment === review.id}
+                                    >
+                                      {submittingComment === review.id ? (
+                                        <div className="flex items-center space-x-2">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                          <span>Adding...</span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center space-x-2">
+                                          <Send className="h-4 w-4" />
+                                          <span>Add Comment</span>
+                                        </div>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Display Comments */}
+                              {review.comments && review.comments.length > 0 ? (
+                                <div className="space-y-4">
+                                  {review.comments.map((comment) =>
+                                    renderComment(comment, review.id),
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-gray-500 text-center py-4">
+                                  No comments yet. Be the first to comment!
+                                </p>
                               )}
                             </div>
                           )}

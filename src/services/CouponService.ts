@@ -236,14 +236,28 @@ export class CouponService {
     updateData: Partial<Coupon>,
   ): Promise<Coupon> {
     try {
+      // Extract only the fields that can be updated, excluding relation fields
+      const {
+        businessId,
+        business,
+        id,
+        code,
+        createdAt,
+        updatedAt,
+        ...updatableFields
+      } = updateData;
+
       const coupon = await prisma.coupon.update({
         where: { id: couponId },
-        data: {
-          ...updateData,
-          status: updateData.status as CouponStatus,
-        },
+        data: updatableFields,
         include: {
-          business: true,
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+            },
+          },
         },
       });
 

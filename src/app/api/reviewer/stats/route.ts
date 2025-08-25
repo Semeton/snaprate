@@ -4,6 +4,34 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import PlatformSettingsService from "@/services/PlatformSettingsService";
 
+/**
+ * Reviewer Stats API
+ *
+ * IMPORTANT: Reward Calculation Strategy
+ *
+ * This API calculates rewards based on ACTUAL stored values in the Reward model,
+ * NOT by dynamically calculating from current platform settings.
+ *
+ * Why this approach?
+ * 1. **Consistency**: Existing rewards remain unchanged when platform settings change
+ * 2. **Accuracy**: Users see exactly what they've earned, not recalculated amounts
+ * 3. **Fairness**: Historical rewards maintain their original value
+ * 4. **Audit Trail**: Complete record of what was earned and when
+ *
+ * How it works:
+ * - Review rewards: Sum of all stored reward amounts with type "REVIEW"
+ * - Referral rewards: Sum of all stored reward amounts with type "REFERRAL"
+ * - Business recommendation rewards: Sum of all stored reward amounts with type "BUSINESS_RECOMMENDATION"
+ * - Monthly rewards: Sum of all stored reward amounts created in the current month
+ *
+ * Platform settings are only used for:
+ * - Displaying current rates for new rewards
+ * - Minimum redemption amounts
+ * - User information about future earning potential
+ *
+ * This ensures that changes to platform settings only affect NEW rewards,
+ * not existing earned rewards.
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,37 +70,79 @@ export async function GET(request: NextRequest) {
       where: { referredBy: user.id },
     });
 
-    // Get platform settings for reward amounts using the service
+    // Get platform settings for current reward rates (for display purposes only)
     const platformSettingsService = PlatformSettingsService.getInstance();
     const platformSettings = await platformSettingsService.getSettings();
 
-    const reviewRewardAmount = platformSettings.reviewRewardAmount;
-    const referralRewardAmount = platformSettings.referralRewardAmount;
-    const businessRecommendationRewardAmount =
+    const currentReviewRewardRate = platformSettings.reviewRewardAmount;
+    const currentReferralRewardRate = platformSettings.referralRewardAmount;
+    const currentBusinessRecommendationRewardRate =
       platformSettings.businessRecommendationRewardAmount;
 
-    // Debug log to see what rates we're getting
-    console.log("Platform settings fetched:", {
-      reviewRewardAmount,
-      referralRewardAmount,
-      businessRecommendationRewardAmount,
-      platformSettings,
-    });
+    // Calculate rewards based on ACTUAL stored values in the Reward model
+    // This ensures that changes to platform settings don't affect existing reward calculations
+    const [reviewRewards, referralRewards, businessRecommendationRewards] =
+      await Promise.all([
+        // Get actual review rewards earned
+        prisma.reward.aggregate({
+          where: {
+            referrerId: user.id,
+            type: "REVIEW",
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+        // Get actual referral rewards earned
+        prisma.reward.aggregate({
+          where: {
+            referrerId: user.id,
+            type: "REFERRAL",
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+        // Get actual business recommendation rewards earned
+        prisma.reward.aggregate({
+          where: {
+            referrerId: user.id,
+            type: "BUSINESS_RECOMMENDATION",
+          },
+          _sum: { amount: true },
+          _count: { id: true },
+        }),
+      ]);
 
-    // Calculate rewards dynamically based on activities
-    const reviewReward = totalReviews * reviewRewardAmount;
-    const referralReward = referralStats * referralRewardAmount;
+    // Use actual stored amounts, not calculated amounts
+    const actualReviewReward = reviewRewards._sum.amount || 0;
+    const actualReferralReward = referralRewards._sum.amount || 0;
+    const actualBusinessRecommendationReward =
+      businessRecommendationRewards._sum.amount || 0;
 
-    // Reward for business recommendations (if agent): dynamic amount per approved business
-    let businessRecommendationReward = 0;
-    if (user.role === "AGENT") {
-      // Count approved business recommendations (you'll need to implement this table)
-      // For now, we'll set it to 0
-      businessRecommendationReward = 0;
-    }
-
+    // Calculate total rewards from actual stored values
     const totalRewards =
-      reviewReward + referralReward + businessRecommendationReward;
+      actualReviewReward +
+      actualReferralReward +
+      actualBusinessRecommendationReward;
+
+    // Debug log to see what we're getting from the database vs platform settings
+    console.log("Reward calculation comparison:", {
+      userId: user.id,
+      // Platform settings (current rates)
+      currentReviewRewardRate,
+      currentReferralRewardRate,
+      currentBusinessRecommendationRewardRate,
+      // Actual stored rewards
+      actualReviewReward,
+      actualReferralReward,
+      actualBusinessRecommendationReward,
+      // Counts
+      totalReviews,
+      referralStats,
+      reviewRewardsCount: reviewRewards._count.id,
+      referralRewardsCount: referralRewards._count.id,
+      businessRecommendationRewardsCount:
+        businessRecommendationRewards._count.id,
+    });
 
     // Calculate current streak (consecutive days with reviews)
     const reviews = await prisma.review.findMany({
@@ -118,8 +188,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Calculate monthly rewards dynamically
-    const monthlyRewards = monthlyReviews * reviewRewardAmount;
+    // Calculate monthly rewards based on actual stored rewards for this month
+    const monthlyRewards = await prisma.reward.aggregate({
+      where: {
+        referrerId: user.id,
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { amount: true },
+    });
+
+    const actualMonthlyRewards = monthlyRewards._sum.amount || 0;
 
     // Validate and format all numbers
     const validatedStats = {
@@ -129,28 +207,29 @@ export async function GET(request: NextRequest) {
       totalReferrals: Math.max(0, referralStats),
       currentStreak: Math.max(0, currentStreak),
       monthlyReviews: Math.max(0, monthlyReviews),
-      monthlyRewards: Math.max(0, monthlyRewards),
+      monthlyRewards: Math.max(0, actualMonthlyRewards),
       rewardBreakdown: {
-        reviewReward: Math.max(0, reviewReward),
-        referralReward: Math.max(0, referralReward),
-        businessRecommendationReward: Math.max(0, businessRecommendationReward),
+        reviewReward: Math.max(0, actualReviewReward),
+        referralReward: Math.max(0, actualReferralReward),
+        businessRecommendationReward: Math.max(
+          0,
+          actualBusinessRecommendationReward,
+        ),
       },
       currentRates: {
-        reviewReward: reviewRewardAmount,
-        referralReward: referralRewardAmount,
-        businessRecommendationReward: businessRecommendationRewardAmount,
+        reviewReward: currentReviewRewardRate,
+        referralReward: currentReferralRewardRate,
+        businessRecommendationReward: currentBusinessRecommendationRewardRate,
       },
       userRole: user.role,
       minimumRedemption: platformSettings.minimumRedemptionAmount,
       canRedeem: totalRewards >= platformSettings.minimumRedemptionAmount,
     };
 
-    // Log the calculated values for debugging
-    console.log("Stats calculation:", {
+    // Log the final calculated values for debugging
+    console.log("Final stats calculation:", {
       userId: user.id,
-      reviewRewardAmount,
-      referralRewardAmount,
-      businessRecommendationRewardAmount,
+      actualMonthlyRewards,
       ...validatedStats,
     });
 

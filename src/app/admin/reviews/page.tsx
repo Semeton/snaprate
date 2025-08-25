@@ -51,6 +51,7 @@ export default function AdminReviewsPage() {
   const [pageSize] = useState(20);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     fetchReviews();
@@ -66,6 +67,7 @@ export default function AdminReviewsPage() {
         search: searchTerm,
         sortField,
         sortDirection,
+        showDeleted: showDeleted.toString(),
       });
 
       const response = await fetch(`/api/admin/reviews?${params}`);
@@ -110,6 +112,8 @@ export default function AdminReviewsPage() {
     action: "APPROVE" | "REJECT" | "VERIFY",
   ) => {
     try {
+      console.log(`Attempting to ${action.toLowerCase()} review ${reviewId}`);
+
       const response = await fetch(`/api/admin/reviews/${reviewId}/action`, {
         method: "POST",
         headers: {
@@ -118,25 +122,34 @@ export default function AdminReviewsPage() {
         body: JSON.stringify({ action }),
       });
 
+      console.log(`Response status: ${response.status}`);
+      console.log(`Response ok: ${response.ok}`);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log("Success response:", data);
+
         toast({
           title: "Success",
           description: `Review ${action.toLowerCase()}d successfully`,
         });
         fetchReviews();
       } else {
-        const error = await response.json();
+        const errorData = await response.json();
+        console.error("Error response:", errorData);
+
         toast({
           title: "Error",
-          description: error.error || "Failed to update review",
+          description:
+            errorData.error || `Failed to ${action.toLowerCase()} review`,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Failed to update review:", error);
+      console.error(`Failed to ${action.toLowerCase()} review:`, error);
       toast({
         title: "Error",
-        description: "Failed to update review",
+        description: `Failed to ${action.toLowerCase()} review. Please try again.`,
         variant: "destructive",
       });
     }
@@ -169,6 +182,21 @@ export default function AdminReviewsPage() {
     const config =
       statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
     return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "text-yellow-600";
+      case "APPROVED":
+        return "text-green-600";
+      case "REJECTED":
+        return "text-red-600";
+      case "FLAGGED":
+        return "text-orange-600";
+      default:
+        return "text-gray-600";
+    }
   };
 
   const getRatingStars = (rating: number) => {
@@ -333,6 +361,7 @@ export default function AdminReviewsPage() {
                   <SelectItem value="APPROVED">Approved</SelectItem>
                   <SelectItem value="REJECTED">Rejected</SelectItem>
                   <SelectItem value="FLAGGED">Flagged</SelectItem>
+                  <SelectItem value="DELETED">Deleted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -444,10 +473,18 @@ export default function AdminReviewsPage() {
                         {getStatusBadge(review.status)}
                         {review.isVerified && (
                           <Badge
-                            variant="secondary"
-                            className="text-xs bg-green-500 text-white"
+                            variant="default"
+                            className="bg-green-100 text-green-800"
                           >
                             Verified
+                          </Badge>
+                        )}
+                        {review.deletedAt && (
+                          <Badge
+                            variant="destructive"
+                            className="bg-red-100 text-red-800"
+                          >
+                            Deleted
                           </Badge>
                         )}
                       </div>

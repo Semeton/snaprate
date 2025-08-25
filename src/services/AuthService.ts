@@ -293,7 +293,9 @@ export class AuthService implements IAuthService {
     return Promise.resolve();
   }
 
-  async verifyEmail(token: string): Promise<boolean> {
+  async verifyEmail(
+    token: string,
+  ): Promise<{ success: boolean; user?: BaseUser; token?: string }> {
     try {
       logger.info("Verifying email with token", {
         tokenPrefix: token.substring(0, 8) + "...",
@@ -305,6 +307,10 @@ export class AuthService implements IAuthService {
           emailVerificationExpiry: {
             gt: new Date(),
           },
+        },
+        include: {
+          business: true,
+          agentProfile: true,
         },
       });
 
@@ -331,7 +337,14 @@ export class AuthService implements IAuthService {
         email: user.email,
       });
 
-      return true;
+      // Generate a token for automatic login
+      const authToken = this.generateToken(user.id);
+
+      return {
+        success: true,
+        user: user as BaseUser,
+        token: authToken,
+      };
     } catch (error) {
       logger.error("Email verification failed", {
         error: error instanceof Error ? error.message : "Unknown error",

@@ -17,6 +17,7 @@ import {
   BusinessDashboardStats,
   AgentDashboardStats,
   Coupon,
+  BaseUser,
 } from "@/types";
 
 // Base service interface for common CRUD operations
@@ -251,7 +252,9 @@ export interface IAuthService {
     password: string;
   }): Promise<{ user: unknown; token: string }>;
   signOut(): Promise<void>;
-  verifyEmail(token: string): Promise<boolean>;
+  verifyEmail(
+    token: string,
+  ): Promise<{ success: boolean; user?: BaseUser; token?: string }>;
   sendVerificationEmail(
     email: string,
     name: string,

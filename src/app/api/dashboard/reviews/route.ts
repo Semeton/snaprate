@@ -36,8 +36,13 @@ export async function GET(request: NextRequest) {
 
     // Get user reviews
     const skip = (page - 1) * limit;
-    const where: { reviewerId: string; status?: ReviewStatus } = {
+    const where: {
+      reviewerId: string;
+      status?: ReviewStatus;
+      deletedAt?: null;
+    } = {
       reviewerId: userId,
+      deletedAt: null,
     };
     if (status) {
       where.status = status;
@@ -47,20 +52,13 @@ export async function GET(request: NextRequest) {
       prisma.review.findMany({
         where,
         include: {
-          reviewer: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
           business: {
             select: {
               id: true,
               name: true,
               category: true,
-              state: true,
               city: true,
+              state: true,
             },
           },
         },

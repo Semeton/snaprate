@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { RewardService } from "./RewardService";
 import { PlatformSettingsService } from "./PlatformSettingsService";
 import { RewardType, Review, ReviewStatus } from "@/types";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 export class ReviewService {
   private rewardService: RewardService;
@@ -110,7 +110,9 @@ export class ReviewService {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where = { businessId };
+      const where: { businessId: string; status?: ReviewStatus } = {
+        businessId,
+      };
       if (status) {
         where.status = status;
       }
@@ -142,7 +144,7 @@ export class ReviewService {
       ]);
 
       return {
-        reviews: reviews as Review[],
+        reviews: reviews as unknown as Review[],
         pagination: {
           page,
           limit,
@@ -171,7 +173,9 @@ export class ReviewService {
       const { page, limit, status } = options;
       const skip = (page - 1) * limit;
 
-      const where = { reviewerId: userId };
+      const where: { reviewerId: string; status?: ReviewStatus } = {
+        reviewerId: userId,
+      };
       if (status) {
         where.status = status;
       }
@@ -205,7 +209,7 @@ export class ReviewService {
       ]);
 
       return {
-        reviews: reviews as Review[],
+        reviews: reviews as unknown as Review[],
         pagination: {
           page,
           limit,
@@ -357,7 +361,10 @@ export class ReviewService {
 
   private async updateBusinessMetrics(
     businessId: string,
-    tx?: PrismaClient,
+    tx?: Omit<
+      PrismaClient,
+      "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
+    >,
   ): Promise<void> {
     try {
       const prismaClient = tx || prisma;
