@@ -27,7 +27,7 @@ import {
   Send,
   AlertCircle,
 } from "lucide-react";
-import ReviewerSidebar from "@/components/ReviewerSidebar";
+
 import { BusinessCategory, State } from "@/types";
 import { Badge } from "@/components/ui/badge";
 
@@ -35,7 +35,6 @@ export default function RecommendBusinessPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Business details form state
@@ -217,361 +216,346 @@ export default function RecommendBusinessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <ReviewerSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
-
-      <div className="lg:ml-64">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push("/reviewer/agent-dashboard")}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  <ArrowLeft className="h-5 w-5 mr-2" />
-                  Back to Dashboard
-                </Button>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Recommend Business
-                  </h1>
-                  <p className="text-gray-600">
-                    Help businesses join our platform and earn rewards
-                  </p>
-                </div>
+    <>
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/reviewer/agent-dashboard")}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Recommend Business
+                </h1>
+                <p className="text-gray-600">
+                  Help businesses join our platform and earn rewards
+                </p>
               </div>
-              <div className="flex items-center space-x-3">
-                <Badge
-                  variant="default"
-                  className="bg-green-100 text-green-800 border-green-200"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  AGENT
-                </Badge>
-              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Badge
+                variant="default"
+                className="bg-green-100 text-green-800 border-green-200"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                AGENT
+              </Badge>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          {/* Info Card */}
-          <Card className="mb-8 bg-blue-50 border-blue-200">
-            <CardContent className="pt-6">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="h-6 w-6 text-blue-600 mt-1" />
+      <div className="px-4 sm:px-6 lg:px-8 py-8">
+        {/* Info Card */}
+        <Card className="mb-8 bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-6 w-6 text-blue-600 mt-1" />
+              <div>
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  How Business Recommendations Work
+                </h3>
+                <div className="text-blue-700 text-sm space-y-1">
+                  <p>• Submit business and owner details for review</p>
+                  <p>• Our team will verify the information</p>
+                  <p>• Approved businesses get added to the platform</p>
+                  <p>• You earn ₦100 for each approved recommendation</p>
+                  <p>
+                    • Business owners get notified to complete their profile
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Business Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Building2 className="h-5 w-5" />
+                <span>Business Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <Label htmlFor="businessName">Business Name *</Label>
+                  <Input
+                    id="businessName"
+                    value={businessForm.businessName}
+                    onChange={(e) =>
+                      handleBusinessFormChange("businessName", e.target.value)
+                    }
+                    placeholder="Enter business name"
+                    required
+                  />
+                </div>
+
                 <div>
-                  <h3 className="font-semibold text-blue-900 mb-2">
-                    How Business Recommendations Work
-                  </h3>
-                  <div className="text-blue-700 text-sm space-y-1">
-                    <p>• Submit business and owner details for review</p>
-                    <p>• Our team will verify the information</p>
-                    <p>• Approved businesses get added to the platform</p>
-                    <p>• You earn ₦100 for each approved recommendation</p>
-                    <p>
-                      • Business owners get notified to complete their profile
-                    </p>
-                  </div>
+                  <Label htmlFor="businessCategory">Business Category *</Label>
+                  <Select
+                    value={businessForm.businessCategory}
+                    onValueChange={(value) =>
+                      handleBusinessFormChange("businessCategory", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(BusinessCategory).map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="businessPhone">Business Phone</Label>
+                  <Input
+                    id="businessPhone"
+                    value={businessForm.businessPhone}
+                    onChange={(e) =>
+                      handleBusinessFormChange("businessPhone", e.target.value)
+                    }
+                    placeholder="Business phone number"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessEmail">Business Email</Label>
+                  <Input
+                    id="businessEmail"
+                    type="email"
+                    value={businessForm.businessEmail}
+                    onChange={(e) =>
+                      handleBusinessFormChange("businessEmail", e.target.value)
+                    }
+                    placeholder="Business email address"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessWebsite">Business Website</Label>
+                  <Input
+                    id="businessWebsite"
+                    value={businessForm.businessWebsite}
+                    onChange={(e) =>
+                      handleBusinessFormChange(
+                        "businessWebsite",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="businessAddress">Business Address *</Label>
+                  <Input
+                    id="businessAddress"
+                    value={businessForm.businessAddress}
+                    onChange={(e) =>
+                      handleBusinessFormChange(
+                        "businessAddress",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Street address"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessCity">City *</Label>
+                  <Input
+                    id="businessCity"
+                    value={businessForm.businessCity}
+                    onChange={(e) =>
+                      handleBusinessFormChange("businessCity", e.target.value)
+                    }
+                    placeholder="City"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessState">State *</Label>
+                  <Select
+                    value={businessForm.businessState}
+                    onValueChange={(value) =>
+                      handleBusinessFormChange("businessState", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(State).map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="businessDescription">
+                    Business Description
+                  </Label>
+                  <Textarea
+                    id="businessDescription"
+                    value={businessForm.businessDescription}
+                    onChange={(e) =>
+                      handleBusinessFormChange(
+                        "businessDescription",
+                        e.target.value,
+                      )
+                    }
+                    placeholder="Brief description of the business, services offered, etc."
+                    rows={3}
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Business Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Building2 className="h-5 w-5" />
-                  <span>Business Information</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="businessName">Business Name *</Label>
-                    <Input
-                      id="businessName"
-                      value={businessForm.businessName}
-                      onChange={(e) =>
-                        handleBusinessFormChange("businessName", e.target.value)
-                      }
-                      placeholder="Enter business name"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessCategory">
-                      Business Category *
-                    </Label>
-                    <Select
-                      value={businessForm.businessCategory}
-                      onValueChange={(value) =>
-                        handleBusinessFormChange("businessCategory", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(BusinessCategory).map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessPhone">Business Phone</Label>
-                    <Input
-                      id="businessPhone"
-                      value={businessForm.businessPhone}
-                      onChange={(e) =>
-                        handleBusinessFormChange(
-                          "businessPhone",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Business phone number"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessEmail">Business Email</Label>
-                    <Input
-                      id="businessEmail"
-                      type="email"
-                      value={businessForm.businessEmail}
-                      onChange={(e) =>
-                        handleBusinessFormChange(
-                          "businessEmail",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Business email address"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessWebsite">Business Website</Label>
-                    <Input
-                      id="businessWebsite"
-                      value={businessForm.businessWebsite}
-                      onChange={(e) =>
-                        handleBusinessFormChange(
-                          "businessWebsite",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="https://example.com"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label htmlFor="businessAddress">Business Address *</Label>
-                    <Input
-                      id="businessAddress"
-                      value={businessForm.businessAddress}
-                      onChange={(e) =>
-                        handleBusinessFormChange(
-                          "businessAddress",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Street address"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessCity">City *</Label>
-                    <Input
-                      id="businessCity"
-                      value={businessForm.businessCity}
-                      onChange={(e) =>
-                        handleBusinessFormChange("businessCity", e.target.value)
-                      }
-                      placeholder="City"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="businessState">State *</Label>
-                    <Select
-                      value={businessForm.businessState}
-                      onValueChange={(value) =>
-                        handleBusinessFormChange("businessState", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(State).map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label htmlFor="businessDescription">
-                      Business Description
-                    </Label>
-                    <Textarea
-                      id="businessDescription"
-                      value={businessForm.businessDescription}
-                      onChange={(e) =>
-                        handleBusinessFormChange(
-                          "businessDescription",
-                          e.target.value,
-                        )
-                      }
-                      placeholder="Brief description of the business, services offered, etc."
-                      rows={3}
-                    />
-                  </div>
+          {/* Owner Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <User className="h-5 w-5" />
+                <span>Business Owner Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="ownerName">Owner Name *</Label>
+                  <Input
+                    id="ownerName"
+                    value={ownerForm.ownerName}
+                    onChange={(e) =>
+                      handleOwnerFormChange("ownerName", e.target.value)
+                    }
+                    placeholder="Full name of business owner"
+                    required
+                  />
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Owner Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <User className="h-5 w-5" />
-                  <span>Business Owner Information</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="ownerName">Owner Name *</Label>
-                    <Input
-                      id="ownerName"
-                      value={ownerForm.ownerName}
-                      onChange={(e) =>
-                        handleOwnerFormChange("ownerName", e.target.value)
-                      }
-                      placeholder="Full name of business owner"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ownerPhone">Owner Phone *</Label>
-                    <Input
-                      id="ownerPhone"
-                      value={ownerForm.ownerPhone}
-                      onChange={(e) =>
-                        handleOwnerFormChange("ownerPhone", e.target.value)
-                      }
-                      placeholder="Owner's phone number"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ownerEmail">Owner Email *</Label>
-                    <Input
-                      id="ownerEmail"
-                      type="email"
-                      value={ownerForm.ownerEmail}
-                      onChange={(e) =>
-                        handleOwnerFormChange("ownerEmail", e.target.value)
-                      }
-                      placeholder="Owner's email address"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ownerCity">Owner City</Label>
-                    <Input
-                      id="ownerCity"
-                      value={ownerForm.ownerCity}
-                      onChange={(e) =>
-                        handleOwnerFormChange("ownerCity", e.target.value)
-                      }
-                      placeholder="Owner's city"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="ownerState">Owner State</Label>
-                    <Select
-                      value={ownerForm.ownerState}
-                      onValueChange={(value) =>
-                        handleOwnerFormChange("ownerState", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(State).map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label htmlFor="ownerAddress">Owner Address</Label>
-                    <Input
-                      id="ownerAddress"
-                      value={ownerForm.ownerAddress}
-                      onChange={(e) =>
-                        handleOwnerFormChange("ownerAddress", e.target.value)
-                      }
-                      placeholder="Owner's address (if different from business)"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label htmlFor="additionalNotes">Additional Notes</Label>
-                    <Textarea
-                      id="additionalNotes"
-                      value={ownerForm.additionalNotes}
-                      onChange={(e) =>
-                        handleOwnerFormChange("additionalNotes", e.target.value)
-                      }
-                      placeholder="Any additional information about the business or owner that might be helpful"
-                      rows={3}
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="ownerPhone">Owner Phone *</Label>
+                  <Input
+                    id="ownerPhone"
+                    value={ownerForm.ownerPhone}
+                    onChange={(e) =>
+                      handleOwnerFormChange("ownerPhone", e.target.value)
+                    }
+                    placeholder="Owner's phone number"
+                    required
+                  />
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 px-8"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {submitting ? "Submitting..." : "Submit Recommendation"}
-              </Button>
-            </div>
-          </form>
-        </div>
+                <div>
+                  <Label htmlFor="ownerEmail">Owner Email *</Label>
+                  <Input
+                    id="ownerEmail"
+                    type="email"
+                    value={ownerForm.ownerEmail}
+                    onChange={(e) =>
+                      handleOwnerFormChange("ownerEmail", e.target.value)
+                    }
+                    placeholder="Owner's email address"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="ownerCity">Owner City</Label>
+                  <Input
+                    id="ownerCity"
+                    value={ownerForm.ownerCity}
+                    onChange={(e) =>
+                      handleOwnerFormChange("ownerCity", e.target.value)
+                    }
+                    placeholder="Owner's city"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="ownerState">Owner State</Label>
+                  <Select
+                    value={ownerForm.ownerState}
+                    onValueChange={(value) =>
+                      handleOwnerFormChange("ownerState", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(State).map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="ownerAddress">Owner Address</Label>
+                  <Input
+                    id="ownerAddress"
+                    value={ownerForm.ownerAddress}
+                    onChange={(e) =>
+                      handleOwnerFormChange("ownerAddress", e.target.value)
+                    }
+                    placeholder="Owner's address (if different from business)"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="additionalNotes">Additional Notes</Label>
+                  <Textarea
+                    id="additionalNotes"
+                    value={ownerForm.additionalNotes}
+                    onChange={(e) =>
+                      handleOwnerFormChange("additionalNotes", e.target.value)
+                    }
+                    placeholder="Any additional information about the business or owner that might be helpful"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 px-8"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {submitting ? "Submitting..." : "Submit Recommendation"}
+            </Button>
+          </div>
+        </form>
       </div>
-    </div>
+    </>
   );
 }

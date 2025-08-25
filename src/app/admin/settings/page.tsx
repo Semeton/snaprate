@@ -419,11 +419,13 @@ export default function AdminSettingsPage() {
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
+                  type="tel"
                   value={profileForm.phone}
                   onChange={(e) =>
                     setProfileForm({ ...profileForm, phone: e.target.value })
                   }
-                  placeholder="+234..."
+                  placeholder="Enter your phone number"
+                  className="mt-1"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">

@@ -19,7 +19,10 @@ import {
 interface BusinessInvitationData {
   email: string;
   businessName: string;
+  ownerName: string; // Add owner name
   expiresAt: string;
+  businessId: string; // Add business ID
+  ownerId: string; // Add owner ID
 }
 
 export default function AcceptBusinessInvitationForm() {
@@ -66,6 +69,11 @@ export default function AcceptBusinessInvitationForm() {
 
       if (response.ok) {
         setInvitation(data.data);
+        // Pre-fill the name field with the owner's name
+        setFormData((prev) => ({
+          ...prev,
+          name: data.data.ownerName || "",
+        }));
       } else {
         toast({
           title: "Invalid Invitation",
@@ -139,8 +147,8 @@ export default function AcceptBusinessInvitationForm() {
 
       if (response.ok) {
         toast({
-          title: "Account Created Successfully!",
-          description: `Welcome to SnapRate as a Business Owner`,
+          title: "Account Activated Successfully!",
+          description: `Your business account is being activated. You can sign in with your email and password.`,
         });
 
         // Redirect to sign in page
@@ -252,10 +260,11 @@ export default function AcceptBusinessInvitationForm() {
             <Building2 className="h-10 w-10 text-white" />
           </div>
           <CardTitle className="text-3xl font-bold bg-gradient-to-br from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Complete Your Business Account
+            Activate Your Business Account
           </CardTitle>
           <p className="text-gray-600 mt-3 text-lg">
-            You&apos;ve been invited to join SnapRate as a business owner
+            Your business has been created and you&apos;re invited to set your
+            password and access your account
           </p>
         </CardHeader>
 
@@ -295,10 +304,13 @@ export default function AcceptBusinessInvitationForm() {
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name}</p>
               )}
+              <p className="text-xs text-gray-500 mt-1">
+                This name will be associated with your business account
+              </p>
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Set Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -344,12 +356,12 @@ export default function AcceptBusinessInvitationForm() {
               {submitting ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Creating Account...
+                  Activating Account...
                 </>
               ) : (
                 <>
                   <CheckCircle className="h-5 w-5 mr-2" />
-                  Complete Setup
+                  Activate Account
                 </>
               )}
             </Button>
@@ -361,8 +373,12 @@ export default function AcceptBusinessInvitationForm() {
               <div className="text-sm text-yellow-800">
                 <p className="font-medium">Important:</p>
                 <ul className="mt-2 space-y-1">
-                  <li>• Your business account will be activated immediately</li>
-                  <li>• You can sign in with your email and password</li>
+                  <li>• Your business has already been created by an admin</li>
+                  <li>
+                    • You&apos;re setting up your password to access your
+                    account
+                  </li>
+                  <li>• You can sign in immediately after activation</li>
                   <li>• Keep your credentials secure</li>
                   <li>• Contact support if you need assistance</li>
                 </ul>

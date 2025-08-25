@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isValidEmail, validatePassword } from "@/lib/utils";
 import { AuthService } from "@/services/AuthService";
 import { UserRole, State } from "@/types";
-import { isValidEmail, isValidPhone, validatePassword } from "@/lib/utils";
 import logger from "@/lib/logger";
 
 const authService = new AuthService();
@@ -64,14 +64,6 @@ export async function POST(request: NextRequest) {
       logger.warn("Signup validation failed - invalid email format", { email });
       return NextResponse.json(
         { success: false, error: "Invalid email format" },
-        { status: 400 },
-      );
-    }
-
-    if (!isValidPhone(phone)) {
-      logger.warn("Signup validation failed - invalid phone format", { phone });
-      return NextResponse.json(
-        { success: false, error: "Invalid phone number format" },
         { status: 400 },
       );
     }

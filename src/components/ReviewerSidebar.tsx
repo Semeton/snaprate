@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   Home,
   FileText,
@@ -13,8 +16,8 @@ import {
   Settings,
   User,
   Shield,
-  Menu,
-  X,
+  Sun,
+  Moon,
   LogOut,
   TrendingUp,
   Building2,
@@ -23,15 +26,17 @@ import { signOut } from "next-auth/react";
 
 interface ReviewerSidebarProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onClose: () => void;
 }
 
 export default function ReviewerSidebar({
   isOpen,
-  onToggle,
+  onClose,
 }: ReviewerSidebarProps) {
   const { data: session, status, update } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const [platformSettings, setPlatformSettings] = useState({
     minimumBusinessesForAgent: 5,
   });
@@ -64,7 +69,7 @@ export default function ReviewerSidebar({
         setPlatformSettings(data.data);
       }
     } catch (error) {
-      console.error("Failed to fetch platform settings:", error);
+      console.error("Failed to fetch platform settings", error);
       // Use default value if fetch fails
       setPlatformSettings({ minimumBusinessesForAgent: 5 });
     } finally {
@@ -108,7 +113,7 @@ export default function ReviewerSidebar({
         }
       }
     } catch (error) {
-      console.error("Failed to check for role updates:", error);
+      console.error("Failed to check for role updates", error);
     }
   };
 
@@ -116,9 +121,58 @@ export default function ReviewerSidebar({
     setShowAgentModal(true);
   };
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/" });
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
   };
+
+  const navigation = [
+    {
+      name: "Dashboard",
+      href: "/reviewer/dashboard",
+      icon: Home,
+      current: pathname === "/reviewer/dashboard",
+    },
+    ...(isAgent
+      ? [
+          {
+            name: "Agent Dashboard",
+            href: "/reviewer/agent-dashboard",
+            icon: Shield,
+            current: pathname === "/reviewer/agent-dashboard",
+          },
+        ]
+      : []),
+    {
+      name: "My Reviews",
+      href: "/reviewer/reviews",
+      icon: FileText,
+      current: pathname === "/reviewer/reviews",
+    },
+    {
+      name: "Rewards",
+      href: "/reviewer/rewards",
+      icon: Gift,
+      current: pathname === "/reviewer/rewards",
+    },
+    {
+      name: "Profile",
+      href: "/reviewer/profile",
+      icon: User,
+      current: pathname === "/reviewer/profile",
+    },
+    {
+      name: "Settings",
+      href: "/reviewer/settings",
+      icon: Settings,
+      current: pathname === "/reviewer/settings",
+    },
+  ];
 
   if (status === "loading") {
     return (
@@ -136,170 +190,140 @@ export default function ReviewerSidebar({
 
   return (
     <>
-      {/* Mobile Overlay */}
+      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onToggle}
+          onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
+        className={`lg:flex lg:flex-col lg:h-full lg:w-72 lg:bg-white lg:dark:bg-gray-800 lg:border-r lg:border-gray-200 lg:dark:border-gray-700 lg:static lg:inset-auto lg:z-auto fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:transform-none lg:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col h-full w-72">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
-              <div className="p-2 bg-purple-100 rounded-full">
-                <User className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                <User className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">
-                  {session?.user?.name || "User"}
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <Badge
-                    variant="default"
-                    className={
-                      isAgent
-                        ? "bg-green-100 text-green-800 border-green-200"
-                        : "bg-purple-100 text-purple-800 border-purple-200"
-                    }
-                  >
-                    {isAgent ? (
-                      <>
-                        <Shield className="h-3 w-3 mr-1" />
-                        AGENT
-                      </>
-                    ) : (
-                      <>
-                        <User className="h-3 w-3 mr-1" />
-                        REVIEWER
-                      </>
-                    )}
-                  </Badge>
-                  {isAgent && (
-                    <span className="text-xs text-green-600">
-                      Last updated: {lastRoleCheck.toLocaleTimeString()}
-                    </span>
-                  )}
-                </div>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Reviewer
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  SnapRate
+                </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggle}
-              className="lg:hidden"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                title={`Current theme: ${theme}`}
+              >
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5" />
+                ) : theme === "light" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+                  </div>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="lg:hidden"
+              >
+                ×
+              </Button>
+            </div>
           </div>
-        </div>
 
-        {/* Navigation */}
-        <nav className="p-6 space-y-3">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push("/reviewer/dashboard")}
-          >
-            <Home className="h-5 w-5 mr-3" />
-            Dashboard
-          </Button>
+          {/* User Info */}
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <UserAvatar
+              user={{
+                name: session?.user?.name,
+                email: session?.user?.email,
+                avatar: session?.user?.avatar,
+              }}
+              size="md"
+              showName={true}
+              showEmail={true}
+              showRole={true}
+              role={isAgent ? "AGENT" : "REVIEWER"}
+            />
+          </div>
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push("/reviewer/reviews")}
-          >
-            <FileText className="h-5 w-5 mr-3" />
-            My Reviews
-          </Button>
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-2">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  item.current
+                    ? "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                onClick={onClose}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push("/reviewer/rewards")}
-          >
-            <Gift className="h-5 w-5 mr-3" />
-            Rewards
-          </Button>
+            {/* Agent Application Button (only for reviewers) */}
+            {!isAgent && (
+              <Button
+                variant="outline"
+                className="w-full justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 dark:text-purple-400 dark:hover:text-purple-300 dark:hover:bg-purple-900/20 dark:border-purple-800"
+                onClick={handleAgentApplication}
+              >
+                <FileText className="h-5 w-5 mr-3" />
+                Apply to be Agent
+              </Button>
+            )}
+          </nav>
 
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push("/reviewer/profile")}
-          >
-            <User className="h-5 w-5 mr-3" />
-            Profile
-          </Button>
-
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
-            onClick={() => router.push("/reviewer/settings")}
-          >
-            <Settings className="h-5 w-5 mr-3" />
-            Settings
-          </Button>
-
-          {/* Agent Application Button (only for reviewers) */}
-          {!isAgent && (
-            <Button
-              variant="outline"
-              className="w-full justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200"
-              onClick={handleAgentApplication}
-            >
-              <FileText className="h-5 w-5 mr-3" />
-              Apply to be Agent
-            </Button>
-          )}
-
-          {/* Agent Dashboard Button (only for agents) */}
-          {isAgent && (
-            <Button
-              variant="outline"
-              className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
-              onClick={() => router.push("/reviewer/agent-dashboard")}
-            >
-              <Shield className="h-5 w-5 mr-3" />
-              Agent Dashboard
-            </Button>
-          )}
-
-          {/* Sign Out */}
-          <div className="pt-6 border-t border-gray-200">
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <Button
               variant="ghost"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={handleSignOut}
+              className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
               <LogOut className="h-5 w-5 mr-3" />
               Sign Out
             </Button>
           </div>
-        </nav>
+        </div>
       </div>
 
       {/* Agent Application Modal */}
       {showAgentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center space-x-3 mb-6">
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <Shield className="h-8 w-8 text-purple-600" />
+                <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-full">
+                  <Shield className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                     Become an Agent
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Help businesses join our platform and earn rewards
                   </p>
                 </div>
@@ -308,16 +332,18 @@ export default function ReviewerSidebar({
               {loadingSettings ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
-                  <p className="text-gray-600">Loading requirements...</p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Loading requirements...
+                  </p>
                 </div>
               ) : (
                 <>
                   {/* Dynamic Requirement Summary */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 mb-2">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
                       🎯 Current Requirement
                     </h3>
-                    <p className="text-blue-800 text-sm">
+                    <p className="text-blue-800 dark:text-blue-200 text-sm">
                       Review at least{" "}
                       <span className="font-bold">
                         {platformSettings.minimumBusinessesForAgent}
@@ -327,10 +353,10 @@ export default function ReviewerSidebar({
                   </div>
 
                   <div className="space-y-4 mb-6">
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
                       Requirements to become an agent:
                     </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                       <li className="flex items-start space-x-2">
                         <span className="text-green-500 mt-0.5">•</span>
                         <span>
@@ -355,8 +381,8 @@ export default function ReviewerSidebar({
                       </li>
                     </ul>
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <p className="text-yellow-800 text-xs">
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                      <p className="text-yellow-800 dark:text-yellow-200 text-xs">
                         <strong>Note:</strong> You must review{" "}
                         <strong>different businesses</strong>, not just multiple
                         reviews for the same business.
@@ -366,7 +392,7 @@ export default function ReviewerSidebar({
 
                   <div className="space-y-3">
                     <Button
-                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
                       onClick={() => {
                         setShowAgentModal(false);
                         router.push("/reviewer/apply-agent");
@@ -385,7 +411,7 @@ export default function ReviewerSidebar({
                   </div>
 
                   <div className="mt-4 text-center">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Progress indicator and requirements are updated in
                       real-time by administrators.
                     </p>

@@ -221,7 +221,7 @@ export default function BusinessRegisterPage() {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => handleInputChange("phone", e.target.value)}
-                    placeholder="+234 801 234 5678"
+                    placeholder="Enter your phone number"
                     required
                     className="mt-1"
                   />

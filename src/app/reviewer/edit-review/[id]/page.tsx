@@ -24,7 +24,6 @@ import {
   Save,
   X,
 } from "lucide-react";
-import ReviewerSidebar from "@/components/ReviewerSidebar";
 
 interface Review {
   id: string;
@@ -48,7 +47,6 @@ export default function EditReviewPage() {
   const params = useParams();
   const reviewId = params.id as string;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -202,256 +200,216 @@ export default function EditReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <ReviewerSidebar
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-white border-b px-4 py-3">
-          <div className="flex items-center justify-between">
+    <>
+      {/* Edit Review Content */}
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => router.push("/reviewer/reviews")}
+              className="p-2"
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold text-gray-900">Edit Review</h1>
-            <div className="w-6"></div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Edit Review</h1>
+              <p className="text-gray-600">
+                Update your review for {review.business.name}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Edit Review Content */}
-        <div className="flex-1 p-6">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.push("/reviewer/reviews")}
-                className="p-2"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
+        {/* Business Info */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Business Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Edit Review
-                </h1>
-                <p className="text-gray-600">
-                  Update your review for {review.business.name}
+                <Label className="text-sm font-medium text-gray-500">
+                  Business Name
+                </Label>
+                <p className="text-gray-900 font-medium">
+                  {review.business.name}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">
+                  Category
+                </Label>
+                <p className="text-gray-900">{review.business.category}</p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-500">
+                  Location
+                </Label>
+                <p className="text-gray-900">
+                  {review.business.city}, {review.business.state}
                 </p>
               </div>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Business Info */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Business Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Business Name
-                  </Label>
-                  <p className="text-gray-900 font-medium">
-                    {review.business.name}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Category
-                  </Label>
-                  <p className="text-gray-900">{review.business.category}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">
-                    Location
-                  </Label>
-                  <p className="text-gray-900">
-                    {review.business.city}, {review.business.state}
-                  </p>
+        {/* Edit Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Review Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Rating */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Rating *
+                </Label>
+                <div className="flex items-center space-x-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => handleRatingChange(star)}
+                      className="p-1 hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        className={`h-8 w-8 ${
+                          star <= formData.rating
+                            ? "text-yellow-400 fill-current"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="ml-3 text-sm text-gray-600">
+                    {formData.rating}/5 stars
+                  </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Edit Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Review Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Rating */}
+              {/* Content */}
+              <div>
+                <Label
+                  htmlFor="content"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Review Content *
+                </Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={(e) => handleInputChange("content", e.target.value)}
+                  placeholder="Share your experience with this business..."
+                  className="min-h-[120px]"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.content.length}/1000 characters (minimum 10)
+                </p>
+              </div>
+
+              {/* Current Media */}
+              {(formData.images.length > 0 || formData.video) && (
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Rating *
+                    Current Media
                   </Label>
-                  <div className="flex items-center space-x-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => handleRatingChange(star)}
-                        className="p-1 hover:scale-110 transition-transform"
-                      >
-                        <Star
-                          className={`h-8 w-8 ${
-                            star <= formData.rating
-                              ? "text-yellow-400 fill-current"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                    <span className="ml-3 text-sm text-gray-600">
-                      {formData.rating}/5 stars
-                    </span>
-                  </div>
-                </div>
 
-                {/* Content */}
-                <div>
-                  <Label
-                    htmlFor="content"
-                    className="text-sm font-medium text-gray-700 mb-2 block"
-                  >
-                    Review Content *
-                  </Label>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={(e) =>
-                      handleInputChange("content", e.target.value)
-                    }
-                    placeholder="Share your experience with this business..."
-                    className="min-h-[120px]"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.content.length}/1000 characters (minimum 10)
-                  </p>
-                </div>
-
-                {/* Current Media */}
-                {(formData.images.length > 0 || formData.video) && (
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                      Current Media
-                    </Label>
-
-                    {/* Images */}
-                    {formData.images.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">Images:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {formData.images.map((image, index) => (
-                            <div key={index} className="relative">
-                              <img
-                                src={image}
-                                alt={`Review image ${index + 1}`}
-                                className="w-20 h-20 object-cover rounded border"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(index)}
-                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Video */}
-                    {formData.video && (
-                      <div className="mb-4">
-                        <p className="text-sm text-gray-600 mb-2">Video:</p>
-                        <div className="relative inline-block">
-                          <div className="w-32 h-24 bg-gray-200 rounded border flex items-center justify-center">
-                            <Video className="h-8 w-8 text-gray-500" />
+                  {/* Images */}
+                  {formData.images.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">Images:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.images.map((image, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={image}
+                              alt={`Review image ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={removeVideo}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Video */}
+                  {formData.video && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">Video:</p>
+                      <div className="relative inline-block">
+                        <div className="w-32 h-24 bg-gray-200 rounded border flex items-center justify-center">
+                          <Video className="h-8 w-8 text-gray-500" />
                         </div>
+                        <button
+                          type="button"
+                          onClick={removeVideo}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Alerts */}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                {success && (
-                  <Alert className="border-green-200 bg-green-50">
-                    <AlertDescription className="text-green-800">
-                      {success}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Submit Buttons */}
-                <div className="flex items-center justify-end space-x-3 pt-4 border-t">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push("/reviewer/reviews")}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {saving ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        <span>Saving...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <Save className="h-4 w-4" />
-                        <span>Update Review</span>
-                      </div>
-                    )}
-                  </Button>
+                    </div>
+                  )}
                 </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              )}
+
+              {/* Alerts */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {success && (
+                <Alert className="border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">
+                    {success}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/reviewer/reviews")}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {saving ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Saving...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Save className="h-4 w-4" />
+                      <span>Update Review</span>
+                    </div>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }

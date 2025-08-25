@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   Building2,
   BarChart3,
@@ -12,120 +13,135 @@ import {
   Star,
   Settings,
   User,
-  Menu,
-  X,
+  Sun,
+  Moon,
   LogOut,
 } from "lucide-react";
 
-interface SidebarProps {
+interface BusinessSidebarProps {
   isOpen: boolean;
-  onToggle: () => void;
+  onClose: () => void;
 }
 
-const navigation = [
-  {
-    name: "Dashboard",
-    href: "/business/dashboard",
-    icon: Building2,
-    current: false,
-    show: true,
-  },
-  {
-    name: "Profile",
-    href: "/business/profile",
-    icon: User,
-    current: false,
-    show: true,
-  },
-  {
-    name: "Coupons",
-    href: "/business/coupons",
-    icon: Gift,
-    current: false,
-    show: true,
-  },
-  {
-    name: "Reviews",
-    href: "/business/reviews",
-    icon: Star,
-    current: false,
-    show: true,
-  },
-  {
-    name: "Analytics",
-    href: "/business/analytics",
-    icon: BarChart3,
-    current: false,
-    show: true,
-  },
-  {
-    name: "Settings",
-    href: "/business/settings",
-    icon: Settings,
-    current: false,
-    show: true,
-  },
-];
-
-export default function BusinessSidebar({ isOpen, onToggle }: SidebarProps) {
+export default function BusinessSidebar({
+  isOpen,
+  onClose,
+}: BusinessSidebarProps) {
   const { data: session } = useSession();
-  const router = useRouter();
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/" });
+  const toggleTheme = () => {
+    if (theme === "dark") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("system");
+    } else {
+      setTheme("dark");
+    }
   };
 
-  // Update current state for navigation items
-  const updatedNavigation = navigation.map((item) => ({
-    ...item,
-    current: pathname === item.href,
-  }));
+  const navigation = [
+    {
+      name: "Dashboard",
+      href: "/business/dashboard",
+      icon: Building2,
+      current: pathname === "/business/dashboard",
+    },
+    {
+      name: "Profile",
+      href: "/business/profile",
+      icon: User,
+      current: pathname === "/business/profile",
+    },
+    {
+      name: "Coupons",
+      href: "/business/coupons",
+      icon: Gift,
+      current: pathname === "/business/coupons",
+    },
+    {
+      name: "Reviews",
+      href: "/business/reviews",
+      icon: Star,
+      current: pathname === "/business/reviews",
+    },
+    {
+      name: "Analytics",
+      href: "/business/analytics",
+      icon: BarChart3,
+      current: pathname === "/business/analytics",
+    },
+    {
+      name: "Settings",
+      href: "/business/settings",
+      icon: Settings,
+      current: pathname === "/business/settings",
+    },
+  ];
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onToggle}
+          onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:fixed lg:left-0
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-        `}
+        className={`lg:flex lg:flex-col lg:h-full lg:w-72 lg:bg-white lg:dark:bg-gray-800 lg:border-r lg:border-gray-200 lg:dark:border-gray-700 lg:static lg:inset-auto lg:z-auto fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out lg:transform-none lg:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full w-72">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 dark:bg-blue-700 rounded-lg flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-white" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
-                  SnapRate
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Business
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Business Portal
+                  SnapRate
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggle}
-              className="lg:hidden"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                title={`Current theme: ${theme}`}
+              >
+                {theme === "dark" ? (
+                  <Moon className="h-5 w-5" />
+                ) : theme === "light" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-gray-600 dark:bg-gray-400 rounded-full"></div>
+                  </div>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="lg:hidden"
+              >
+                ×
+              </Button>
+            </div>
           </div>
 
-          {/* User Profile */}
+          {/* User Info */}
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <UserAvatar
               user={{
@@ -133,7 +149,7 @@ export default function BusinessSidebar({ isOpen, onToggle }: SidebarProps) {
                 email: session?.user?.email,
                 avatar: session?.user?.avatar,
               }}
-              size="lg"
+              size="md"
               showName={true}
               showEmail={true}
               showRole={true}
@@ -143,39 +159,29 @@ export default function BusinessSidebar({ isOpen, onToggle }: SidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
-            {updatedNavigation
-              .filter((item) => item.show)
-              .map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Button
-                    key={item.name}
-                    variant={item.current ? "default" : "ghost"}
-                    className={`w-full justify-start ${
-                      item.current
-                        ? "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                    onClick={() => {
-                      router.push(item.href);
-                      if (window.innerWidth < 1024) {
-                        onToggle();
-                      }
-                    }}
-                  >
-                    <Icon className="h-5 w-5 mr-3" />
-                    {item.name}
-                  </Button>
-                );
-              })}
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  item.current
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                onClick={onClose}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
           </nav>
 
-          {/* Sign Out */}
+          {/* Footer */}
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <Button
               variant="ghost"
-              className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:text-red-400"
-              onClick={handleSignOut}
+              className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
               <LogOut className="h-5 w-5 mr-3" />
               Sign Out

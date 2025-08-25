@@ -85,12 +85,6 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-// Validate phone number format (Nigerian)
-export function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^(\+234|0)[789][01]\d{8}$/;
-  return phoneRegex.test(phone);
-}
-
 // Validate password strength
 export function validatePassword(password: string): {
   isValid: boolean;

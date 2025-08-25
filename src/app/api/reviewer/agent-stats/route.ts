@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
       totalRecommendations,
       approvedRecommendations,
       pendingRecommendations,
+      rejectedRecommendations,
     ] = await Promise.all([
       // Total recommendations
       prisma.businessRecommendation.count({
@@ -57,6 +58,13 @@ export async function GET(request: NextRequest) {
           status: "PENDING",
         },
       }),
+      // Rejected recommendations
+      prisma.businessRecommendation.count({
+        where: {
+          recommendedBy: user.id,
+          status: "REJECTED",
+        },
+      }),
     ]);
 
     // Get total earnings from business recommendation rewards
@@ -68,18 +76,64 @@ export async function GET(request: NextRequest) {
       _sum: { amount: true },
     });
 
+    // Get monthly earnings from business recommendation rewards
+    const monthlyEarnings = await prisma.reward.aggregate({
+      where: {
+        referrerId: user.id,
+        type: "BUSINESS_RECOMMENDATION",
+        createdAt: {
+          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        },
+      },
+      _sum: { amount: true },
+    });
+
     // Get average rating from reviews
     const averageRating = await prisma.review.aggregate({
       where: { reviewerId: user.id },
       _avg: { rating: true },
     });
 
+    // Get current streak (consecutive days with reviews)
+    const reviews = await prisma.review.findMany({
+      where: { reviewerId: user.id },
+      select: { createdAt: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    let currentStreak = 0;
+    if (reviews.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let currentDate = new Date(today);
+      for (let i = 0; i < 30; i++) {
+        // Check last 30 days
+        const hasReview = reviews.some((review) => {
+          const reviewDate = new Date(review.createdAt);
+          reviewDate.setHours(0, 0, 0, 0);
+          return reviewDate.getTime() === currentDate.getTime();
+        });
+
+        if (hasReview) {
+          currentStreak++;
+        } else {
+          break;
+        }
+
+        currentDate.setDate(currentDate.getDate() - 1);
+      }
+    }
+
     const stats = {
       totalRecommendations,
       approvedRecommendations,
       pendingRecommendations,
+      rejectedRecommendations,
       totalEarnings: totalEarnings._sum.amount || 0,
+      monthlyEarnings: monthlyEarnings._sum.amount || 0,
       averageRating: averageRating._avg.rating || 0,
+      currentStreak,
     };
 
     return NextResponse.json({

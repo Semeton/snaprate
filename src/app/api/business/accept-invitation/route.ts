@@ -40,12 +40,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Find the business owner by email
+    const businessOwner = await prisma.user.findUnique({
+      where: { email: invitation.email },
+      include: { business: true },
+    });
+
+    if (!businessOwner) {
+      return NextResponse.json(
+        { success: false, error: "Business owner not found" },
+        { status: 404 },
+      );
+    }
+
+    if (!businessOwner.business) {
+      return NextResponse.json(
+        { success: false, error: "Business not found" },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         email: invitation.email,
         businessName: invitation.businessName,
+        ownerName: businessOwner.name, // Pre-fill the owner name
         expiresAt: invitation.expiresAt,
+        businessId: businessOwner.business.id,
+        ownerId: businessOwner.id,
       },
     });
   } catch (error) {
@@ -95,39 +118,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Find the business owner by email
+    const businessOwner = await prisma.user.findUnique({
+      where: { email: invitation.email },
+      include: { business: true },
+    });
+
+    if (!businessOwner) {
+      return NextResponse.json(
+        { success: false, error: "Business owner not found" },
+        { status: 404 },
+      );
+    }
+
+    if (!businessOwner.business) {
+      return NextResponse.json(
+        { success: false, error: "Business not found" },
+        { status: 404 },
+      );
+    }
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: invitation.email },
     });
 
     if (existingUser) {
+      // User exists, just update their password and name if needed
+      const hashedPassword = await bcrypt.hash(password, 12);
+
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          name: name,
+          password: hashedPassword,
+          // Update other fields if they were missing
+          phone: existingUser.phone || businessOwner.phone,
+          state: existingUser.state || businessOwner.state,
+          city: existingUser.city || businessOwner.city,
+          address: existingUser.address || businessOwner.address,
+        },
+      });
+
+      console.log("Existing business owner password updated:", existingUser.id);
+    } else {
+      // This shouldn't happen since we create the user in the admin flow
       return NextResponse.json(
-        { success: false, error: "User with this email already exists" },
-        { status: 400 },
+        { success: false, error: "Business owner account not found" },
+        { status: 404 },
       );
     }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create the business owner user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email: invitation.email,
-        password: hashedPassword,
-        role: "BUSINESS_OWNER",
-        status: "ACTIVE",
-        emailVerified: new Date(),
-        isVerified: true,
-        referralCode: `BO_${Date.now()}_${Math.random()
-          .toString(36)
-          .substr(2, 9)}`,
-        state: "LAGOS", // Default state, will be updated when business is created
-        city: "Lagos", // Default city, will be updated when business is created
-        address: "To be updated", // Will be updated when business is created
-      },
-    });
 
     // Update invitation status
     await prisma.businessInvitation.update({
@@ -139,12 +179,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Business owner account created successfully",
+      message: "Business owner account activated successfully",
       data: {
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        userId: businessOwner.id,
+        email: businessOwner.email,
+        name: businessOwner.name,
+        role: businessOwner.role,
+        businessId: businessOwner.business.id,
+        businessName: businessOwner.business.name,
       },
     });
   } catch (error) {

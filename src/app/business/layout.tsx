@@ -100,15 +100,15 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
       <BusinessSidebar
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="flex-1 flex flex-col">
         {/* Top bar */}
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <Button
@@ -154,7 +154,7 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Notifications */}
             {/* <Button variant="ghost" size="sm" className="relative">
-              <Bell className="w-5 h-5" />
+              <Bell className="w-5 w-5" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
                 3
               </Badge>
@@ -163,7 +163,7 @@ function BusinessLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Page content */}
-        <main className="py-6">{children}</main>
+        <main className="flex-1 py-6">{children}</main>
       </div>
     </div>
   );
