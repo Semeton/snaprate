@@ -26,6 +26,7 @@ import {
   MapPin,
   Filter,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 interface AgentApplication {
@@ -54,6 +55,9 @@ export default function AdminAgentsPage() {
     useState<AgentApplication | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [applicationToDelete, setApplicationToDelete] =
+    useState<AgentApplication | null>(null);
 
   useEffect(() => {
     fetchApplications();
@@ -112,6 +116,16 @@ export default function AdminAgentsPage() {
           title: "Success",
           description: `Application ${action.toLowerCase()} successfully`,
         });
+        
+        // If this was an approval, show session update message
+        if (action === "APPROVED" && data.requiresSessionUpdate) {
+          toast({
+            title: "Important",
+            description: "The user's role has been updated. They may need to refresh their page to see the changes.",
+            variant: "default",
+          });
+        }
+        
         fetchApplications();
         setShowDetails(false);
         setSelectedApplication(null);
@@ -131,6 +145,108 @@ export default function AdminAgentsPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleRevokeAgent = async (userId: string, userName: string) => {
+    if (!approvalNotes.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide notes for revocation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/approve-agent`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "REVOKE",
+          userId,
+          notes: approvalNotes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Agent status revoked successfully. ${userName} is now a reviewer again.`,
+        });
+        
+        // Show session update message
+        if (data.requiresSessionUpdate) {
+          toast({
+            title: "Important",
+            description: "The user's role has been updated. They may need to refresh their page to see the changes.",
+            variant: "default",
+          });
+        }
+        
+        fetchApplications();
+        setShowDetails(false);
+        setSelectedApplication(null);
+        setApprovalNotes("");
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to revoke agent status",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to revoke agent status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to revoke agent status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteApplication = async (applicationId: string) => {
+    try {
+      const response = await fetch(
+        `/api/admin/agent-applications/${applicationId}/delete`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Application deleted permanently",
+        });
+        fetchApplications();
+        setShowDeleteConfirm(false);
+        setApplicationToDelete(null);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete application",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete application:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete application",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const confirmDelete = (application: AgentApplication) => {
+    setApplicationToDelete(application);
+    setShowDeleteConfirm(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -393,6 +509,49 @@ export default function AdminAgentsPage() {
                           <XCircle className="h-4 w-4 mr-1" />
                           Reject
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => confirmDelete(application)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Show revoke button for approved applications */}
+                    {application.status === "APPROVED" && (
+                      <div className="mt-3 flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                          onClick={() => {
+                            setSelectedApplication(application);
+                            setShowDetails(true);
+                            setApprovalNotes("");
+                          }}
+                        >
+                          <Shield className="h-4 w-4 mr-1" />
+                          Revoke Agent Status
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Show delete button for rejected applications as well */}
+                    {application.status === "REJECTED" && (
+                      <div className="mt-3 flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => confirmDelete(application)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -555,9 +714,110 @@ export default function AdminAgentsPage() {
                         <XCircle className="h-4 w-4 mr-2" />
                         Reject Application
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() => confirmDelete(selectedApplication)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Application
+                      </Button>
                     </div>
                   </div>
                 )}
+
+                {/* Show revoke functionality for approved applications */}
+                {selectedApplication.status === "APPROVED" && (
+                  <div className="border-t pt-4">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Admin Notes (Required for revocation)
+                    </Label>
+                    <Textarea
+                      placeholder="Enter reason for revoking agent status..."
+                      value={approvalNotes}
+                      onChange={(e) => setApprovalNotes(e.target.value)}
+                      className="mt-2"
+                      rows={3}
+                    />
+
+                    <div className="flex items-center space-x-3 pt-4">
+                      <Button
+                        variant="outline"
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        onClick={() => handleRevokeAgent(selectedApplication.user.id, selectedApplication.user.name)}
+                        disabled={!approvalNotes.trim()}
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        Revoke Agent Status
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show delete button for rejected applications in modal */}
+                {selectedApplication.status === "REJECTED" && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center space-x-3">
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() => confirmDelete(selectedApplication)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Application
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && applicationToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Delete Application
+                </h3>
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to permanently delete the application from{" "}
+                <span className="font-medium text-gray-900">
+                  {applicationToDelete.user.name}
+                </span>
+                ? This action cannot be undone.
+              </p>
+
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setApplicationToDelete(null);
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() =>
+                    handleDeleteApplication(applicationToDelete.id)
+                  }
+                  className="flex-1"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Permanently
+                </Button>
               </div>
             </div>
           </div>

@@ -37,8 +37,11 @@ export default function ReviewerLayout({
       return;
     }
 
-    // Check if user is a reviewer
-    if (session?.user?.role && session.user.role !== "REVIEWER") {
+    // Check if user is a reviewer or agent
+    if (
+      session?.user?.role &&
+      !["REVIEWER", "AGENT"].includes(session.user.role)
+    ) {
       router.push("/");
       return;
     }

@@ -278,15 +278,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <ReviewerSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="lg:ml-64">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between">
@@ -317,7 +315,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Settings Content */}
-        <div className="flex-1 p-6">
+        <div className="p-6">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">

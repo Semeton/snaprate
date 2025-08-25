@@ -181,15 +181,13 @@ export default function ReviewerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-gray-50">
       <ReviewerSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="lg:ml-64">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -218,7 +216,7 @@ export default function ReviewerDashboard() {
         </div>
 
         {/* Dashboard Content */}
-        <div className="flex-1 p-6">
+        <div className="p-6">
           {/* Welcome Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">

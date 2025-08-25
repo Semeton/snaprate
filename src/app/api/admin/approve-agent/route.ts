@@ -28,11 +28,82 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { applicationId, action, notes } = body; // action: "APPROVE" or "REJECT"
+    const { applicationId, action, notes, userId } = body; // action: "APPROVE", "REJECT", or "REVOKE"
 
-    if (!applicationId || !action) {
+    if (!action) {
       return NextResponse.json(
-        { success: false, error: "Application ID and action are required" },
+        { success: false, error: "Action is required" },
+        { status: 400 },
+      );
+    }
+
+    // Handle direct user role changes (REVOKE)
+    if (action === "REVOKE") {
+      if (!userId) {
+        return NextResponse.json(
+          { success: false, error: "User ID is required for revocation" },
+          { status: 400 },
+        );
+      }
+
+      // Get the user to check current role
+      const userToRevoke = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, role: true, email: true, name: true },
+      });
+
+      if (!userToRevoke) {
+        return NextResponse.json(
+          { success: false, error: "User not found" },
+          { status: 404 },
+        );
+      }
+
+      if (userToRevoke.role !== "AGENT") {
+        return NextResponse.json(
+          { success: false, error: "User is not an agent" },
+          { status: 400 },
+        );
+      }
+
+      // Revoke agent status and revert to REVIEWER
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: "REVIEWER" },
+      });
+
+      // Log the revocation
+      console.log("Agent status revoked:", {
+        userId: userId,
+        userEmail: userToRevoke.email,
+        revokedBy: session.user.email,
+        revokedAt: new Date().toISOString(),
+      });
+
+      // Send email notification
+      try {
+        const emailService = new EmailService();
+        await emailService.sendAgentStatusRevokedEmail(
+          userToRevoke.email,
+          userToRevoke.name,
+          notes
+        );
+      } catch (emailError) {
+        console.error("Failed to send agent revocation email:", emailError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Agent status revoked successfully",
+        requiresSessionUpdate: true,
+        userId: userId,
+      });
+    }
+
+    // Handle application approval/rejection
+    if (!applicationId) {
+      return NextResponse.json(
+        { success: false, error: "Application ID is required for approval/rejection" },
         { status: 400 },
       );
     }
@@ -85,6 +156,15 @@ export async function POST(request: NextRequest) {
           isRedeemed: false,
         },
       });
+
+      // Log the approval
+      console.log("Agent application approved:", {
+        applicationId: applicationId,
+        userId: application.userId,
+        userEmail: application.user.email,
+        approvedBy: session.user.email,
+        approvedAt: new Date().toISOString(),
+      });
     }
 
     // Send email notification to applicant
@@ -104,6 +184,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Application ${action.toLowerCase()} successfully`,
+      requiresSessionUpdate: action === "APPROVED",
+      userId: application.userId,
     });
   } catch (error) {
     console.error("Agent approval error:", error);

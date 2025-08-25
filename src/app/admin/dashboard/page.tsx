@@ -74,6 +74,46 @@ interface AdminDashboardData {
       createdAt: string;
       updatedAt: string;
     }[];
+    pendingBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
+    approvedBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      reviewedAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
+    monthlyBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
   };
   platformSettings: {
     minimumRedemptionAmount: number;
@@ -370,6 +410,64 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Business Recommendations */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Building2 className="h-5 w-5" />
+              <span>Business Recommendations from Agents</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600">
+                  Manage business recommendations submitted by agents
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/admin/business-recommendations")}
+                >
+                  View All Recommendations
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border rounded-lg bg-green-50">
+                  <p className="text-sm text-gray-600 mb-1">Pending Review</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {dashboardData.recent.pendingBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    Awaiting admin review
+                  </p>
+                </div>
+
+                <div className="text-center p-4 border rounded-lg bg-blue-50">
+                  <p className="text-sm text-gray-600 mb-1">Approved</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {dashboardData.recent.approvedBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-blue-700 text-sm">
+                    Successfully processed
+                  </p>
+                </div>
+
+                <div className="text-center p-4 border rounded-lg bg-orange-50">
+                  <p className="text-sm text-gray-600 mb-1">This Month</p>
+                  <p className="text-2xl font-bold text-orange-900">
+                    {dashboardData.recent.monthlyBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-orange-700 text-sm">New recommendations</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Platform Settings */}
         <Card className="mb-8">

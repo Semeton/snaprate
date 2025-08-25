@@ -627,6 +627,41 @@ The SnapRate Team
   }
 
   /**
+   * Send agent status revocation email
+   */
+  async sendAgentStatusRevokedEmail(
+    to: string,
+    agentName: string,
+    notes?: string,
+  ): Promise<boolean> {
+    try {
+      logger.info("Sending agent status revocation email", {
+        to,
+        agentName,
+        hasNotes: !!notes,
+      });
+
+      const html = this.generateAgentStatusRevokedEmailHTML(agentName, notes);
+      const text = this.generateAgentStatusRevokedEmailText(agentName, notes);
+
+      return await this.sendEmail({
+        to,
+        subject: "Agent Status Revoked - SnapRate",
+        html,
+        text,
+      });
+    } catch (error) {
+      logger.error("Failed to send agent status revocation email", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        to,
+        agentName,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      return false;
+    }
+  }
+
+  /**
    * Test email service connection
    */
   async testConnection(): Promise<boolean> {
@@ -1021,6 +1056,105 @@ The SnapRate Team
   }
 
   /**
+   * Generate agent status revoked email HTML
+   */
+  private generateAgentStatusRevokedEmailHTML(
+    agentName: string,
+    notes?: string,
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Agent Status Revoked - SnapRate</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Agent Status Revoked</h1>
+              <p>SnapRate Platform</p>
+            </div>
+            <div class="content">
+              <h2>Hello ${agentName}!</h2>
+              
+              <p>Your agent status has been revoked on SnapRate. This means you are no longer an authorized SnapRate Agent.</p>
+              
+              ${
+                notes
+                  ? `
+                <div class="status-box update">
+                  <h3>📝 Notes</h3>
+                  <p>${notes}</p>
+                </div>
+              `
+                  : ""
+              }
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${
+                  process.env.NEXT_PUBLIC_APP_URL
+                }/reviewer/dashboard" class="button">Go to Dashboard</a>
+              </div>
+              
+              <p style="text-align: center; color: #999; font-size: 14px;">
+                If you have any questions, please contact our support team.
+              </p>
+            </div>
+            <div class="footer">
+              <p>© 2024 SnapRate. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate agent status revoked email text version
+   */
+  private generateAgentStatusRevokedEmailText(
+    agentName: string,
+    notes?: string,
+  ): string {
+    return `
+Agent Status Revoked - SnapRate
+
+Hello ${agentName}!
+
+Your agent status has been revoked on SnapRate. This means you are no longer an authorized SnapRate Agent.
+
+${
+  notes
+    ? `
+📝 Notes
+
+${notes}
+`
+    : ""
+}
+
+Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/reviewer/dashboard
+
+If you have any questions, please contact our support team.
+
+Best regards,
+The SnapRate Team
+
+© 2024 SnapRate. All rights reserved.
+    `;
+  }
+
+  /**
    * Generate account verified email HTML
    */
   private generateAccountVerifiedEmailHTML(
@@ -1104,6 +1238,157 @@ What you can do now:
 Go to your dashboard: ${process.env.NEXT_PUBLIC_APP_URL}/dashboard
 
 Happy reviewing!
+
+Best regards,
+The SnapRate Team
+
+© 2024 SnapRate. All rights reserved.
+    `;
+  }
+
+  /**
+   * Send business invitation email
+   */
+  async sendBusinessInvitationEmail(
+    email: string,
+    ownerName: string,
+    businessName: string,
+    invitationLink: string,
+  ): Promise<boolean> {
+    try {
+      const subject = `You're Invited to Join SnapRate as ${businessName}`;
+      const html = this.generateBusinessInvitationEmailHTML(
+        ownerName,
+        businessName,
+        invitationLink,
+      );
+      const text = this.generateBusinessInvitationEmailText(
+        ownerName,
+        businessName,
+        invitationLink,
+      );
+
+      return await this.sendEmail({
+        to: email,
+        subject,
+        html,
+        text,
+      });
+    } catch (error) {
+      logger.error("Failed to send business invitation email", {
+        error,
+        email,
+        businessName,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Generate business invitation email HTML
+   */
+  private generateBusinessInvitationEmailHTML(
+    ownerName: string,
+    businessName: string,
+    invitationLink: string,
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Business Invitation - SnapRate</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; }
+            .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+            .highlight { background: #e0f2fe; padding: 20px; border-radius: 10px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🏢 Business Invitation</h1>
+              <p>Join SnapRate and grow your business!</p>
+            </div>
+            <div class="content">
+              <h2>Hi ${ownerName},</h2>
+              <p>You've been invited to join SnapRate as the owner of <strong>${businessName}</strong>!</p>
+              
+              <div class="highlight">
+                <h3>🎯 What this means for you:</h3>
+                <ul>
+                  <li>📈 Increase your business visibility</li>
+                  <li>⭐ Get authentic customer reviews</li>
+                  <li>💰 Access to our customer base</li>
+                  <li>📊 Business analytics and insights</li>
+                  <li>🎁 Run promotions and coupons</li>
+                </ul>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${invitationLink}" class="button">Accept Invitation</a>
+              </div>
+              
+              <p><strong>Important:</strong> This invitation expires in 7 days. Click the button above to get started!</p>
+              
+              <h3>Next steps:</h3>
+              <ol>
+                <li>Click the "Accept Invitation" button</li>
+                <li>Create your account with a secure password</li>
+                <li>Complete your business profile</li>
+                <li>Start connecting with customers!</li>
+              </ol>
+              
+              <p>If you have any questions, feel free to contact our support team.</p>
+            </div>
+            <div class="footer">
+              <p>© 2024 SnapRate. All rights reserved.</p>
+              <p>Connecting businesses with customers through honest reviews and rewards.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate business invitation email text version
+   */
+  private generateBusinessInvitationEmailText(
+    ownerName: string,
+    businessName: string,
+    invitationLink: string,
+  ): string {
+    return `
+Business Invitation - SnapRate
+
+Hi ${ownerName},
+
+You've been invited to join SnapRate as the owner of ${businessName}!
+
+What this means for you:
+- Increase your business visibility
+- Get authentic customer reviews
+- Access to our customer base
+- Business analytics and insights
+- Run promotions and coupons
+
+Accept your invitation: ${invitationLink}
+
+Important: This invitation expires in 7 days.
+
+Next steps:
+1. Click the invitation link above
+2. Create your account with a secure password
+3. Complete your business profile
+4. Start connecting with customers!
+
+If you have any questions, feel free to contact our support team.
 
 Best regards,
 The SnapRate Team

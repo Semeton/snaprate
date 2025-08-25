@@ -1,93 +1,142 @@
 "use client";
 
-import { useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { UserAvatar } from "@/components/ui/user-avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Home,
-  User,
-  Settings,
-  Gift,
-  MessageSquare,
-  TrendingUp,
-  LogOut,
-  X,
-  Shield,
   FileText,
+  Star,
+  Gift,
+  Settings,
+  User,
+  Shield,
+  Menu,
+  X,
+  LogOut,
+  TrendingUp,
+  Building2,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 
-interface SidebarProps {
+interface ReviewerSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
 }
 
-export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
-  const { data: session } = useSession();
+export default function ReviewerSidebar({
+  isOpen,
+  onToggle,
+}: ReviewerSidebarProps) {
+  const { data: session, status, update } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
-  const [showAgentApplication, setShowAgentApplication] = useState(false);
+  const [platformSettings, setPlatformSettings] = useState({
+    minimumBusinessesForAgent: 5,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [lastRoleCheck, setLastRoleCheck] = useState<Date>(new Date());
 
   // Check if user is an agent
   const isAgent = session?.user?.role === "AGENT";
 
-  const navigation = [
-    {
-      name: "Dashboard",
-      href: "/reviewer/dashboard",
-      icon: Home,
-      current: pathname === "/reviewer/dashboard",
-      show: true, // Always show
-    },
-    {
-      name: "My Reviews",
-      href: "/reviewer/reviews",
-      icon: MessageSquare,
-      current: pathname === "/reviewer/reviews",
-      show: true, // Always show
-    },
-    {
-      name: "My Rewards",
-      href: "/reviewer/rewards",
-      icon: Gift,
-      current: pathname === "/reviewer/rewards",
-      show: true, // Always show
-    },
-    {
-      name: "Recommend Business",
-      href: "/reviewer/recommend-business",
-      icon: TrendingUp,
-      current: pathname === "/reviewer/recommend-business",
-      show: isAgent, // Only show for agents
-    },
-    {
-      name: "Profile",
-      href: "/reviewer/profile",
-      icon: User,
-      current: pathname === "/reviewer/profile",
-      show: true, // Always show
-    },
-    {
-      name: "Settings",
-      href: "/reviewer/settings",
-      icon: Settings,
-      current: pathname === "/reviewer/settings",
-      show: true, // Always show
-    },
-  ];
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      fetchPlatformSettings();
 
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/" });
+      // Check for role updates every 30 seconds
+      const interval = setInterval(() => {
+        checkForRoleUpdates();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [session, status]);
+
+  const fetchPlatformSettings = async () => {
+    try {
+      setLoadingSettings(true);
+      const response = await fetch("/api/platform-settings");
+      if (response.ok) {
+        const data = await response.json();
+        setPlatformSettings(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch platform settings:", error);
+      // Use default value if fetch fails
+      setPlatformSettings({ minimumBusinessesForAgent: 5 });
+    } finally {
+      setLoadingSettings(false);
+    }
+  };
+
+  const checkForRoleUpdates = async () => {
+    try {
+      const response = await fetch("/api/auth/refresh-session", {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const currentRole = session?.user?.role;
+        const newRole = data.data.user.role;
+
+        // If role has changed, update the session
+        if (currentRole !== newRole) {
+          console.log("Role changed from", currentRole, "to", newRole);
+          await update();
+          setLastRoleCheck(new Date());
+
+          // Show notification to user
+          if (typeof window !== "undefined" && "Notification" in window) {
+            if (Notification.permission === "granted") {
+              if (newRole === "AGENT") {
+                new Notification("Agent Status Approved!", {
+                  body: "Congratulations! You are now an approved agent.",
+                  icon: "/favicon.ico",
+                });
+              } else if (currentRole === "AGENT" && newRole === "REVIEWER") {
+                new Notification("Agent Status Revoked", {
+                  body: "Your agent status has been revoked.",
+                  icon: "/favicon.ico",
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to check for role updates:", error);
+    }
   };
 
   const handleAgentApplication = () => {
-    setShowAgentApplication(true);
+    setShowAgentModal(true);
   };
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: "/" });
+  };
+
+  if (status === "loading") {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden">
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -97,24 +146,48 @@ export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
 
       {/* Sidebar */}
       <div
-        className={`
-          fixed inset-y-0 left-0 z-50 bg-white shadow-lg border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:z-auto
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-          w-64 lg:w-64
-        `}
+        className={`fixed left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 lg:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div className="flex flex-col h-full w-64">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">S</span>
+              <div className="p-2 bg-purple-100 rounded-full">
+                <User className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">SnapRate</h1>
-                <p className="text-sm text-gray-500">
-                  {isAgent ? "Agent Portal" : "Reviewer Portal"}
-                </p>
+                <h2 className="font-semibold text-gray-900">
+                  {session?.user?.name || "User"}
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <Badge
+                    variant="default"
+                    className={
+                      isAgent
+                        ? "bg-green-100 text-green-800 border-green-200"
+                        : "bg-purple-100 text-purple-800 border-purple-200"
+                    }
+                  >
+                    {isAgent ? (
+                      <>
+                        <Shield className="h-3 w-3 mr-1" />
+                        AGENT
+                      </>
+                    ) : (
+                      <>
+                        <User className="h-3 w-3 mr-1" />
+                        REVIEWER
+                      </>
+                    )}
+                  </Badge>
+                  {isAgent && (
+                    <span className="text-xs text-green-600">
+                      Last updated: {lastRoleCheck.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <Button
@@ -126,135 +199,199 @@ export default function ReviewerSidebar({ isOpen, onToggle }: SidebarProps) {
               <X className="h-5 w-5" />
             </Button>
           </div>
+        </div>
 
-          {/* User Profile */}
-          <div className="p-6 border-b">
-            <UserAvatar
-              user={{
-                name: session?.user?.name,
-                email: session?.user?.email,
-                avatar: session?.user?.avatar,
-              }}
-              size="lg"
-              showName={true}
-              showEmail={true}
-              showRole={true}
-              role={isAgent ? "AGENT" : "REVIEWER"}
-            />
-          </div>
+        {/* Navigation */}
+        <nav className="p-6 space-y-3">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            onClick={() => router.push("/reviewer/dashboard")}
+          >
+            <Home className="h-5 w-5 mr-3" />
+            Dashboard
+          </Button>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation
-              .filter((item) => item.show)
-              .map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Button
-                    key={item.name}
-                    variant={item.current ? "default" : "ghost"}
-                    className={`w-full justify-start ${
-                      item.current
-                        ? "bg-blue-600 text-white hover:bg-blue-700"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                    onClick={() => {
-                      router.push(item.href);
-                      if (window.innerWidth < 1024) {
-                        onToggle();
-                      }
-                    }}
-                  >
-                    <Icon className="h-5 w-5 mr-3" />
-                    {item.name}
-                  </Button>
-                );
-              })}
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            onClick={() => router.push("/reviewer/reviews")}
+          >
+            <FileText className="h-5 w-5 mr-3" />
+            My Reviews
+          </Button>
 
-            {/* Agent Application Button (only for reviewers) */}
-            {!isAgent && (
-              <Button
-                variant="outline"
-                className="w-full justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200"
-                onClick={handleAgentApplication}
-              >
-                <FileText className="h-5 w-5 mr-3" />
-                Apply to be Agent
-              </Button>
-            )}
-          </nav>
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            onClick={() => router.push("/reviewer/rewards")}
+          >
+            <Gift className="h-5 w-5 mr-3" />
+            Rewards
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            onClick={() => router.push("/reviewer/profile")}
+          >
+            <User className="h-5 w-5 mr-3" />
+            Profile
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-gray-100"
+            onClick={() => router.push("/reviewer/settings")}
+          >
+            <Settings className="h-5 w-5 mr-3" />
+            Settings
+          </Button>
+
+          {/* Agent Application Button (only for reviewers) */}
+          {!isAgent && (
+            <Button
+              variant="outline"
+              className="w-full justify-start text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200"
+              onClick={handleAgentApplication}
+            >
+              <FileText className="h-5 w-5 mr-3" />
+              Apply to be Agent
+            </Button>
+          )}
+
+          {/* Agent Dashboard Button (only for agents) */}
+          {isAgent && (
+            <Button
+              variant="outline"
+              className="w-full justify-start text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+              onClick={() => router.push("/reviewer/agent-dashboard")}
+            >
+              <Shield className="h-5 w-5 mr-3" />
+              Agent Dashboard
+            </Button>
+          )}
 
           {/* Sign Out */}
-          <div className="p-4 border-t">
+          <div className="pt-6 border-t border-gray-200">
             <Button
               variant="ghost"
-              className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
               onClick={handleSignOut}
             >
               <LogOut className="h-5 w-5 mr-3" />
               Sign Out
             </Button>
           </div>
-        </div>
+        </nav>
       </div>
 
       {/* Agent Application Modal */}
-      {showAgentApplication && (
+      {showAgentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-2 bg-purple-100 rounded-full">
-                <Shield className="h-6 w-6 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Become an Agent
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Recommend businesses and earn rewards
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <h4 className="font-medium text-purple-900 mb-2">
-                  Agent Benefits:
-                </h4>
-                <ul className="text-sm text-purple-800 space-y-1">
-                  <li>• Recommend new businesses</li>
-                  <li>• Earn ₦100 per approved business</li>
-                  <li>• Access to business recommendation tools</li>
-                  <li>• Enhanced earning potential</li>
-                </ul>
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Shield className="h-8 w-8 text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Become an Agent
+                  </h2>
+                  <p className="text-gray-600">
+                    Help businesses join our platform and earn rewards
+                  </p>
+                </div>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">
-                  Requirements:
-                </h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Must be an active reviewer</li>
-                  <li>• At least 5 approved reviews</li>
-                  <li>• Good standing in the community</li>
-                </ul>
-              </div>
-            </div>
+              {loadingSettings ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
+                  <p className="text-gray-600">Loading requirements...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Dynamic Requirement Summary */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-2">
+                      🎯 Current Requirement
+                    </h3>
+                    <p className="text-blue-800 text-sm">
+                      Review at least{" "}
+                      <span className="font-bold">
+                        {platformSettings.minimumBusinessesForAgent}
+                      </span>{" "}
+                      different businesses
+                    </p>
+                  </div>
 
-            <div className="flex space-x-3">
-              <Button
-                onClick={() => router.push("/reviewer/apply-agent")}
-                className="flex-1 bg-purple-600 hover:bg-purple-700"
-              >
-                Apply Now
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowAgentApplication(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
+                  <div className="space-y-4 mb-6">
+                    <h3 className="font-semibold text-gray-900">
+                      Requirements to become an agent:
+                    </h3>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                      <li className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>
+                          Review at least{" "}
+                          <span className="font-medium">
+                            {platformSettings?.minimumBusinessesForAgent || 5}
+                          </span>{" "}
+                          different businesses
+                        </span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Have a verified email and phone number</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Provide motivation and experience details</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <span className="text-green-500 mt-0.5">•</span>
+                        <span>Demonstrate commitment to the platform</span>
+                      </li>
+                    </ul>
+
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-yellow-800 text-xs">
+                        <strong>Note:</strong> You must review{" "}
+                        <strong>different businesses</strong>, not just multiple
+                        reviews for the same business.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      onClick={() => {
+                        setShowAgentModal(false);
+                        router.push("/reviewer/apply-agent");
+                      }}
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Start Application
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowAgentModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-500">
+                      Progress indicator and requirements are updated in
+                      real-time by administrators.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

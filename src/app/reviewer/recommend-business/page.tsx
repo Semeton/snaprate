@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,87 +15,166 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, TrendingUp, CheckCircle } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import {
+  Building2,
+  User,
+  MapPin,
+  Phone,
+  Mail,
+  Shield,
+  ArrowLeft,
+  Send,
+  AlertCircle,
+} from "lucide-react";
+import ReviewerSidebar from "@/components/ReviewerSidebar";
 import { BusinessCategory, State } from "@/types";
+import { Badge } from "@/components/ui/badge";
 
-export default function RecommendBusiness() {
+export default function RecommendBusinessPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Business details form state
+  const [businessForm, setBusinessForm] = useState({
     businessName: "",
-    category: "",
-    phone: "",
-    email: "",
-    address: "",
-    city: "",
-    state: "",
-    description: "",
-    reason: "",
+    businessCategory: "",
+    businessAddress: "",
+    businessCity: "",
+    businessState: "",
+    businessPhone: "",
+    businessEmail: "",
+    businessWebsite: "",
+    businessDescription: "",
   });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  // Owner details form state
+  const [ownerForm, setOwnerForm] = useState({
+    ownerName: "",
+    ownerPhone: "",
+    ownerEmail: "",
+    ownerAddress: "",
+    ownerCity: "",
+    ownerState: "",
+    additionalNotes: "",
+  });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      if (session.user.role !== "AGENT") {
+        router.push("/reviewer/dashboard");
+        return;
+      }
+    }
+  }, [session, status, router]);
+
+  const handleBusinessFormChange = (field: string, value: string) => {
+    setBusinessForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleOwnerFormChange = (field: string, value: string) => {
+    setOwnerForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (
-      !formData.businessName ||
-      !formData.category ||
-      !formData.address ||
-      !formData.city ||
-      !formData.state
-    ) {
-      setError("Please fill in all required fields");
+    // Validate required fields
+    const requiredBusinessFields = [
+      "businessName",
+      "businessCategory",
+      "businessAddress",
+      "businessCity",
+      "businessState",
+    ];
+    const requiredOwnerFields = ["ownerName", "ownerPhone", "ownerEmail"];
+
+    const missingBusinessFields = requiredBusinessFields.filter(
+      (field) => !businessForm[field as keyof typeof businessForm],
+    );
+    const missingOwnerFields = requiredOwnerFields.filter(
+      (field) => !ownerForm[field as keyof typeof ownerForm],
+    );
+
+    if (missingBusinessFields.length > 0 || missingOwnerFields.length > 0) {
+      const missingFields = [...missingBusinessFields, ...missingOwnerFields];
+      toast({
+        title: "Missing Information",
+        description: `Please fill in all required fields: ${missingFields.join(
+          ", ",
+        )}`,
+        variant: "destructive",
+      });
       return;
     }
 
-    setLoading(true);
-    setError("");
-
     try {
-      const response = await fetch("/api/businesses/recommend", {
+      setSubmitting(true);
+
+      const recommendationData = {
+        business: businessForm,
+        owner: ownerForm,
+      };
+
+      const response = await fetch("/api/reviewer/business-recommendations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(recommendationData),
       });
 
       if (response.ok) {
-        setSuccess(
-          "Business recommendation submitted successfully! You'll earn ₦100 when approved.",
-        );
-        setFormData({
-          businessName: "",
-          category: "",
-          phone: "",
-          email: "",
-          address: "",
-          city: "",
-          state: "",
-          description: "",
-          reason: "",
+        toast({
+          title: "Success",
+          description:
+            "Business recommendation submitted successfully! We'll review it and get back to you within 48 hours.",
         });
 
-        setTimeout(() => {
-          router.push("/reviewer/dashboard");
-        }, 3000);
+        // Reset forms
+        setBusinessForm({
+          businessName: "",
+          businessCategory: "",
+          businessAddress: "",
+          businessCity: "",
+          businessState: "",
+          businessPhone: "",
+          businessEmail: "",
+          businessWebsite: "",
+          businessDescription: "",
+        });
+        setOwnerForm({
+          ownerName: "",
+          ownerPhone: "",
+          ownerEmail: "",
+          ownerAddress: "",
+          ownerCity: "",
+          ownerState: "",
+          additionalNotes: "",
+        });
+
+        // Redirect to agent dashboard
+        router.push("/reviewer/agent-dashboard");
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || "Failed to submit recommendation");
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to submit recommendation",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      setError("An error occurred while submitting the recommendation");
+      console.error("Failed to submit recommendation:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while submitting your recommendation",
+        variant: "destructive",
+      });
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -103,7 +182,7 @@ export default function RecommendBusiness() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
@@ -115,286 +194,383 @@ export default function RecommendBusiness() {
     return null;
   }
 
+  // Check if user is an agent
+  if (session?.user?.role !== "AGENT") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="p-4 bg-red-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+            <Shield className="h-10 w-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h2>
+          <p className="text-gray-600 mb-6">
+            You need to be an approved agent to access this page.
+          </p>
+          <Button onClick={() => router.push("/reviewer/dashboard")}>
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => router.back()}
-              className="p-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Recommend Business
-              </h1>
-              <p className="text-gray-600">
-                Help us discover new businesses and earn ₦100 rewards
-              </p>
+      <ReviewerSidebar
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+      />
+
+      <div className="lg:ml-64">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push("/reviewer/agent-dashboard")}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <ArrowLeft className="h-5 w-5 mr-2" />
+                  Back to Dashboard
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Recommend Business
+                  </h1>
+                  <p className="text-gray-600">
+                    Help businesses join our platform and earn rewards
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Badge
+                  variant="default"
+                  className="bg-green-100 text-green-800 border-green-200"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  AGENT
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Info Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-purple-600" />
-              <span>How it works</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="text-center">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-purple-600 font-bold">1</span>
+        <div className="px-4 sm:px-6 lg:px-8 py-8">
+          {/* Info Card */}
+          <Card className="mb-8 bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="h-6 w-6 text-blue-600 mt-1" />
+                <div>
+                  <h3 className="font-semibold text-blue-900 mb-2">
+                    How Business Recommendations Work
+                  </h3>
+                  <div className="text-blue-700 text-sm space-y-1">
+                    <p>• Submit business and owner details for review</p>
+                    <p>• Our team will verify the information</p>
+                    <p>• Approved businesses get added to the platform</p>
+                    <p>• You earn ₦100 for each approved recommendation</p>
+                    <p>
+                      • Business owners get notified to complete their profile
+                    </p>
+                  </div>
                 </div>
-                <p className="font-medium">Submit Recommendation</p>
-                <p className="text-gray-600">
-                  Fill out the form below with business details
-                </p>
               </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-purple-600 font-bold">2</span>
+            </CardContent>
+          </Card>
+
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Business Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Building2 className="h-5 w-5" />
+                  <span>Business Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="businessName">Business Name *</Label>
+                    <Input
+                      id="businessName"
+                      value={businessForm.businessName}
+                      onChange={(e) =>
+                        handleBusinessFormChange("businessName", e.target.value)
+                      }
+                      placeholder="Enter business name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessCategory">
+                      Business Category *
+                    </Label>
+                    <Select
+                      value={businessForm.businessCategory}
+                      onValueChange={(value) =>
+                        handleBusinessFormChange("businessCategory", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(BusinessCategory).map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessPhone">Business Phone</Label>
+                    <Input
+                      id="businessPhone"
+                      value={businessForm.businessPhone}
+                      onChange={(e) =>
+                        handleBusinessFormChange(
+                          "businessPhone",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Business phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessEmail">Business Email</Label>
+                    <Input
+                      id="businessEmail"
+                      type="email"
+                      value={businessForm.businessEmail}
+                      onChange={(e) =>
+                        handleBusinessFormChange(
+                          "businessEmail",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Business email address"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessWebsite">Business Website</Label>
+                    <Input
+                      id="businessWebsite"
+                      value={businessForm.businessWebsite}
+                      onChange={(e) =>
+                        handleBusinessFormChange(
+                          "businessWebsite",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="https://example.com"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="businessAddress">Business Address *</Label>
+                    <Input
+                      id="businessAddress"
+                      value={businessForm.businessAddress}
+                      onChange={(e) =>
+                        handleBusinessFormChange(
+                          "businessAddress",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Street address"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessCity">City *</Label>
+                    <Input
+                      id="businessCity"
+                      value={businessForm.businessCity}
+                      onChange={(e) =>
+                        handleBusinessFormChange("businessCity", e.target.value)
+                      }
+                      placeholder="City"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="businessState">State *</Label>
+                    <Select
+                      value={businessForm.businessState}
+                      onValueChange={(value) =>
+                        handleBusinessFormChange("businessState", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(State).map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="businessDescription">
+                      Business Description
+                    </Label>
+                    <Textarea
+                      id="businessDescription"
+                      value={businessForm.businessDescription}
+                      onChange={(e) =>
+                        handleBusinessFormChange(
+                          "businessDescription",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="Brief description of the business, services offered, etc."
+                      rows={3}
+                    />
+                  </div>
                 </div>
-                <p className="font-medium">Admin Review</p>
-                <p className="text-gray-600">
-                  Our team will verify the business information
-                </p>
-              </div>
-              <div className="text-center">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-purple-600 font-bold">3</span>
+              </CardContent>
+            </Card>
+
+            {/* Owner Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <User className="h-5 w-5" />
+                  <span>Business Owner Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="ownerName">Owner Name *</Label>
+                    <Input
+                      id="ownerName"
+                      value={ownerForm.ownerName}
+                      onChange={(e) =>
+                        handleOwnerFormChange("ownerName", e.target.value)
+                      }
+                      placeholder="Full name of business owner"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerPhone">Owner Phone *</Label>
+                    <Input
+                      id="ownerPhone"
+                      value={ownerForm.ownerPhone}
+                      onChange={(e) =>
+                        handleOwnerFormChange("ownerPhone", e.target.value)
+                      }
+                      placeholder="Owner's phone number"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerEmail">Owner Email *</Label>
+                    <Input
+                      id="ownerEmail"
+                      type="email"
+                      value={ownerForm.ownerEmail}
+                      onChange={(e) =>
+                        handleOwnerFormChange("ownerEmail", e.target.value)
+                      }
+                      placeholder="Owner's email address"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerCity">Owner City</Label>
+                    <Input
+                      id="ownerCity"
+                      value={ownerForm.ownerCity}
+                      onChange={(e) =>
+                        handleOwnerFormChange("ownerCity", e.target.value)
+                      }
+                      placeholder="Owner's city"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerState">Owner State</Label>
+                    <Select
+                      value={ownerForm.ownerState}
+                      onValueChange={(value) =>
+                        handleOwnerFormChange("ownerState", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(State).map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="ownerAddress">Owner Address</Label>
+                    <Input
+                      id="ownerAddress"
+                      value={ownerForm.ownerAddress}
+                      onChange={(e) =>
+                        handleOwnerFormChange("ownerAddress", e.target.value)
+                      }
+                      placeholder="Owner's address (if different from business)"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <Label htmlFor="additionalNotes">Additional Notes</Label>
+                    <Textarea
+                      id="additionalNotes"
+                      value={ownerForm.additionalNotes}
+                      onChange={(e) =>
+                        handleOwnerFormChange("additionalNotes", e.target.value)
+                      }
+                      placeholder="Any additional information about the business or owner that might be helpful"
+                      rows={3}
+                    />
+                  </div>
                 </div>
-                <p className="font-medium">Earn ₦100</p>
-                <p className="text-gray-600">
-                  Get rewarded when your recommendation is approved
-                </p>
-              </div>
+              </CardContent>
+            </Card>
+
+            {/* Submit Button */}
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="bg-green-600 hover:bg-green-700 px-8"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {submitting ? "Submitting..." : "Submit Recommendation"}
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Recommendation Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Business Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Business Name */}
-              <div>
-                <Label htmlFor="businessName" className="text-sm font-medium">
-                  Business Name *
-                </Label>
-                <Input
-                  id="businessName"
-                  value={formData.businessName}
-                  onChange={(e) =>
-                    handleInputChange("businessName", e.target.value)
-                  }
-                  placeholder="Enter business name"
-                  className="mt-1"
-                  required
-                />
-              </div>
-
-              {/* Category and Phone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="category" className="text-sm font-medium">
-                    Business Category *
-                  </Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      handleInputChange("category", value)
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(BusinessCategory).map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category.replace(/_/g, " ")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="phone" className="text-sm font-medium">
-                    Phone Number
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
-                    placeholder="Business phone number"
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              {/* Email and Address */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email" className="text-sm font-medium">
-                    Email Address
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="Business email address"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="address" className="text-sm font-medium">
-                    Street Address *
-                  </Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) =>
-                      handleInputChange("address", e.target.value)
-                    }
-                    placeholder="Street address"
-                    className="mt-1"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* City and State */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="city" className="text-sm font-medium">
-                    City *
-                  </Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    placeholder="City"
-                    className="mt-1"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state" className="text-sm font-medium">
-                    State *
-                  </Label>
-                  <Select
-                    value={formData.state}
-                    onValueChange={(value) => handleInputChange("state", value)}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(State).map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state.replace(/_/g, " ")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Description and Reason */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="description" className="text-sm font-medium">
-                    Business Description
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleInputChange("description", e.target.value)
-                    }
-                    placeholder="Describe what this business does..."
-                    className="mt-1 min-h-[100px]"
-                    maxLength={500}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.description.length}/500 characters
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="reason" className="text-sm font-medium">
-                    Why Recommend?
-                  </Label>
-                  <Textarea
-                    id="reason"
-                    value={formData.reason}
-                    onChange={(e) =>
-                      handleInputChange("reason", e.target.value)
-                    }
-                    placeholder="Why should we add this business?"
-                    className="mt-1 min-h-[100px]"
-                    maxLength={300}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formData.reason.length}/300 characters
-                  </p>
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-end">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-purple-600 hover:bg-purple-700 px-8"
-                >
-                  {loading ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Submitting...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>Submit Recommendation</span>
-                    </div>
-                  )}
-                </Button>
-              </div>
-            </form>
-
-            {/* Error and Success Messages */}
-            {error && (
-              <Alert className="border-red-500 bg-red-50 mt-6">
-                <AlertDescription className="text-red-700">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {success && (
-              <Alert className="border-green-500 bg-green-50 mt-6">
-                <AlertDescription className="text-green-700 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4" />
-                  <span>{success}</span>
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+          </form>
+        </div>
       </div>
     </div>
   );

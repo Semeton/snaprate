@@ -37,6 +37,7 @@ model User {
   accounts                Account[]
   adminActions            AdminAction[]            @relation("AdminActions")
   adminInvitations        AdminInvitation[]        @relation("AdminInvitations")
+  businessInvitations     BusinessInvitation[]     @relation("BusinessInvitations")
   agentApplications       AgentApplication[]
   agentProfile            Agent?
   businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
@@ -388,21 +389,31 @@ model BusinessView {
 }
 
 model BusinessRecommendation {
-  id                String           @id @default(cuid())
-  businessName      String
-  category          BusinessCategory
-  phone             String?
-  email             String?
-  address           String
-  city              String
-  state             State
-  description       String?
-  reason            String?
-  recommendedBy     String
-  status            String           @default("PENDING")
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  recommendedByUser User             @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
+  id                  String           @id @default(cuid())
+  businessName        String
+  recommendedBy       String
+  status              String           @default("PENDING")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  additionalNotes     String?
+  adminNotes          String?
+  businessAddress     String
+  businessCategory    BusinessCategory
+  businessCity        String
+  businessDescription String?
+  businessEmail       String?
+  businessPhone       String?
+  businessState       State
+  businessWebsite     String?
+  ownerAddress        String?
+  ownerCity           String?
+  ownerEmail          String
+  ownerName           String
+  ownerPhone          String
+  ownerState          String?
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  recommendedByUser   User             @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
 
   @@map("business_recommendations")
 }
@@ -431,9 +442,9 @@ model PlatformSettings {
   reviewRewardAmount                 Int      @default(50)
   referralRewardAmount               Int      @default(20)
   businessRecommendationRewardAmount Int      @default(100)
-  minimumBusinessesForAgent         Int      @default(5)
   createdAt                          DateTime @default(now())
   updatedAt                          DateTime @updatedAt
+  minimumBusinessesForAgent          Int      @default(5)
 
   @@map("platform_settings")
 }
@@ -450,6 +461,20 @@ model AdminInvitation {
   invitedByUser   User             @relation("AdminInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
 
   @@map("admin_invitations")
+}
+
+model BusinessInvitation {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  businessName    String
+  invitationToken String           @unique
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  invitedBy       String
+  createdAt       DateTime         @default(now())
+  invitedByUser   User             @relation("BusinessInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("business_invitations")
 }
 
 model AdminAction {

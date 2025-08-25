@@ -163,15 +163,13 @@ export default function ApplyAgentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-gray-50">
       <ReviewerSidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
+      <div className="lg:ml-64">
         {/* Mobile Header */}
         <div className="lg:hidden bg-white border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -202,7 +200,7 @@ export default function ApplyAgentPage() {
         </div>
 
         {/* Application Content */}
-        <div className="flex-1 p-6">
+        <div className="p-6">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center space-x-3 mb-4">
