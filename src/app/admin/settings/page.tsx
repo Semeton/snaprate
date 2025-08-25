@@ -43,6 +43,8 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSettingsConfirmation, setShowSettingsConfirmation] =
+    useState(false);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -66,6 +68,7 @@ export default function AdminSettingsPage() {
     reviewRewardAmount: 50,
     referralRewardAmount: 20,
     businessRecommendationRewardAmount: 100,
+    minimumBusinessesForAgent: 5,
     maxReviewsPerBusiness: 1,
     reviewModerationRequired: true,
     businessVerificationRequired: true,
@@ -213,6 +216,16 @@ export default function AdminSettingsPage() {
   };
 
   const handlePlatformSettingsUpdate = async () => {
+    // Validate minimum businesses for agent
+    if (platformSettings.minimumBusinessesForAgent < 1) {
+      toast({
+        title: "Error",
+        description: "Minimum businesses for agent must be at least 1",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSaving(true);
       const response = await fetch("/api/admin/platform-settings", {
@@ -581,89 +594,199 @@ export default function AdminSettingsPage() {
 
       {/* Platform Settings - Super Admin Only */}
       {isSuperAdmin && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Settings className="h-5 w-5" />
-              <span>Platform Settings</span>
-              <Badge variant="secondary" className="ml-2">
-                Super Admin Only
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div>
-                <Label htmlFor="minRedemption">Minimum Redemption (₦)</Label>
-                <Input
-                  id="minRedemption"
-                  type="number"
-                  value={platformSettings.minimumRedemptionAmount}
-                  onChange={(e) =>
-                    setPlatformSettings({
-                      ...platformSettings,
-                      minimumRedemptionAmount: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
+        <>
+          {/* Platform Settings Description */}
+          <Card className="mt-6 bg-blue-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Platform Settings Management
+                </h3>
+                <p className="text-blue-700 text-sm">
+                  Configure platform-wide settings that affect user rewards,
+                  agent eligibility, and system behavior. Changes to these
+                  settings only affect new activities, not existing rewards or
+                  data.
+                </p>
               </div>
-              <div>
-                <Label htmlFor="reviewReward">Review Reward (₦)</Label>
-                <Input
-                  id="reviewReward"
-                  type="number"
-                  value={platformSettings.reviewRewardAmount}
-                  onChange={(e) =>
-                    setPlatformSettings({
-                      ...platformSettings,
-                      reviewRewardAmount: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="referralReward">Referral Reward (₦)</Label>
-                <Input
-                  id="referralReward"
-                  type="number"
-                  value={platformSettings.referralRewardAmount}
-                  onChange={(e) =>
-                    setPlatformSettings({
-                      ...platformSettings,
-                      referralRewardAmount: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-              <div>
-                <Label htmlFor="businessReward">Business Rec. Reward (₦)</Label>
-                <Input
-                  id="businessReward"
-                  type="number"
-                  value={platformSettings.businessRecommendationRewardAmount}
-                  onChange={(e) =>
-                    setPlatformSettings({
-                      ...platformSettings,
-                      businessRecommendationRewardAmount:
-                        parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="mt-6 flex justify-end">
-              <Button
-                onClick={handlePlatformSettingsUpdate}
-                disabled={saving}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? "Saving..." : "Save Platform Settings"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Settings className="h-5 w-5" />
+                <span>Platform Settings</span>
+                <Badge variant="secondary" className="ml-2">
+                  Super Admin Only
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                  <Label htmlFor="minRedemption">Minimum Redemption (₦)</Label>
+                  <Input
+                    id="minRedemption"
+                    type="number"
+                    value={platformSettings.minimumRedemptionAmount}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        minimumRedemptionAmount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reviewReward">Review Reward (₦)</Label>
+                  <Input
+                    id="reviewReward"
+                    type="number"
+                    value={platformSettings.reviewRewardAmount}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        reviewRewardAmount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="referralReward">Referral Reward (₦)</Label>
+                  <Input
+                    id="referralReward"
+                    type="number"
+                    value={platformSettings.referralRewardAmount}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        referralRewardAmount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="businessReward">
+                    Business Rec. Reward (₦)
+                  </Label>
+                  <Input
+                    id="businessReward"
+                    type="number"
+                    value={platformSettings.businessRecommendationRewardAmount}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        businessRecommendationRewardAmount:
+                          parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                <div>
+                  <Label htmlFor="minBusinessesForAgent">
+                    Min. Businesses for Agent
+                  </Label>
+                  <Input
+                    id="minBusinessesForAgent"
+                    type="number"
+                    min="1"
+                    value={platformSettings.minimumBusinessesForAgent}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        minimumBusinessesForAgent:
+                          parseInt(e.target.value) || 1,
+                      })
+                    }
+                    className={
+                      platformSettings.minimumBusinessesForAgent < 1
+                        ? "border-red-500"
+                        : ""
+                    }
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Minimum unique businesses a user must review to apply as an
+                    agent
+                  </p>
+                  {platformSettings.minimumBusinessesForAgent < 1 && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Value must be at least 1
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Agent Eligibility Info */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                <h4 className="font-medium text-gray-900 mb-2">
+                  Agent Eligibility System
+                </h4>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    • Users must review <strong>different businesses</strong>,
+                    not just multiple reviews
+                  </p>
+                  <p>
+                    • This ensures agents have experience with various business
+                    types
+                  </p>
+                  <p>
+                    • Current requirement:{" "}
+                    <strong>
+                      {platformSettings.minimumBusinessesForAgent} unique
+                      businesses
+                    </strong>
+                  </p>
+                  <p>
+                    • Changes only affect new applications, not existing agents
+                  </p>
+                </div>
+              </div>
+
+              {/* Impact Warning */}
+              <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                <h4 className="font-medium text-amber-900 mb-2">
+                  ⚠️ Setting Impact
+                </h4>
+                <div className="text-sm text-amber-800 space-y-1">
+                  <p>
+                    • <strong>Increasing</strong> this number makes it harder
+                    for users to become agents
+                  </p>
+                  <p>
+                    • <strong>Decreasing</strong> this number makes it easier
+                    for users to become agents
+                  </p>
+                  <p>
+                    • Changes only affect{" "}
+                    <strong>new agent applications</strong>
+                  </p>
+                  <p>• Existing agents and their privileges remain unchanged</p>
+                  <p>
+                    • Consider the balance between quality and accessibility
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  onClick={() => setShowSettingsConfirmation(true)}
+                  disabled={
+                    saving || platformSettings.minimumBusinessesForAgent < 1
+                  }
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? "Saving..." : "Save Platform Settings"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Account Information */}
@@ -706,6 +829,60 @@ export default function AdminSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Platform Settings Confirmation Dialog */}
+      {showSettingsConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Platform Settings Update
+            </h3>
+            <div className="text-sm text-gray-600 mb-6 space-y-2">
+              <p>You are about to update the following platform settings:</p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>
+                  Minimum redemption amount: ₦
+                  {platformSettings.minimumRedemptionAmount}
+                </li>
+                <li>Review reward: ₦{platformSettings.reviewRewardAmount}</li>
+                <li>
+                  Referral reward: ₦{platformSettings.referralRewardAmount}
+                </li>
+                <li>
+                  Business recommendation reward: ₦
+                  {platformSettings.businessRecommendationRewardAmount}
+                </li>
+                <li>
+                  Minimum businesses for agent:{" "}
+                  {platformSettings.minimumBusinessesForAgent}
+                </li>
+              </ul>
+              <p className="text-amber-600 font-medium mt-3">
+                ⚠️ These changes will affect new activities but not existing
+                rewards or data.
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowSettingsConfirmation(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowSettingsConfirmation(false);
+                  handlePlatformSettingsUpdate();
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                Confirm & Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

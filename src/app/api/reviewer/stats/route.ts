@@ -61,9 +61,17 @@ export async function GET(request: NextRequest) {
       _avg: { rating: true },
     });
 
+    // Get unique businesses reviewed count
+    const uniqueBusinessesReviewed = await prisma.review.groupBy({
+      by: ["businessId"],
+      where: { reviewerId: user.id },
+      _count: { businessId: true },
+    });
+
     // Ensure we have valid numbers
     const totalReviews = reviewStats._count.id || 0;
     const averageRating = reviewStats._avg.rating || 0;
+    const uniqueBusinessesCount = uniqueBusinessesReviewed.length || 0;
 
     // Get referral stats (users who signed up using this user's referral code)
     const referralStats = await prisma.user.count({
@@ -203,6 +211,7 @@ export async function GET(request: NextRequest) {
     const validatedStats = {
       totalReviews: Math.max(0, totalReviews),
       averageRating: averageRating > 0 ? Number(averageRating.toFixed(1)) : 0,
+      uniqueBusinessesReviewed: Math.max(0, uniqueBusinessesCount),
       totalRewards: Math.max(0, totalRewards),
       totalReferrals: Math.max(0, referralStats),
       currentStreak: Math.max(0, currentStreak),

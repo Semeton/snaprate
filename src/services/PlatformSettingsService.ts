@@ -6,6 +6,7 @@ export interface PlatformSettings {
   reviewRewardAmount: number;
   referralRewardAmount: number;
   businessRecommendationRewardAmount: number;
+  minimumBusinessesForAgent: number;
 }
 
 export class PlatformSettingsService {
@@ -47,6 +48,7 @@ export class PlatformSettingsService {
           reviewRewardAmount: 50,
           referralRewardAmount: 20,
           businessRecommendationRewardAmount: 100,
+          minimumBusinessesForAgent: 5,
         };
 
         // Create default settings in database
@@ -66,6 +68,7 @@ export class PlatformSettingsService {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
       };
       this.lastFetch = now;
 
@@ -79,6 +82,7 @@ export class PlatformSettingsService {
         reviewRewardAmount: 50,
         referralRewardAmount: 20,
         businessRecommendationRewardAmount: 100,
+        minimumBusinessesForAgent: 5,
       };
     }
   }
@@ -104,6 +108,7 @@ export class PlatformSettingsService {
           reviewRewardAmount: 50,
           referralRewardAmount: 20,
           businessRecommendationRewardAmount: 100,
+          minimumBusinessesForAgent: 5,
         },
       });
     } catch (error) {
@@ -141,6 +146,14 @@ export class PlatformSettingsService {
   public async getMinimumRedemptionAmount(): Promise<number> {
     const settings = await this.getSettings();
     return settings.minimumRedemptionAmount;
+  }
+
+  /**
+   * Get minimum businesses for agent
+   */
+  public async getMinimumBusinessesForAgent(): Promise<number> {
+    const settings = await this.getSettings();
+    return settings.minimumBusinessesForAgent;
   }
 }
 

@@ -103,6 +103,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    if (
+      typeof settings.minimumBusinessesForAgent !== "number" ||
+      settings.minimumBusinessesForAgent < 1
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid minimum businesses for agent (must be at least 1)",
+        },
+        { status: 400 },
+      );
+    }
+
     // Upsert settings using the actual schema fields
     const updatedSettings = await prisma.platformSettings.upsert({
       where: { id: "main" },
@@ -112,6 +125,7 @@ export async function PUT(request: NextRequest) {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
         updatedAt: new Date(),
       },
       create: {
@@ -121,6 +135,7 @@ export async function PUT(request: NextRequest) {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -149,6 +164,7 @@ export async function PUT(request: NextRequest) {
         referralRewardAmount: updatedSettings.referralRewardAmount,
         businessRecommendationRewardAmount:
           updatedSettings.businessRecommendationRewardAmount,
+        minimumBusinessesForAgent: updatedSettings.minimumBusinessesForAgent,
         maxReviewsPerBusiness: 1, // Default value
         reviewModerationRequired: true, // Default value
         businessVerificationRequired: true, // Default value

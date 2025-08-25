@@ -15,6 +15,7 @@ import {
   FileText,
   Star,
   MessageSquare,
+  Building2,
 } from "lucide-react";
 import ReviewerSidebar from "@/components/ReviewerSidebar";
 
@@ -22,7 +23,9 @@ interface UserStats {
   totalReviews: number;
   approvedReviews: number;
   averageRating: number;
+  uniqueBusinessesReviewed: number;
   isEligible: boolean;
+  requiredBusinesses: number;
 }
 
 export default function ApplyAgentPage() {
@@ -56,11 +59,23 @@ export default function ApplyAgentPage() {
       const response = await fetch("/api/reviewer/stats");
       if (response.ok) {
         const data = await response.json();
+
+        // Fetch platform settings for the required number
+        const settingsResponse = await fetch("/api/platform-settings");
+        const settings = settingsResponse.ok
+          ? await settingsResponse.json()
+          : { data: { minimumBusinessesForAgent: 5 } };
+        const requiredBusinesses =
+          settings.data?.minimumBusinessesForAgent || 5;
+
         const userStats = {
           totalReviews: data.data?.totalReviews || 0,
           approvedReviews: data.data?.totalReviews || 0,
           averageRating: data.data?.averageRating || 0,
-          isEligible: (data.data?.totalReviews || 0) >= 5,
+          uniqueBusinessesReviewed: data.data?.uniqueBusinessesReviewed || 0,
+          isEligible:
+            (data.data?.uniqueBusinessesReviewed || 0) >= requiredBusinesses,
+          requiredBusinesses,
         };
         setStats(userStats);
       }
@@ -227,22 +242,21 @@ export default function ApplyAgentPage() {
                         <p className="text-sm text-gray-600">Total Reviews</p>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
+                        <Building2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-gray-900">
+                          {stats.uniqueBusinessesReviewed}/
+                          {stats.requiredBusinesses}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          Unique Businesses
+                        </p>
+                      </div>
+                      <div className="text-center p-4 border rounded-lg">
                         <Star className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
                         <p className="text-2xl font-bold text-gray-900">
                           {stats.averageRating?.toFixed(1) || "0.0"}
                         </p>
                         <p className="text-sm text-gray-600">Average Rating</p>
-                      </div>
-                      <div className="text-center p-4 border rounded-lg">
-                        {stats.isEligible ? (
-                          <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                        ) : (
-                          <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-                        )}
-                        <p className="text-2xl font-bold text-gray-900">
-                          {stats.isEligible ? "Eligible" : "Not Eligible"}
-                        </p>
-                        <p className="text-sm text-gray-600">Status</p>
                       </div>
                     </div>
                   ) : (
@@ -379,12 +393,20 @@ export default function ApplyAgentPage() {
                         Not Eligible Yet
                       </h3>
                       <p className="text-yellow-800 mb-4">
-                        You need at least 5 approved reviews to apply to become
-                        an agent.
+                        You need to review at least{" "}
+                        {stats?.requiredBusinesses || 5} different businesses to
+                        apply to become an agent.
                       </p>
                       <div className="space-y-2 text-sm text-yellow-700">
-                        <p>Current reviews: {stats?.totalReviews || 0}/5</p>
-                        <p>Keep writing quality reviews to become eligible!</p>
+                        <p>
+                          Current unique businesses reviewed:{" "}
+                          {stats?.uniqueBusinessesReviewed || 0}/
+                          {stats?.requiredBusinesses || 5}
+                        </p>
+                        <p>
+                          Keep reviewing different businesses to become
+                          eligible!
+                        </p>
                       </div>
                       <Button
                         onClick={() => router.push("/reviewer/submit-review")}
@@ -462,7 +484,8 @@ export default function ApplyAgentPage() {
                     <div className="flex items-center space-x-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       <span className="text-sm">
-                        At least 5 approved reviews
+                        Review at least {stats?.requiredBusinesses || 5}{" "}
+                        different businesses
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">

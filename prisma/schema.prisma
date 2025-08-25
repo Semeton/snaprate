@@ -431,6 +431,7 @@ model PlatformSettings {
   reviewRewardAmount                 Int      @default(50)
   referralRewardAmount               Int      @default(20)
   businessRecommendationRewardAmount Int      @default(100)
+  minimumBusinessesForAgent         Int      @default(5)
   createdAt                          DateTime @default(now())
   updatedAt                          DateTime @updatedAt
 

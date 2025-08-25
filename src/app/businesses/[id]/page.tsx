@@ -197,7 +197,13 @@ export default function BusinessViewPage() {
   };
 
   const handleAddReview = () => {
-    router.push(`/reviewer/submit-review?businessId=${businessId}`);
+    if (session?.user) {
+      // User is logged in, go to submit review page
+      router.push(`/reviewer/submit-review?businessId=${businessId}`);
+    } else {
+      // Guest user, redirect to signup page with business context
+      router.push(`/auth/signup?businessId=${businessId}&redirect=review`);
+    }
   };
 
   const handleVote = async (
@@ -751,15 +757,13 @@ export default function BusinessViewPage() {
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Back
                 </Button>
-                {session?.user && (
-                  <Button
-                    onClick={handleAddReview}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Review
-                  </Button>
-                )}
+                <Button
+                  onClick={handleAddReview}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {session?.user ? "Add Review" : "Sign Up & Review"}
+                </Button>
               </div>
             </div>
           </div>
@@ -1048,15 +1052,15 @@ export default function BusinessViewPage() {
                   <div className="text-center py-8 text-gray-500">
                     <MessageSquare className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                     <p>No reviews yet. Be the first to review this business!</p>
-                    {session?.user && (
-                      <Button
-                        onClick={handleAddReview}
-                        className="mt-4 bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Write First Review
-                      </Button>
-                    )}
+                    <Button
+                      onClick={handleAddReview}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {session?.user
+                        ? "Write First Review"
+                        : "Sign Up & Review"}
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -1124,28 +1128,32 @@ export default function BusinessViewPage() {
             </Card>
 
             {/* Call to Action */}
-            {session?.user && (
-              <Card className="bg-blue-50 border-blue-200">
-                <CardContent className="pt-6">
-                  <div className="text-center">
-                    <h3 className="font-semibold text-blue-900 mb-2">
-                      Share Your Experience
-                    </h3>
-                    <p className="text-blue-700 text-sm mb-4">
-                      Help others by reviewing this business and earn a cash
-                      reward!
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <h3 className="font-semibold text-blue-900 mb-2">
+                    Share Your Experience
+                  </h3>
+                  <p className="text-blue-700 text-sm mb-4">
+                    {session?.user
+                      ? "Help others by reviewing this business and earn a cash reward!"
+                      : "Join our community to review this business and earn cash rewards!"}
+                  </p>
+                  <Button
+                    onClick={handleAddReview}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {session?.user ? "Write Review" : "Sign Up & Review"}
+                  </Button>
+                  {!session?.user && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      Quick signup • Start reviewing • Earn rewards
                     </p>
-                    <Button
-                      onClick={handleAddReview}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Write Review
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
