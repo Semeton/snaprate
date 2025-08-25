@@ -14,6 +14,7 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/png",
   "image/webp",
   "image/gif",
+  "application/pdf", // Allow PDFs for verification documents
 ];
 
 export const ALLOWED_VIDEO_TYPES = [

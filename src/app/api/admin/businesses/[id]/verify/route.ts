@@ -33,7 +33,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { status, notes } = body;
+    const { status, notes, reviewStatus } = body;
 
     if (!status || !["VERIFIED", "REJECTED"].includes(status)) {
       return NextResponse.json(
@@ -62,20 +62,21 @@ export async function POST(
       );
     }
 
-    if (business.verificationStatus !== "PENDING") {
-      return NextResponse.json(
-        { success: false, error: "Business has already been processed" },
-        { status: 400 },
-      );
-    }
+    // if (business.verificationStatus !== "PENDING") {
+    //   return NextResponse.json(
+    //     { success: false, error: "Business has already been processed" },
+    //     { status: 400 },
+    //   );
+    // }
 
-    // Update business verification status
+    // Update business review status (for reviewability, not document verification)
     const updatedBusiness = await prisma.business.update({
       where: { id },
       data: {
-        verificationStatus: status,
-        verifiedAt: status === "VERIFIED" ? new Date() : null,
-        verificationNotes: notes || null,
+        reviewStatus:
+          reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED"),
+        // Note: This is for reviewability, not document verification
+        // Document verification is handled separately in /api/admin/verification
       },
     });
 
@@ -83,36 +84,35 @@ export async function POST(
     await prisma.adminAction.create({
       data: {
         adminId: session.user.id,
-        action: `BUSINESS_${status}`,
+        action: `BUSINESS_REVIEW_${
+          reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED")
+        }`,
         targetType: "BUSINESS",
         targetId: id,
         details: {
           businessName: business.name,
           businessId: id,
-          status,
+          reviewStatus:
+            reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED"),
           notes,
           ownerEmail: business.owner.email,
+          action: "REVIEW_APPROVAL", // Clarify this is for reviewability
         },
       },
     });
 
-    // Send email notification to business owner
-    try {
-      const emailService = new EmailService();
-      await emailService.sendBusinessVerificationEmail(
-        business.owner.email,
-        business.name,
-        status,
-        notes
-      );
-    } catch (emailError) {
-      console.error("Failed to send business verification email:", emailError);
-      // Don't fail the verification if email fails
-    }
+    const finalReviewStatus: "APPROVED" | "REJECTED" | "SUSPENDED" =
+      reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED");
+    const statusMessage: string =
+      {
+        APPROVED: "approved for reviews",
+        REJECTED: "rejected for reviews",
+        SUSPENDED: "suspended from reviews",
+      }[finalReviewStatus] || "status updated";
 
     return NextResponse.json({
       success: true,
-      message: `Business ${status.toLowerCase()} successfully`,
+      message: `Business ${statusMessage} successfully`,
       data: updatedBusiness,
     });
   } catch (error) {

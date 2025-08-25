@@ -107,6 +107,8 @@ export enum ReviewStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
+  FLAGGED = "FLAGGED",
+  SUSPENDED = "SUSPENDED",
 }
 
 export enum CouponType {
@@ -204,6 +206,10 @@ export interface Business {
   state: State;
   latitude?: number;
   longitude?: number;
+  // Review status (for reviewability)
+  reviewStatus: ReviewStatus;
+
+  // Document verification status (legacy, will be migrated)
   verificationStatus: BusinessVerificationStatus;
   verificationNotes?: string;
   verifiedAt?: Date;

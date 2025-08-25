@@ -75,6 +75,12 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       current: pathname === "/admin/business-recommendations",
     },
     {
+      name: "Verification",
+      href: "/admin/verification",
+      icon: Shield,
+      current: pathname === "/admin/verification",
+    },
+    {
       name: "Agents",
       href: "/admin/agents",
       icon: Shield,

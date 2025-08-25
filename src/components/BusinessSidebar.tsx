@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  Shield,
 } from "lucide-react";
 
 interface BusinessSidebarProps {
@@ -53,6 +54,12 @@ export default function BusinessSidebar({
       href: "/business/profile",
       icon: User,
       current: pathname === "/business/profile",
+    },
+    {
+      name: "Verification",
+      href: "/business/verification",
+      icon: Shield,
+      current: pathname === "/business/verification",
     },
     {
       name: "Coupons",

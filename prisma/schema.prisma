@@ -37,9 +37,9 @@ model User {
   accounts                Account[]
   adminActions            AdminAction[]            @relation("AdminActions")
   adminInvitations        AdminInvitation[]        @relation("AdminInvitations")
-  businessInvitations     BusinessInvitation[]     @relation("BusinessInvitations")
   agentApplications       AgentApplication[]
   agentProfile            Agent?
+  businessInvitations     BusinessInvitation[]     @relation("BusinessInvitations")
   businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
   businessViews           BusinessView[]           @relation("UserBusinessViews")
   business                Business?
@@ -107,35 +107,77 @@ model Business {
   website               String?
   logo                  String?
   coverImage            String?
+  servicesImages        String[] // Array of service/product image URLs (max 3)
   address               String
   city                  String
   state                 State
   latitude              Float?
   longitude             Float?
+  
+  // New fields for dual status system
+  reviewStatus          ReviewStatus @default(PENDING)
+  addressVerificationStatus AddressVerificationStatus @default(UNVERIFIED)
+  
+  // Existing verification fields (will be migrated later)
   verificationStatus    BusinessVerificationStatus @default(PENDING)
   verificationDocuments String[]
+  verificationNotes     String?
+  verifiedAt            DateTime?
+  cacNumber             String?
+  utilityBill           String?
+  
   averageRating         Float                      @default(0)
   totalReviews          Int                        @default(0)
   totalVisits           Int                        @default(0)
   isActive              Boolean                    @default(true)
   createdAt             DateTime                   @default(now())
   updatedAt             DateTime                   @updatedAt
-  verificationNotes     String?
-  verifiedAt            DateTime?
-  cacNumber             String?
   onboardedByAgentId    String?
-  utilityBill           String?
   deletedAt             DateTime?
+  
+  // Relations
   analytics             BusinessAnalytics[]
   businessHours         BusinessHours[]
   businessSettings      BusinessSettings?
   views                 BusinessView[]
+  verification          BusinessVerification?
   onboardedByAgent      Agent?                     @relation("OnboardedBusinesses", fields: [onboardedByAgentId], references: [id])
   owner                 User                       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   coupons               Coupon[]
   reviews               Review[]
 
   @@map("businesses")
+}
+
+model BusinessVerification {
+  id                    String   @id @default(cuid())
+  businessId            String   @unique
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  // Director/Authorized Signatory ID
+  directorIdType        DirectorIdType
+  directorIdNumber      String
+  directorIdImage       String // URL to uploaded image
+  
+  // Business Documents
+  cacDocumentType       CacDocumentType?
+  cacDocumentImage      String? // URL to uploaded image
+  firsTaxClearance      String? // URL to uploaded image
+  
+  // Address Verification
+  addressEvidenceType   AddressEvidenceType?
+  addressEvidenceImage  String? // URL to uploaded image
+  
+  // Verification Status
+  verificationStatus    VerificationStatus @default(PENDING)
+  adminNotes            String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@map("business_verifications")
 }
 
 model BusinessHours {
@@ -248,6 +290,7 @@ model CommentVote {
   voteType  String
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
   comment   ReviewComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user      User          @relation("CommentVoter", fields: [userId], references: [id], onDelete: Cascade)
 
@@ -586,8 +629,10 @@ enum BusinessCategory {
 enum ReviewStatus {
   PENDING
   APPROVED
+  VERIFIED
   REJECTED
   FLAGGED
+  SUSPENDED
 }
 
 enum CouponStatus {
@@ -636,4 +681,36 @@ enum ReportStatus {
   INVESTIGATED
   RESOLVED
   DISMISSED
+}
+
+enum AddressVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+enum DirectorIdType {
+  NATIONAL_ID
+  INTERNATIONAL_PASSPORT
+  DRIVERS_LICENSE
+  VOTER_CARD
+}
+
+enum CacDocumentType {
+  CAC_CERTIFICATE_OF_INCORPORATION
+  CAC_STATUS_REPORT
+  CAC_BUSINESS_NAME_REGISTRATION
+}
+
+enum AddressEvidenceType {
+  UTILITY_BILL
+  LEASE_AGREEMENT
+  SIGNAGE_PHOTO
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
 }

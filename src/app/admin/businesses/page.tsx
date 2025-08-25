@@ -94,11 +94,18 @@ export default function AdminBusinessesPage() {
     );
   };
 
-  const handleVerification = async (
+  const handleReviewApproval = async (
     businessId: string,
-    status: "VERIFIED" | "REJECTED",
+    status: "VERIFIED" | "APPROVED" | "REJECTED" | "SUSPENDED",
   ) => {
     try {
+      // Map the status to what the API expects
+      const apiStatus =
+        status === "VERIFIED"
+          ? "VERIFIED"
+          : status === "APPROVED"
+          ? "APPROVED"
+          : "REJECTED";
       const response = await fetch(
         `/api/admin/businesses/${businessId}/verify`,
         {
@@ -106,7 +113,10 @@ export default function AdminBusinessesPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status: apiStatus,
+            reviewStatus: status, // Pass the actual review status we want
+          }),
         },
       );
 
@@ -115,47 +125,55 @@ export default function AdminBusinessesPage() {
       if (response.ok) {
         toast({
           title: "Success",
-          description: `Business ${status.toLowerCase()} successfully`,
+          description:
+            data.message || `Business review status updated successfully`,
         });
         fetchBusinesses();
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to update business status",
+          description: data.error || "Failed to update business review status",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Failed to update business status:", error);
+      console.error("Failed to update business review status:", error);
       toast({
         title: "Error",
-        description: "Failed to update business status",
+        description: "Failed to update business review status",
         variant: "destructive",
       });
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getReviewStatusBadge = (status: string) => {
     switch (status) {
       case "PENDING":
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            Review Pending
           </Badge>
         );
-      case "VERIFIED":
+      case "APPROVED":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Verified
+            Reviews Allowed
           </Badge>
         );
       case "REJECTED":
         return (
           <Badge variant="destructive" className="bg-red-100 text-red-800">
             <XCircle className="h-3 w-3 mr-1" />
-            Rejected
+            Reviews Blocked
+          </Badge>
+        );
+      case "SUSPENDED":
+        return (
+          <Badge variant="destructive" className="bg-red-100 text-red-800">
+            <XCircle className="h-3 w-3 mr-1" />
+            Reviews Suspended
           </Badge>
         );
       default:
@@ -166,7 +184,7 @@ export default function AdminBusinessesPage() {
   const filteredBusinesses = businesses
     .filter((business) => {
       const matchesFilter =
-        filter === "ALL" || business.verificationStatus === filter;
+        filter === "ALL" || business.reviewStatus === filter;
       const matchesSearch =
         searchTerm === "" ||
         business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -224,10 +242,11 @@ export default function AdminBusinessesPage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Business Management
+                Business Review Management
               </h1>
               <p className="text-gray-600">
-                Verify and manage business registrations
+                Approve or reject businesses for user reviews (separate from
+                document verification)
               </p>
             </div>
           </div>
@@ -303,9 +322,10 @@ export default function AdminBusinessesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="VERIFIED">Verified</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="PENDING">Review Pending</SelectItem>
+                    <SelectItem value="APPROVED">Reviews Allowed</SelectItem>
+                    <SelectItem value="REJECTED">Reviews Blocked</SelectItem>
+                    <SelectItem value="SUSPENDED">Reviews Suspended</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -330,11 +350,21 @@ export default function AdminBusinessesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Businesses ({filteredBusinesses.length})</span>
+              <span>Businesses for Review ({filteredBusinesses.length})</span>
               <Button onClick={fetchBusinesses} variant="outline" size="sm">
                 Refresh
               </Button>
             </CardTitle>
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <p>
+                <strong>Purpose:</strong> This page controls whether businesses
+                can receive reviews from users.
+              </p>
+              <p>
+                <strong>Note:</strong> Document verification is handled
+                separately on the Verification page.
+              </p>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -364,11 +394,11 @@ export default function AdminBusinessesPage() {
                     <TableHead>Owner</TableHead>
                     <TableHead
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => handleSort("verificationStatus")}
+                      onClick={() => handleSort("reviewStatus")}
                     >
                       <div className="flex items-center">
-                        Status
-                        {getSortIcon("verificationStatus")}
+                        Review Status
+                        {getSortIcon("reviewStatus")}
                       </div>
                     </TableHead>
                     <TableHead
@@ -434,7 +464,7 @@ export default function AdminBusinessesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {getStatusBadge(business.verificationStatus)}
+                        {getReviewStatusBadge(business.reviewStatus)}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm text-gray-500">
@@ -443,42 +473,104 @@ export default function AdminBusinessesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          {business.verificationStatus === "PENDING" && (
+                          {business.reviewStatus === "PENDING" && (
                             <>
                               <Button
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700"
                                 onClick={() =>
-                                  handleVerification(business.id, "VERIFIED")
+                                  handleReviewApproval(business.id, "APPROVED")
                                 }
                               >
                                 <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
+                                Allow Reviews
                               </Button>
                               <Button
                                 size="sm"
                                 variant="destructive"
                                 onClick={() =>
-                                  handleVerification(business.id, "REJECTED")
+                                  handleReviewApproval(business.id, "REJECTED")
                                 }
                               >
                                 <XCircle className="h-4 w-4 mr-1" />
-                                Reject
+                                Block Reviews
                               </Button>
                             </>
                           )}
-                          {business.verificationStatus !== "PENDING" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedBusiness(business);
-                                setShowBusinessModal(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
+                          {business.reviewStatus === "APPROVED" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedBusiness(business);
+                                  setShowBusinessModal(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  handleReviewApproval(business.id, "SUSPENDED")
+                                }
+                              >
+                                <Clock className="h-4 w-4 mr-1" />
+                                Suspend Reviews
+                              </Button>
+                            </>
+                          )}
+                          {business.reviewStatus === "REJECTED" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedBusiness(business);
+                                  setShowBusinessModal(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() =>
+                                  handleReviewApproval(business.id, "APPROVED")
+                                }
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Re-enable Reviews
+                              </Button>
+                            </>
+                          )}
+                          {business.reviewStatus === "SUSPENDED" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedBusiness(business);
+                                  setShowBusinessModal(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() =>
+                                  handleReviewApproval(business.id, "APPROVED")
+                                }
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Resume Reviews
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -509,7 +601,7 @@ export default function AdminBusinessesPage() {
             setShowBusinessModal(false);
             setSelectedBusiness(null);
           }}
-          onVerification={handleVerification}
+          onVerification={handleReviewApproval}
         />
       )}
     </div>

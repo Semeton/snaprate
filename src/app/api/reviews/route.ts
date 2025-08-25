@@ -64,11 +64,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if business exists and is verified
+    // Check if business exists and is approved for review
     const business = await prisma.business.findFirst({
       where: {
         id: businessId,
-        verificationStatus: "VERIFIED",
+        reviewStatus: "APPROVED",
       },
     });
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Business not found or not verified",
+          error: "Business not found or not approved for review",
         },
         { status: 404 },
       );

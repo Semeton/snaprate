@@ -29,7 +29,10 @@ interface BusinessDetailModalProps {
   business: Business;
   isOpen: boolean;
   onClose: () => void;
-  onVerification: (businessId: string, status: "VERIFIED" | "REJECTED") => void;
+  onVerification: (
+    businessId: string,
+    status: "VERIFIED" | "APPROVED" | "REJECTED",
+  ) => void;
 }
 
 export default function BusinessDetailModal({
@@ -40,7 +43,9 @@ export default function BusinessDetailModal({
 }: BusinessDetailModalProps) {
   const [verifying, setVerifying] = useState(false);
 
-  const handleVerification = async (status: "VERIFIED" | "REJECTED") => {
+  const handleVerification = async (
+    status: "VERIFIED" | "APPROVED" | "REJECTED",
+  ) => {
     setVerifying(true);
     try {
       await onVerification(business.id, status);
@@ -52,8 +57,8 @@ export default function BusinessDetailModal({
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "VERIFIED":
-        return <Badge className="bg-green-100 text-green-800">Verified</Badge>;
+      case "APPROVED":
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
       case "REJECTED":
         return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
       case "PENDING":
