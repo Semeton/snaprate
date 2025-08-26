@@ -26,6 +26,7 @@ export async function GET(
         state: true,
         logo: true,
         coverImage: true,
+        servicesImages: true,
         averageRating: true,
         totalReviews: true,
         totalVisits: true,

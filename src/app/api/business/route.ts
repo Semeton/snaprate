@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       latitude,
       longitude,
       verificationDocuments,
+      servicesImages,
     } = body;
 
     // Validate required fields
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         latitude,
         longitude,
         verificationDocuments: verificationDocuments || [],
+        servicesImages: servicesImages || [],
         ownerId: session.user.id,
         isActive: true,
         averageRating: 0,

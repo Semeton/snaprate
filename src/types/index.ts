@@ -201,6 +201,7 @@ export interface Business {
   website?: string;
   logo?: string;
   coverImage?: string;
+  servicesImages: string[];
   address: string;
   city: string;
   state: State;

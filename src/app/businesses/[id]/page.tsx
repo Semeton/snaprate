@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 import Image from "next/image";
+import ServicesImageSlideshow from "@/components/ServicesImageSlideshow";
 
 interface Business {
   id: string;
@@ -41,6 +42,7 @@ interface Business {
   website: string;
   logo: string;
   coverImage: string;
+  servicesImages: string[];
   address: string;
   city: string;
   state: State;
@@ -793,6 +795,22 @@ export default function BusinessViewPage() {
                     <p className="text-gray-600">{business.description}</p>
                   </div>
                 )}
+
+                {/* Services Images */}
+                {/* Services Images Slideshow */}
+                {business.servicesImages &&
+                  business.servicesImages.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-4">
+                        Services & Products
+                      </h4>
+                      <ServicesImageSlideshow
+                        images={business.servicesImages}
+                        businessName={business.name}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3">

@@ -17,6 +17,7 @@ export async function PUT(request: NextRequest) {
     address: string;
     city: string;
     state: State;
+    servicesImages?: string[];
   };
   let session: Session | null;
 
@@ -45,6 +46,7 @@ export async function PUT(request: NextRequest) {
       address,
       city,
       state,
+      servicesImages,
     } = body;
 
     // Validate required fields
@@ -90,6 +92,7 @@ export async function PUT(request: NextRequest) {
         address,
         city,
         state,
+        ...(servicesImages && { servicesImages }),
       },
       include: {
         owner: {

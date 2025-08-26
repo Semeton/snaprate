@@ -57,7 +57,7 @@ export async function POST(
       );
     }
 
-    if (!type || !["logo", "coverImage"].includes(type)) {
+    if (!type || !["logo", "coverImage", "service"].includes(type)) {
       return NextResponse.json(
         { success: false, error: "Invalid image type" },
         { status: 400 },
@@ -103,18 +103,42 @@ export async function POST(
     const imageUrl = `/uploads/businesses/${businessId}/${filename}`;
 
     // Update business record
-    await prisma.business.update({
-      where: { id: businessId },
-      data: {
-        [type]: imageUrl,
-      },
-    });
+    if (type === "service") {
+      // For service images, append to the servicesImages array
+      console.log(
+        `Updating business ${businessId} with service image: ${imageUrl}`,
+      );
+      const updatedBusiness = await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          servicesImages: {
+            push: imageUrl,
+          },
+        },
+      });
+      console.log(
+        `Business updated successfully. New servicesImages:`,
+        updatedBusiness.servicesImages,
+      );
+    } else {
+      // For logo and coverImage, update the field directly
+      await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          [type]: imageUrl,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: { imageUrl },
       message: `${
-        type === "logo" ? "Logo" : "Cover image"
+        type === "logo"
+          ? "Logo"
+          : type === "coverImage"
+          ? "Cover image"
+          : "Service image"
       } uploaded successfully`,
     });
   } catch (error) {

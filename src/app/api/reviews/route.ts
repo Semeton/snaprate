@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const business = await prisma.business.findFirst({
       where: {
         id: businessId,
-        reviewStatus: "APPROVED",
+        reviewStatus: { in: ["APPROVED", "VERIFIED"] },
       },
     });
 

@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UserRole, BusinessCategory, State } from "@/types";
 import { Building2, CheckCircle, AlertCircle } from "lucide-react";
+import ServicesImageUpload from "@/components/ServicesImageUpload";
 
 interface BusinessFormData {
   name: string;
@@ -31,6 +32,7 @@ interface BusinessFormData {
   state: State;
   latitude: string;
   longitude: string;
+  servicesImages: string[];
 }
 
 export default function BusinessRegisterPage() {
@@ -48,6 +50,7 @@ export default function BusinessRegisterPage() {
     state: State.LAGOS,
     latitude: "",
     longitude: "",
+    servicesImages: [],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -210,6 +213,27 @@ export default function BusinessRegisterPage() {
                   rows={4}
                   className="mt-1"
                 />
+              </div>
+
+              {/* Services Images Upload - Disabled during registration */}
+              <div className="space-y-4">
+                <div>
+                  <Label>Service/Product Images (Max 3)</Label>
+                  <p className="text-sm text-gray-500 mt-1">
+                    You can upload service images after creating your business
+                    profile
+                  </p>
+                </div>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                  <div className="text-gray-500">
+                    <p className="text-sm">
+                      Image upload will be available after business creation
+                    </p>
+                    <p className="text-xs mt-1">
+                      Create your business first, then add service images
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Contact Information */}

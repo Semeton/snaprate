@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import BusinessImageUpload from "@/components/BusinessImageUpload";
+import ServicesImageUpload from "@/components/ServicesImageUpload";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ interface BusinessProfile {
   state: State;
   logo?: string;
   coverImage?: string;
+  servicesImages: string[];
   verificationStatus: "PENDING" | "VERIFIED" | "REJECTED";
   verificationDocuments: string[];
   averageRating: number;
@@ -89,6 +91,11 @@ function BusinessProfileContent() {
     state: State.LAGOS,
   });
 
+  // Debug: Log profile changes
+  useEffect(() => {
+    console.log(`Profile state updated:`, profile);
+  }, [profile]);
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -120,6 +127,7 @@ function BusinessProfileContent() {
           state: businessData.state,
           logo: businessData.logo,
           coverImage: businessData.coverImage,
+          servicesImages: businessData.servicesImages || [],
           verificationStatus: businessData.verificationStatus || "PENDING",
           verificationDocuments: businessData.verificationDocuments || [],
           averageRating: businessData.averageRating || 0,
@@ -264,6 +272,7 @@ function BusinessProfileContent() {
         state: businessData.state,
         logo: businessData.logo,
         coverImage: businessData.coverImage,
+        servicesImages: businessData.servicesImages || [],
         verificationStatus: businessData.verificationStatus || "PENDING",
         verificationDocuments: businessData.verificationDocuments || [],
         averageRating: businessData.averageRating || 0,
@@ -520,6 +529,25 @@ function BusinessProfileContent() {
                         />
                       </div>
 
+                      {/* Services Images Upload */}
+                      <ServicesImageUpload
+                        businessId={profile.id}
+                        currentImages={profile.servicesImages}
+                        onImagesUpdate={(imageUrls) => {
+                          console.log(
+                            `ServicesImageUpload: Updating profile with images:`,
+                            imageUrls,
+                          );
+                          setProfile((prev) => {
+                            const updated = prev
+                              ? { ...prev, servicesImages: imageUrls }
+                              : null;
+                            console.log(`Profile updated:`, updated);
+                            return updated;
+                          });
+                        }}
+                      />
+
                       {/* Image Upload Section */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                         <BusinessImageUpload
@@ -546,9 +574,36 @@ function BusinessProfileContent() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-gray-700 dark:text-gray-300">
-                      {profile.description}
-                    </p>
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {profile.description}
+                      </p>
+
+                      {/* Services Images Display */}
+                      {profile.servicesImages.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            Services & Products
+                          </h4>
+                          <div className="grid grid-cols-3 gap-3">
+                            {profile.servicesImages.map((image, index) => (
+                              <div key={index} className="relative">
+                                <img
+                                  src={image}
+                                  alt={`Service ${index + 1}`}
+                                  className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                />
+                                <div className="absolute bottom-1 left-1 bg-black/50 rounded px-2 py-1">
+                                  <span className="text-xs text-white font-medium">
+                                    {index + 1}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>

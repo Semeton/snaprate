@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +78,7 @@ interface ActiveCoupon {
 
 export default function BusinessDashboardPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [businessData, setBusinessData] = useState<BusinessData | null>(null);
   const [stats, setStats] = useState<BusinessStats | null>(null);
   const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
@@ -121,13 +123,11 @@ export default function BusinessDashboardPage() {
         });
       }
 
-      // Fetch recent reviews
-      const reviewsResponse = await fetch(
-        "/api/business/reviews?status=APPROVED",
-      );
+      // Fetch recent reviews (including pending ones)
+      const reviewsResponse = await fetch("/api/business/reviews");
       if (reviewsResponse.ok) {
         const reviewsData = await reviewsResponse.json();
-        const reviews = reviewsData.reviews.slice(0, 5); // Get only 5 most recent
+        const reviews = reviewsData.reviews.slice(0, 8); // Get 8 most recent to show variety
 
         const transformedReviews: RecentReview[] = reviews.map(
           (review: Record<string, unknown>) => ({
@@ -191,6 +191,10 @@ export default function BusinessDashboardPage() {
     setRefreshing(true);
     await fetchDashboardData();
     setRefreshing(false);
+  };
+
+  const handleViewAllReviews = () => {
+    router.push("/business/reviews");
   };
 
   if (loading) {
@@ -303,7 +307,7 @@ export default function BusinessDashboardPage() {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
@@ -329,6 +333,16 @@ export default function BusinessDashboardPage() {
             <p className="text-xs text-muted-foreground">
               Avg rating: {stats?.averageRating}/5
             </p>
+            <div className="flex items-center space-x-2 mt-1 text-xs text-muted-foreground">
+              <span className="flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                {recentReviews.filter((r) => r.status === "APPROVED").length}
+              </span>
+              <span className="flex items-center">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full mr-1"></div>
+                {recentReviews.filter((r) => r.status === "PENDING").length}
+              </span>
+            </div>
           </CardContent>
         </Card>
 
@@ -359,6 +373,24 @@ export default function BusinessDashboardPage() {
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
+
+        {/* Pending Reviews Card */}
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-800">
+              Pending Reviews
+            </CardTitle>
+            <div className="w-4 h-4 text-yellow-600">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-800">
+              {recentReviews.filter((r) => r.status === "PENDING").length}
+            </div>
+            <p className="text-xs text-yellow-600">Need your attention</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content Tabs */}
@@ -371,12 +403,59 @@ export default function BusinessDashboardPage() {
                 <Star className="w-5 h-5 mr-2 text-yellow-500" />
                 Recent Reviews
               </CardTitle>
+              {/* Review Status Summary */}
+              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                <span className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                  {
+                    recentReviews.filter((r) => r.status === "APPROVED").length
+                  }{" "}
+                  Approved
+                </span>
+                <span className="flex items-center">
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                  {recentReviews.filter((r) => r.status === "PENDING").length}{" "}
+                  Pending
+                </span>
+                <span className="flex items-center">
+                  <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                  {
+                    recentReviews.filter((r) => r.status === "REJECTED").length
+                  }{" "}
+                  Rejected
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <span className="font-medium">Status Guide:</span> Approved =
+                Visible to public, Pending = Awaiting review, Rejected = Hidden
+                from public
+              </div>
+              {/* Pending Reviews Alert */}
+              {recentReviews.filter((r) => r.status === "PENDING").length >
+                0 && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ You have{" "}
+                    {recentReviews.filter((r) => r.status === "PENDING").length}{" "}
+                    pending review(s) that need your attention.
+                  </p>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {recentReviews.length > 0 ? (
                 <div className="space-y-4">
                   {recentReviews.map((review) => (
-                    <div key={review.id} className="border rounded-lg p-4">
+                    <div
+                      key={review.id}
+                      className={`border rounded-lg p-4 ${
+                        review.status === "PENDING"
+                          ? "bg-yellow-50 border-yellow-200"
+                          : review.status === "REJECTED"
+                          ? "bg-red-50 border-red-200"
+                          : ""
+                      }`}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
@@ -404,10 +483,23 @@ export default function BusinessDashboardPage() {
                           variant={
                             review.status === "APPROVED"
                               ? "default"
-                              : "secondary"
+                              : review.status === "PENDING"
+                              ? "secondary"
+                              : "destructive"
+                          }
+                          className={
+                            review.status === "APPROVED"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : review.status === "PENDING"
+                              ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                              : "bg-red-100 text-red-800 border-red-200"
                           }
                         >
-                          {review.status}
+                          {review.status === "APPROVED"
+                            ? "✓ Approved"
+                            : review.status === "PENDING"
+                            ? "⏳ Pending"
+                            : "✗ Rejected"}
                         </Badge>
                       </div>
                       <p className="mt-3 text-gray-700 dark:text-gray-300">
@@ -423,6 +515,19 @@ export default function BusinessDashboardPage() {
                       </div>
                     </div>
                   ))}
+                  {/* View All Reviews Button */}
+                  {recentReviews.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={handleViewAllReviews}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View All Reviews
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8">
