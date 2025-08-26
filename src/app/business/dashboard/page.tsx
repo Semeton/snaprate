@@ -375,7 +375,10 @@ export default function BusinessDashboardPage() {
         </Card>
 
         {/* Pending Reviews Card */}
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card
+          className="border-yellow-200 bg-yellow-50 cursor-pointer hover:bg-yellow-100 transition-colors"
+          onClick={() => router.push("/business/reviews?status=PENDING")}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-yellow-800">
               Pending Reviews
@@ -389,6 +392,9 @@ export default function BusinessDashboardPage() {
               {recentReviews.filter((r) => r.status === "PENDING").length}
             </div>
             <p className="text-xs text-yellow-600">Need your attention</p>
+            <p className="text-xs text-yellow-500 mt-1">
+              Click to view all pending
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -518,13 +524,13 @@ export default function BusinessDashboardPage() {
                   {/* View All Reviews Button */}
                   {recentReviews.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full"
                         onClick={handleViewAllReviews}
                       >
                         <Eye className="w-4 h-4 mr-2" />
-                        View All Reviews
+                        View All Reviews & Manage
                       </Button>
                     </div>
                   )}
