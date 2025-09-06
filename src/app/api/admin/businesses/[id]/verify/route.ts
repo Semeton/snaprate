@@ -35,7 +35,10 @@ export async function POST(
     const body = await request.json();
     const { status, notes, reviewStatus } = body;
 
-    if (!status || !["VERIFIED", "REJECTED"].includes(status)) {
+    if (
+      !status ||
+      !["VERIFIED", "REJECTED", "APPROVED", "SUSPENDED"].includes(status)
+    ) {
       return NextResponse.json(
         { success: false, error: "Valid status is required" },
         { status: 400 },
@@ -74,9 +77,10 @@ export async function POST(
       where: { id },
       data: {
         reviewStatus:
-          reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED"),
+          reviewStatus || (status === "VERIFIED" ? "APPROVED" : status),
         // Note: This is for reviewability, not document verification
         // Document verification is handled separately in /api/admin/verification
+        // "VERIFIED" maps to "APPROVED" for review status
       },
     });
 
@@ -85,7 +89,7 @@ export async function POST(
       data: {
         adminId: session.user.id,
         action: `BUSINESS_REVIEW_${
-          reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED")
+          reviewStatus || (status === "VERIFIED" ? "APPROVED" : status)
         }`,
         targetType: "BUSINESS",
         targetId: id,
@@ -93,7 +97,7 @@ export async function POST(
           businessName: business.name,
           businessId: id,
           reviewStatus:
-            reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED"),
+            reviewStatus || (status === "VERIFIED" ? "APPROVED" : status),
           notes,
           ownerEmail: business.owner.email,
           action: "REVIEW_APPROVAL", // Clarify this is for reviewability
@@ -102,7 +106,7 @@ export async function POST(
     });
 
     const finalReviewStatus: "APPROVED" | "REJECTED" | "SUSPENDED" =
-      reviewStatus || (status === "VERIFIED" ? "APPROVED" : "REJECTED");
+      reviewStatus || (status === "VERIFIED" ? "APPROVED" : status);
     const statusMessage: string =
       {
         APPROVED: "approved for reviews",

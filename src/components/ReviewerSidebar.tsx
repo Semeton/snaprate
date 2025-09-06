@@ -5,13 +5,11 @@ import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import {
   Home,
   FileText,
-  Star,
   Gift,
   Settings,
   User,
@@ -19,7 +17,7 @@ import {
   Sun,
   Moon,
   LogOut,
-  TrendingUp,
+  Ticket,
   Building2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -90,7 +88,6 @@ export default function ReviewerSidebar({
 
         // If role has changed, update the session
         if (currentRole !== newRole) {
-          console.log("Role changed from", currentRole, "to", newRole);
           await update();
           setLastRoleCheck(new Date());
 
@@ -155,6 +152,18 @@ export default function ReviewerSidebar({
       current: pathname === "/reviewer/reviews",
     },
     {
+      name: "Browse Businesses",
+      href: "/reviewer/businesses",
+      icon: Building2,
+      current: pathname === "/reviewer/businesses",
+    },
+    {
+      name: "My Coupons",
+      href: "/reviewer/coupons",
+      icon: Ticket,
+      current: pathname === "/reviewer/coupons",
+    },
+    {
       name: "Rewards",
       href: "/reviewer/rewards",
       icon: Gift,
@@ -207,7 +216,10 @@ export default function ReviewerSidebar({
         <div className="flex flex-col h-full w-72">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
+            <Link
+              href="/"
+              className="flex items-center space-x-3 cursor-pointer"
+            >
               <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
                 <User className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
@@ -219,7 +231,7 @@ export default function ReviewerSidebar({
                   SnapRate
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"

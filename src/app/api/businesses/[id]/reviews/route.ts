@@ -29,20 +29,37 @@ export async function GET(
     const reviews = await prisma.review.findMany({
       where: {
         businessId,
-        status: "APPROVED", // Only show approved reviews
+        // Include all reviews (approved and pending) - status filtering removed
         deletedAt: null,
       },
-      include: {
+      select: {
+        id: true,
+        rating: true,
+        content: true,
+
+        images: true,
+        video: true,
+        status: true,
+        helpfulCount: true,
+        businessResponse: true,
+        businessResponseDate: true,
+        createdAt: true,
         reviewer: {
           select: {
             id: true,
             name: true,
             avatar: true,
+            role: true,
           },
         },
         comments: {
           where: { deletedAt: null },
-          include: {
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            updatedAt: true,
+            isEdited: true,
             author: {
               select: {
                 id: true,
@@ -53,7 +70,12 @@ export async function GET(
             },
             replies: {
               where: { deletedAt: null },
-              include: {
+              select: {
+                id: true,
+                content: true,
+                createdAt: true,
+                updatedAt: true,
+                isEdited: true,
                 author: {
                   select: {
                     id: true,

@@ -4,7 +4,6 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import {
@@ -16,7 +15,6 @@ import {
   Mail,
   LogOut,
   Crown,
-  UserCheck,
   MessageSquare,
   Sun,
   Moon,
@@ -86,13 +84,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       icon: Shield,
       current: pathname === "/admin/agents",
     },
-    // {
-    //   name: "Moderation",
-    //   href: "/admin/moderation",
-    //   icon: Shield,
-    //   current: pathname === "/admin/moderation",
-    //   superAdminOnly: true,
-    // },
+    {
+      name: "Moderation",
+      href: "/admin/moderation",
+      icon: Shield,
+      current: pathname === "/admin/moderation",
+      superAdminOnly: true,
+    },
     {
       name: "Reviews",
       href: "/admin/reviews",
@@ -128,7 +126,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         <div className="flex flex-col h-full w-72">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
+            <Link
+              href="/"
+              className="flex items-center space-x-3 cursor-pointer"
+            >
               <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
                 <Crown className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
@@ -140,7 +141,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   SnapRate
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"

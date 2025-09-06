@@ -45,9 +45,8 @@ export default function VerifyEmailForm() {
       setVerificationAttempted(true);
       handleEmailVerification(undefined, token);
     }
-  }, [searchParams]); // Remove success and error from dependencies to prevent re-runs
+  }, [searchParams]);
 
-  // Auto-login and redirect after successful verification
   useEffect(() => {
     if (success && !isAutoLoggingIn) {
       handleAutoLogin();
@@ -60,25 +59,19 @@ export default function VerifyEmailForm() {
     setIsAutoLoggingIn(true);
 
     try {
-      // Wait a moment for the user to see the success message
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Redirect to appropriate dashboard based on user role
       const userRole = session?.user?.role;
 
       if (userRole === "BUSINESS_OWNER") {
         router.push("/business/dashboard");
-      } else if (userRole === "AGENT") {
-        router.push("/agent/dashboard");
       } else if (userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
         router.push("/admin/dashboard");
       } else {
-        // Default to reviewer dashboard
         router.push("/reviewer/dashboard");
       }
     } catch (error) {
       console.error("Auto-login redirect failed:", error);
-      // Fallback to main dashboard
       router.push("/dashboard");
     } finally {
       setIsAutoLoggingIn(false);

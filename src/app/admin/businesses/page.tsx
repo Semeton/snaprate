@@ -99,13 +99,6 @@ export default function AdminBusinessesPage() {
     status: "VERIFIED" | "APPROVED" | "REJECTED" | "SUSPENDED",
   ) => {
     try {
-      // Map the status to what the API expects
-      const apiStatus =
-        status === "VERIFIED"
-          ? "VERIFIED"
-          : status === "APPROVED"
-          ? "APPROVED"
-          : "REJECTED";
       const response = await fetch(
         `/api/admin/businesses/${businessId}/verify`,
         {
@@ -114,8 +107,7 @@ export default function AdminBusinessesPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            status: apiStatus,
-            reviewStatus: status, // Pass the actual review status we want
+            status: status,
           }),
         },
       );

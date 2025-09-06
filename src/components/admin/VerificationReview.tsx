@@ -233,8 +233,9 @@ export default function VerificationReview({
         <div>
           <h1 className="text-2xl font-bold">Document Verification Review</h1>
           <p className="text-gray-600">
-            Review and approve business verification documents (ID, CAC, FIRS,
-            Address)
+            Review and approve business verification documents.{" "}
+            <strong>Requirements:</strong> Director ID (mandatory) + either CAC
+            Documents OR Address Verification.
           </p>
         </div>
 
@@ -399,9 +400,44 @@ export default function VerificationReview({
 
                       {/* Document Status Summary */}
                       <div className="bg-gray-50 p-3 rounded-lg">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">
-                          Documents Submitted:
-                        </h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-gray-700">
+                            Documents Submitted:
+                          </h4>
+                          {/* Validation Status */}
+                          {(() => {
+                            const hasDirectorId =
+                              verification.directorIdType &&
+                              verification.directorIdNumber &&
+                              verification.directorIdImage;
+                            const hasBusinessDocs =
+                              verification.cacDocumentType &&
+                              verification.cacDocumentImage;
+                            const hasAddressEvidence =
+                              verification.addressEvidenceType &&
+                              verification.addressEvidenceImage;
+                            const meetsRequirements =
+                              hasDirectorId &&
+                              (hasBusinessDocs || hasAddressEvidence);
+
+                            return (
+                              <Badge
+                                variant={
+                                  meetsRequirements ? "default" : "destructive"
+                                }
+                                className={`text-xs ${
+                                  meetsRequirements
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {meetsRequirements
+                                  ? "✓ Meets Requirements"
+                                  : "✗ Missing Required Docs"}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="outline" className="text-xs">
                             ✓ Director ID

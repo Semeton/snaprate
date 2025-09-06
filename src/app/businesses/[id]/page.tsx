@@ -82,15 +82,19 @@ interface Review {
   id: string;
   rating: number;
   content: string;
+
   images: string[];
   video: string;
   status: string;
   helpfulCount: number;
+  businessResponse?: string | null;
+  businessResponseDate?: string | null;
   createdAt: string;
   reviewer: {
     id: string;
     name: string;
     avatar: string;
+    role: string;
   };
   comments: ReviewComment[];
   votes: Array<{
@@ -118,6 +122,7 @@ export default function BusinessViewPage() {
   const [replyText, setReplyText] = useState<{
     [key: string]: string | undefined;
   }>({});
+  const [replyToComment, setReplyToComment] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState<{
     [key: string]: string;
@@ -273,10 +278,10 @@ export default function BusinessViewPage() {
       return;
     }
 
-    const text = parentId ? replyText[reviewId] : commentText[reviewId];
+    const text = parentId ? replyText[parentId] : commentText[reviewId];
     if (!text || !text.trim()) return;
 
-    setSubmittingComment(reviewId);
+    setSubmittingComment(parentId || reviewId);
     try {
       const response = await fetch(`/api/reviews/${reviewId}/comments`, {
         method: "POST",
@@ -324,7 +329,8 @@ export default function BusinessViewPage() {
 
         // Clear the input
         if (parentId) {
-          setReplyText((prev) => ({ ...prev, [reviewId]: undefined }));
+          setReplyText((prev) => ({ ...prev, [parentId]: undefined }));
+          setReplyToComment(null);
         } else {
           setCommentText((prev) => ({ ...prev, [reviewId]: "" }));
         }
@@ -548,9 +554,10 @@ export default function BusinessViewPage() {
               <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
               {!isReply && (
                 <button
-                  onClick={() =>
-                    setReplyText((prev) => ({ ...prev, [reviewId]: "" }))
-                  }
+                  onClick={() => {
+                    setReplyToComment(comment.id);
+                    setReplyText((prev) => ({ ...prev, [comment.id]: "" }));
+                  }}
                   className="flex items-center space-x-1 hover:text-blue-600"
                 >
                   <Reply className="h-3 w-3" />
@@ -586,15 +593,15 @@ export default function BusinessViewPage() {
         </div>
 
         {/* Reply input */}
-        {!isReply && replyText[reviewId] !== undefined && (
+        {!isReply && replyText[comment.id] !== undefined && (
           <div className="ml-11 mb-3">
             <div className="flex space-x-2">
               <Textarea
-                value={replyText[reviewId] || ""}
+                value={replyText[comment.id] || ""}
                 onChange={(e) =>
                   setReplyText((prev) => ({
                     ...prev,
-                    [reviewId]: e.target.value,
+                    [comment.id]: e.target.value,
                   }))
                 }
                 placeholder="Write a reply..."
@@ -604,16 +611,20 @@ export default function BusinessViewPage() {
                 <Button
                   size="sm"
                   onClick={() => handleAddComment(reviewId, comment.id)}
-                  disabled={submittingComment === reviewId}
+                  disabled={submittingComment === comment.id}
                 >
                   <Send className="h-3 w-3" />
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    setReplyText((prev) => ({ ...prev, [reviewId]: undefined }))
-                  }
+                  onClick={() => {
+                    setReplyText((prev) => ({
+                      ...prev,
+                      [comment.id]: undefined,
+                    }));
+                    setReplyToComment(null);
+                  }}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -886,7 +897,14 @@ export default function BusinessViewPage() {
                 {reviews.length > 0 ? (
                   <div className="space-y-4">
                     {reviews.map((review) => (
-                      <div key={review.id} className="border rounded-lg p-4">
+                      <div
+                        key={review.id}
+                        className={`border rounded-lg p-4 ${
+                          review.status !== "APPROVED"
+                            ? "border-orange-200 bg-orange-50/30"
+                            : ""
+                        }`}
+                      >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <Avatar
@@ -897,9 +915,14 @@ export default function BusinessViewPage() {
                               size="md"
                             />
                             <div>
-                              <p className="font-medium text-gray-900">
-                                {review.reviewer.name}
-                              </p>
+                              <div className="flex items-center space-x-2">
+                                <p className="font-medium text-gray-900">
+                                  {review.reviewer.name}
+                                </p>
+                                <Badge variant="outline" className="text-xs">
+                                  {review.reviewer.role}
+                                </Badge>
+                              </div>
                               <p className="text-sm text-gray-500">
                                 {new Date(
                                   review.createdAt,
@@ -921,6 +944,30 @@ export default function BusinessViewPage() {
                           </div>
                         </div>
                         <p className="text-gray-700 mb-3">{review.content}</p>
+
+                        {/* Business Response */}
+                        {review.businessResponse && (
+                          <div className="mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-medium text-sm">
+                                  {business.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-blue-900">
+                                Business Response:
+                              </p>
+                            </div>
+                            <p className="text-sm text-blue-800 mb-1">
+                              {review.businessResponse}
+                            </p>
+                            <p className="text-xs text-blue-600">
+                              {new Date(
+                                review.businessResponseDate!,
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
+                        )}
 
                         {/* Media */}
                         {review.images && review.images.length > 0 && (
@@ -948,15 +995,22 @@ export default function BusinessViewPage() {
                         )}
 
                         {/* Status Badge */}
-                        <div className="flex justify-end">
+                        <div className="flex justify-end mb-3">
                           <Badge
                             variant={
                               review.status === "APPROVED"
                                 ? "default"
                                 : "secondary"
                             }
+                            className={
+                              review.status === "APPROVED"
+                                ? "bg-green-100 text-green-800 border-green-200"
+                                : "bg-orange-100 text-orange-800 border-orange-200 font-medium"
+                            }
                           >
-                            {review.status}
+                            {review.status === "APPROVED"
+                              ? "✓ Verified"
+                              : "⚠️ Unverified"}
                           </Badge>
                         </div>
 

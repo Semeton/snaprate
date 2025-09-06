@@ -19,12 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  CheckCircle,
   AlertCircle,
   Upload,
   FileText,
@@ -36,16 +34,30 @@ import {
 interface VerificationData {
   directorIdType: string;
   directorIdNumber: string;
-  directorIdImage: string;
-  cacDocumentType?: string | null;
-  cacDocumentImage?: string;
-  firsTaxClearance?: string;
-  addressEvidenceType?: string | null;
-  addressEvidenceImage?: string;
+  directorIdImage: string | null;
+  cacDocumentType: string | null;
+  cacDocumentImage: string | null;
+  firsTaxClearance: string | null;
+  addressEvidenceType: string | null;
+  addressEvidenceImage: string | null;
 }
 
 interface VerificationStatus {
-  verification: any;
+  verification: {
+    id: string;
+    directorIdType: string;
+    directorIdNumber: string;
+    directorIdImage: string;
+    cacDocumentType?: string | null;
+    cacDocumentImage?: string;
+    firsTaxClearance?: string;
+    addressEvidenceType?: string | null;
+    addressEvidenceImage?: string;
+    adminNotes?: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
   business: {
     id: string;
     verificationStatus: string;
@@ -88,12 +100,12 @@ export default function BusinessVerificationForm() {
   const [formData, setFormData] = useState<VerificationData>({
     directorIdType: "",
     directorIdNumber: "",
-    directorIdImage: "",
+    directorIdImage: null,
     cacDocumentType: null,
-    cacDocumentImage: "",
-    firsTaxClearance: "",
+    cacDocumentImage: null,
+    firsTaxClearance: null,
     addressEvidenceType: null,
-    addressEvidenceImage: "",
+    addressEvidenceImage: null,
   });
 
   useEffect(() => {
@@ -112,14 +124,14 @@ export default function BusinessVerificationForm() {
           setFormData({
             directorIdType: data.data.verification.directorIdType || "",
             directorIdNumber: data.data.verification.directorIdNumber || "",
-            directorIdImage: data.data.verification.directorIdImage || "",
+            directorIdImage: data.data.verification.directorIdImage || null,
             cacDocumentType: data.data.verification.cacDocumentType || null,
-            cacDocumentImage: data.data.verification.cacDocumentImage || "",
-            firsTaxClearance: data.data.verification.firsTaxClearance || "",
+            cacDocumentImage: data.data.verification.cacDocumentImage || null,
+            firsTaxClearance: data.data.verification.firsTaxClearance || null,
             addressEvidenceType:
               data.data.verification.addressEvidenceType || null,
             addressEvidenceImage:
-              data.data.verification.addressEvidenceImage || "",
+              data.data.verification.addressEvidenceImage || null,
           });
         }
       }
@@ -128,7 +140,10 @@ export default function BusinessVerificationForm() {
     }
   };
 
-  const handleInputChange = (field: keyof VerificationData, value: string) => {
+  const handleInputChange = (
+    field: keyof VerificationData,
+    value: string | null,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -169,6 +184,7 @@ export default function BusinessVerificationForm() {
         throw new Error(errorData.error || "Upload failed");
       }
     } catch (error) {
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
         description: "Please try uploading your document again.",
@@ -182,15 +198,46 @@ export default function BusinessVerificationForm() {
     setLoading(true);
 
     try {
-      // Clean the form data before submission - convert empty strings to null for optional fields
+      // Validate required fields
+      if (
+        !formData.directorIdType ||
+        !formData.directorIdNumber ||
+        !formData.directorIdImage
+      ) {
+        toast({
+          title: "Missing required fields",
+          description: "Please fill in all required director ID fields.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Validate that at least one additional verification document is provided
+      const hasBusinessDocuments =
+        formData.cacDocumentType && formData.cacDocumentImage;
+      const hasAddressEvidence =
+        formData.addressEvidenceType && formData.addressEvidenceImage;
+
+      if (!hasBusinessDocuments && !hasAddressEvidence) {
+        toast({
+          title: "Additional verification required",
+          description:
+            "Please provide either business documents (CAC) or address verification evidence to complete your submission.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Clean the form data before submission
       const cleanedFormData = {
         ...formData,
-        cacDocumentType:
-          formData.cacDocumentType === "" ? null : formData.cacDocumentType,
-        addressEvidenceType:
-          formData.addressEvidenceType === ""
-            ? null
-            : formData.addressEvidenceType,
+        directorIdType: formData.directorIdType,
+        directorIdNumber: formData.directorIdNumber,
+        directorIdImage: formData.directorIdImage,
+        cacDocumentType: formData.cacDocumentType,
+        addressEvidenceType: formData.addressEvidenceType,
       };
 
       console.log("Submitting verification data:", cleanedFormData);
@@ -308,6 +355,15 @@ export default function BusinessVerificationForm() {
             Upload the required documents to verify your business. This helps
             build trust with customers and reviewers.
           </CardDescription>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Verification Requirements:</strong> You must provide your
+              Director/Authorized Signatory ID (mandatory) AND either Business
+              Documents (CAC) OR Address Verification evidence to complete your
+              submission.
+            </AlertDescription>
+          </Alert>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -367,7 +423,9 @@ export default function BusinessVerificationForm() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleInputChange("directorIdImage", "")}
+                        onClick={() =>
+                          handleInputChange("directorIdImage", null)
+                        }
                       >
                         Remove
                       </Button>
@@ -408,7 +466,8 @@ export default function BusinessVerificationForm() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Business Documents (Optional but Recommended)
+                Business Documents (Required - Choose this OR Address
+                Verification)
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -450,7 +509,7 @@ export default function BusinessVerificationForm() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleInputChange("cacDocumentImage", "")
+                            handleInputChange("cacDocumentImage", null)
                           }
                         >
                           Remove
@@ -499,7 +558,7 @@ export default function BusinessVerificationForm() {
                         variant="outline"
                         size="sm"
                         onClick={() =>
-                          handleInputChange("firsTaxClearance", "")
+                          handleInputChange("firsTaxClearance", null)
                         }
                       >
                         Remove
@@ -538,7 +597,8 @@ export default function BusinessVerificationForm() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                Address Verification (Optional but Recommended)
+                Address Verification (Required - Choose this OR Business
+                Documents)
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -580,7 +640,7 @@ export default function BusinessVerificationForm() {
                           variant="outline"
                           size="sm"
                           onClick={() =>
-                            handleInputChange("addressEvidenceImage", "")
+                            handleInputChange("addressEvidenceImage", null)
                           }
                         >
                           Remove

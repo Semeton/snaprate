@@ -3,6 +3,7 @@ import { IUserService } from "./interfaces";
 import { User, UserRole, AccountStatus, State } from "@/types";
 import bcrypt from "bcryptjs";
 import { generateReferralCode } from "@/lib/utils";
+import { generateUserIdentifier } from "@/lib/utils";
 
 export class UserService implements IUserService {
   // Single Responsibility: This service only handles user-related operations
@@ -41,6 +42,20 @@ export class UserService implements IUserService {
       // Generate unique referral code
       const referralCode = await generateReferralCode();
 
+      // Generate unique user identifier
+      let userIdentifier: string;
+      let isUnique = false;
+
+      while (!isUnique) {
+        userIdentifier = generateUserIdentifier();
+        const existing = await prisma.user.findFirst({
+          where: { userIdentifier },
+        });
+        if (!existing) {
+          isUnique = true;
+        }
+      }
+
       // Create user
       const user = await prisma.user.create({
         data: {
@@ -53,6 +68,7 @@ export class UserService implements IUserService {
           state: userData.state as State,
           city: userData.city as string,
           address: userData.address as string,
+          userIdentifier: userIdentifier!,
           referralCode,
           referredBy: userData.referredBy as string,
         },

@@ -88,6 +88,7 @@ export default function MyReviewsPage() {
   const [replyText, setReplyText] = useState<{
     [key: string]: string | undefined;
   }>({});
+  const [replyToComment, setReplyToComment] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState<{
     [key: string]: string;
@@ -246,10 +247,17 @@ export default function MyReviewsPage() {
   };
 
   const handleAddComment = async (reviewId: string, parentId?: string) => {
-    const text = parentId ? replyText[reviewId] : commentText[reviewId];
+    const text = parentId ? replyText[parentId] : commentText[reviewId];
+    console.log("handleAddComment called:", {
+      reviewId,
+      parentId,
+      text,
+      replyText,
+      commentText,
+    });
     if (!text || !text.trim()) return;
 
-    setSubmittingComment(reviewId);
+    setSubmittingComment(parentId || reviewId);
     try {
       const response = await fetch(`/api/reviews/${reviewId}/comments`, {
         method: "POST",
@@ -297,7 +305,8 @@ export default function MyReviewsPage() {
 
         // Clear the input
         if (parentId) {
-          setReplyText((prev) => ({ ...prev, [reviewId]: undefined }));
+          setReplyText((prev) => ({ ...prev, [parentId]: undefined }));
+          setReplyToComment(null);
         } else {
           setCommentText((prev) => ({ ...prev, [reviewId]: "" }));
         }
@@ -569,9 +578,14 @@ export default function MyReviewsPage() {
               <span>{formatDate(comment.createdAt)}</span>
               {!isReply && (
                 <button
-                  onClick={() =>
-                    setReplyText((prev) => ({ ...prev, [reviewId]: "" }))
-                  }
+                  onClick={() => {
+                    console.log(
+                      "Reply button clicked for comment:",
+                      comment.id,
+                    );
+                    setReplyToComment(comment.id);
+                    setReplyText((prev) => ({ ...prev, [comment.id]: "" }));
+                  }}
                   className="flex items-center space-x-1 hover:text-blue-600"
                 >
                   <Reply className="h-3 w-3" />
@@ -607,34 +621,49 @@ export default function MyReviewsPage() {
         </div>
 
         {/* Reply input */}
-        {!isReply && replyText[reviewId] !== undefined && (
+        {!isReply && replyText[comment.id] !== undefined && (
           <div className="ml-11 mb-3">
             <div className="flex space-x-2">
               <Textarea
-                value={replyText[reviewId] || ""}
-                onChange={(e) =>
+                value={replyText[comment.id] || ""}
+                onChange={(e) => {
+                  console.log("Reply input changed:", {
+                    commentId: comment.id,
+                    value: e.target.value,
+                  });
                   setReplyText((prev) => ({
                     ...prev,
-                    [reviewId]: e.target.value,
-                  }))
-                }
+                    [comment.id]: e.target.value,
+                  }));
+                }}
                 placeholder="Write a reply..."
                 className="flex-1 min-h-[80px]"
               />
               <div className="flex flex-col space-y-2">
                 <Button
                   size="sm"
-                  onClick={() => handleAddComment(reviewId, comment.id)}
-                  disabled={submittingComment === reviewId}
+                  onClick={() => {
+                    console.log("Reply submit button clicked:", {
+                      reviewId,
+                      commentId: comment.id,
+                      replyText: replyText[comment.id],
+                    });
+                    handleAddComment(reviewId, comment.id);
+                  }}
+                  disabled={submittingComment === comment.id}
                 >
                   <Send className="h-3 w-3" />
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    setReplyText((prev) => ({ ...prev, [reviewId]: undefined }))
-                  }
+                  onClick={() => {
+                    setReplyText((prev) => ({
+                      ...prev,
+                      [comment.id]: undefined,
+                    }));
+                    setReplyToComment(null);
+                  }}
                 >
                   <X className="h-3 w-3" />
                 </Button>

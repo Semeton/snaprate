@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ReviewStatus } from "@prisma/client";
+import { ReviewStatus, Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,14 +31,18 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "desc";
     const showDeleted = searchParams.get("showDeleted") === "true";
 
-    // Build where clause
-    const where: any = {};
+    // Type the filter properly
+    type FilterType = "ALL" | "DELETED" | ReviewStatus;
+    const typedFilter: FilterType = filter as FilterType;
 
-    if (filter !== "ALL") {
-      if (filter === "DELETED") {
+    // Build where clause
+    const where: Prisma.ReviewWhereInput = {};
+
+    if (typedFilter !== "ALL") {
+      if (typedFilter === "DELETED") {
         where.deletedAt = { not: null };
       } else {
-        where.status = filter;
+        where.status = typedFilter as ReviewStatus;
         where.deletedAt = null; // Only show non-deleted reviews for other filters
       }
     } else if (!showDeleted) {

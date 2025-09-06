@@ -25,10 +25,21 @@ export async function POST(request: NextRequest) {
       state,
       description,
       reason,
+      ownerName,
+      ownerEmail,
+      ownerPhone,
     } = body;
 
     // Validation
-    if (!businessName || !category || !address || !city || !state) {
+    if (
+      !businessName ||
+      !category ||
+      !address ||
+      !city ||
+      !state ||
+      !ownerName ||
+      !ownerEmail
+    ) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 },
@@ -70,14 +81,17 @@ export async function POST(request: NextRequest) {
     const recommendation = await prisma.businessRecommendation.create({
       data: {
         businessName,
-        category: category as BusinessCategory,
-        phone: phone || null,
-        email: email || null,
-        address,
-        city,
-        state: state as State,
-        description: description || null,
-        reason: reason || null,
+        businessCategory: category as BusinessCategory,
+        businessPhone: phone || null,
+        businessEmail: email || null,
+        businessAddress: address,
+        businessCity: city,
+        businessState: state as State,
+        businessDescription: description || null,
+        additionalNotes: reason || null,
+        ownerName,
+        ownerEmail,
+        ownerPhone: ownerPhone || null,
         recommendedBy: user.id,
         status: "PENDING",
       },

@@ -18,17 +18,58 @@ export async function generateReferralCode(): Promise<string> {
   return result;
 }
 
-// Generate a unique coupon code
+// Generate a unique coupon code (9-character alphanumeric with hyphens)
 export function generateCouponCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
 
-  // Generate a random 10-character code
-  for (let i = 0; i < 10; i++) {
+  // Generate 3 groups of 3 characters each, separated by hyphens
+  for (let group = 0; group < 3; group++) {
+    for (let i = 0; i < 3; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    if (group < 2) result += "-";
+  }
+
+  return result; // Format: K2X-PL7-YJ9
+}
+
+// Generate a unique 4-character user identifier
+export function generateUserIdentifier(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+
+  for (let i = 0; i < 4; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
 
-  return result;
+  return result; // Format: 70BR
+}
+
+// Generate user-specific coupon code
+export function generateUserSpecificCouponCode(
+  baseCode: string,
+  userIdentifier: string,
+): string {
+  return `${baseCode}-${userIdentifier}`; // Format: K2X-PL7-YJ9-70BR
+}
+
+// Extract user identifier from full coupon code
+export function extractUserIdentifierFromCode(fullCode: string): string | null {
+  const parts = fullCode.split("-");
+  if (parts.length === 4) {
+    return parts[3]; // Return the user identifier part
+  }
+  return null;
+}
+
+// Extract base code from full coupon code
+export function extractBaseCodeFromCode(fullCode: string): string | null {
+  const parts = fullCode.split("-");
+  if (parts.length === 4) {
+    return `${parts[0]}-${parts[1]}-${parts[2]}`; // Return the base code part
+  }
+  return null;
 }
 
 // Format currency (Nigerian Naira)

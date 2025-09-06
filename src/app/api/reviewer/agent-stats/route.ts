@@ -106,13 +106,15 @@ export async function GET(request: NextRequest) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      let currentDate = new Date(today);
       for (let i = 0; i < 30; i++) {
         // Check last 30 days
+        const checkDate = new Date(today);
+        checkDate.setDate(checkDate.getDate() - i);
+
         const hasReview = reviews.some((review) => {
           const reviewDate = new Date(review.createdAt);
           reviewDate.setHours(0, 0, 0, 0);
-          return reviewDate.getTime() === currentDate.getTime();
+          return reviewDate.getTime() === checkDate.getTime();
         });
 
         if (hasReview) {
@@ -120,8 +122,6 @@ export async function GET(request: NextRequest) {
         } else {
           break;
         }
-
-        currentDate.setDate(currentDate.getDate() - 1);
       }
     }
 

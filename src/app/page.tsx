@@ -18,6 +18,7 @@ import {
   Gift,
   CreditCard,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
@@ -91,9 +92,10 @@ export default function LandingPage() {
     fetchData();
   }, []);
 
-  // Track business view when card is clicked
+  // Track business view and navigate to business page when card is clicked
   const handleBusinessCardClick = useCallback(async (businessId: string) => {
     try {
+      // Track the view first
       const params = new URLSearchParams({
         source: "FEATURED",
         viewType: "FEATURED_LIST",
@@ -108,8 +110,13 @@ export default function LandingPage() {
           },
         },
       );
+
+      // Navigate to the business page
+      window.location.href = `/businesses/${businessId}`;
     } catch (error) {
       console.warn("Failed to track featured business view:", error);
+      // Still navigate even if tracking fails
+      window.location.href = `/businesses/${businessId}`;
     }
   }, []);
 
@@ -320,7 +327,7 @@ export default function LandingPage() {
               {displayBusinesses.map((business) => (
                 <Card
                   key={business.id}
-                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 cursor-pointer overflow-hidden"
+                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 cursor-pointer overflow-hidden border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-700"
                   onClick={() => handleBusinessCardClick(business.id)}
                 >
                   {/* Business Cover Image */}
@@ -367,14 +374,14 @@ export default function LandingPage() {
                         </span>
                       </div>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors cursor-pointer">
                       {business.name}
                     </h3>
                     <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
                       {business.description ||
                         "Experience the best service and quality."}
                     </p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="text-sm text-gray-500 dark:text-gray-400">
                         <Building2 className="h-4 w-4 inline mr-1" />
                         {business.city}, {business.state}
@@ -383,6 +390,18 @@ export default function LandingPage() {
                         {business._count?.reviews || business.totalReviews || 0}{" "}
                         reviews
                       </div>
+                    </div>
+
+                    {/* View Details Button */}
+                    <div className="flex items-center justify-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-300 group-hover:scale-105"
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

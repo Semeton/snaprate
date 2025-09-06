@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,23 +23,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { UserRole, CouponType, CouponStatus } from "@/types";
+import { UserRole, CouponType, CouponStatus, CouponUseType } from "@/types";
 import {
   Gift,
   Plus,
   Search,
-  Filter,
-  Calendar,
   Users,
   BarChart3,
   Edit,
   Trash2,
   Copy,
   QrCode,
-  Eye,
   Download,
-  MoreHorizontal,
   RefreshCw,
+  Calendar,
+  Shield,
+  UserPlus,
+  UserMinus,
+  UserCheck,
 } from "lucide-react";
 
 interface Coupon {
@@ -59,6 +60,20 @@ interface Coupon {
   status: CouponStatus;
   createdAt: string;
   updatedAt: string;
+  assignedUser?: {
+    id: string;
+    name: string;
+    userIdentifier: string;
+  };
+}
+
+interface Reviewer {
+  id: string;
+  name: string;
+  email: string;
+  userIdentifier: string;
+  joinedDate: string;
+  reviewsCount: number;
 }
 
 export default function BusinessCouponsPage() {
@@ -70,7 +85,6 @@ export default function BusinessCouponsPage() {
 }
 
 function BusinessCouponsContent() {
-  const { data: session } = useSession();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,6 +100,14 @@ function BusinessCouponsContent() {
     text: string;
   } | null>(null);
 
+  // User assignment state
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null);
+  const [reviewers, setReviewers] = useState<Reviewer[]>([]);
+  const [loadingReviewers, setLoadingReviewers] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [reviewerSearch, setReviewerSearch] = useState("");
+
   // Form state for creating/editing coupons
   const [formData, setFormData] = useState<{
     title: string;
@@ -97,6 +119,13 @@ function BusinessCouponsContent() {
     validFrom: string;
     validUntil: string;
     maxUses: string;
+    useType: CouponUseType;
+    allowedDaysOfWeek: number[];
+    allowedTimeStart: string;
+    allowedTimeEnd: string;
+    cannotCombineWithOtherCoupons: boolean;
+    requiresIdVerification: boolean;
+    maxUsesPerUser: string;
   }>({
     title: "",
     description: "",
@@ -107,6 +136,13 @@ function BusinessCouponsContent() {
     validFrom: "",
     validUntil: "",
     maxUses: "",
+    useType: CouponUseType.SINGLE_USE,
+    allowedDaysOfWeek: [],
+    allowedTimeStart: "",
+    allowedTimeEnd: "",
+    cannotCombineWithOtherCoupons: true,
+    requiresIdVerification: false,
+    maxUsesPerUser: "1",
   });
 
   useEffect(() => {
@@ -223,8 +259,153 @@ function BusinessCouponsContent() {
     }
   };
 
-  const handleInputChange = (field: string, value: string | CouponType) => {
+  const handleInputChange = (
+    field: string,
+    value: string | boolean | number[] | CouponType | CouponUseType,
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDayToggle = (dayNumber: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      allowedDaysOfWeek: prev.allowedDaysOfWeek.includes(dayNumber)
+        ? prev.allowedDaysOfWeek.filter((d) => d !== dayNumber)
+        : [...prev.allowedDaysOfWeek, dayNumber],
+    }));
+  };
+
+  const getDayName = (dayNumber: number) => {
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[dayNumber];
+  };
+
+  // User assignment functions
+  const fetchReviewers = async (search: string = "") => {
+    try {
+      setLoadingReviewers(true);
+      const response = await fetch(
+        `/api/reviewers?search=${encodeURIComponent(search)}&limit=20`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch reviewers");
+      }
+
+      const data = await response.json();
+      setReviewers(data.reviewers || []);
+    } catch (error) {
+      console.error("Failed to fetch reviewers:", error);
+      setMessage({
+        type: "error",
+        text: "Failed to fetch reviewers",
+      });
+    } finally {
+      setLoadingReviewers(false);
+    }
+  };
+
+  const openAssignDialog = (couponId: string) => {
+    setSelectedCouponId(couponId);
+    setShowAssignDialog(true);
+    setReviewerSearch("");
+    fetchReviewers();
+  };
+
+  const assignCouponToUser = async (userId: string) => {
+    if (!selectedCouponId) return;
+
+    try {
+      setAssigning(true);
+      const response = await fetch("/api/coupons/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          couponId: selectedCouponId,
+          userId: userId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to assign coupon");
+      }
+
+      const data = await response.json();
+
+      // Update the coupon in the list
+      setCoupons((prev) =>
+        prev.map((coupon) =>
+          coupon.id === selectedCouponId
+            ? { ...coupon, assignedUser: data.coupon.assignedUser }
+            : coupon,
+        ),
+      );
+
+      setShowAssignDialog(false);
+      setSelectedCouponId(null);
+      setMessage({
+        type: "success",
+        text: "Coupon assigned successfully!",
+      });
+
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Failed to assign coupon:", error);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "Failed to assign coupon",
+      });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const unassignCoupon = async (couponId: string) => {
+    try {
+      const response = await fetch(`/api/coupons/assign?couponId=${couponId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to unassign coupon");
+      }
+
+      // Update the coupon in the list
+      setCoupons((prev) =>
+        prev.map((coupon) =>
+          coupon.id === couponId
+            ? { ...coupon, assignedUser: undefined }
+            : coupon,
+        ),
+      );
+
+      setMessage({
+        type: "success",
+        text: "Coupon unassigned successfully!",
+      });
+
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Failed to unassign coupon:", error);
+      setMessage({
+        type: "error",
+        text:
+          error instanceof Error ? error.message : "Failed to unassign coupon",
+      });
+    }
   };
 
   const handleCreateCoupon = async () => {
@@ -266,6 +447,15 @@ function BusinessCouponsContent() {
           validFrom: new Date(formData.validFrom).toISOString(),
           validUntil: new Date(formData.validUntil).toISOString(),
           maxUses: formData.maxUses ? parseInt(formData.maxUses) : undefined,
+          useType: formData.useType,
+          allowedDaysOfWeek: formData.allowedDaysOfWeek,
+          allowedTimeStart: formData.allowedTimeStart || undefined,
+          allowedTimeEnd: formData.allowedTimeEnd || undefined,
+          cannotCombineWithOtherCoupons: formData.cannotCombineWithOtherCoupons,
+          requiresIdVerification: formData.requiresIdVerification,
+          maxUsesPerUser: formData.maxUsesPerUser
+            ? parseInt(formData.maxUsesPerUser)
+            : undefined,
         }),
       });
 
@@ -297,6 +487,13 @@ function BusinessCouponsContent() {
         validFrom: "",
         validUntil: "",
         maxUses: "",
+        useType: CouponUseType.SINGLE_USE,
+        allowedDaysOfWeek: [],
+        allowedTimeStart: "",
+        allowedTimeEnd: "",
+        cannotCombineWithOtherCoupons: true,
+        requiresIdVerification: false,
+        maxUsesPerUser: "1",
       });
 
       // Clear success message after 3 seconds
@@ -344,6 +541,61 @@ function BusinessCouponsContent() {
       return `${coupon.value}% off`;
     } else {
       return `₦${coupon.value.toLocaleString()} off`;
+    }
+  };
+
+  const downloadCouponPDF = async (couponId: string) => {
+    try {
+      const response = await fetch(`/api/coupons/${couponId}/pdf`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `coupon-${couponId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      alert("Failed to download PDF. Please try again.");
+    }
+  };
+
+  const generateQRCode = async (couponId: string) => {
+    try {
+      const response = await fetch(`/api/coupons/${couponId}/qr`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate QR code");
+      }
+
+      const data = await response.json();
+
+      // Open QR code in new window
+      const newWindow = window.open("", "_blank");
+      if (newWindow) {
+        newWindow.document.write(`
+          <html>
+            <head><title>Coupon QR Code</title></head>
+            <body style="margin: 0; padding: 20px; text-align: center; font-family: Arial, sans-serif;">
+              <h2>Coupon QR Code</h2>
+              <img src="${data.qrCode}" alt="QR Code" style="max-width: 300px; margin: 20px 0;">
+              <p><strong>Coupon Code:</strong> ${data.couponCode}</p>
+              <p><strong>Verification URL:</strong> ${data.verificationURL}</p>
+              <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print QR Code</button>
+            </body>
+          </html>
+        `);
+      }
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+      alert("Failed to generate QR code. Please try again.");
     }
   };
 
@@ -403,7 +655,7 @@ function BusinessCouponsContent() {
                     Create Coupon
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Create New Coupon</DialogTitle>
                   </DialogHeader>
@@ -539,6 +791,175 @@ function BusinessCouponsContent() {
                           }
                           className="mt-1"
                         />
+                      </div>
+                    </div>
+
+                    {/* Use Type */}
+                    <div>
+                      <Label htmlFor="useType">Use Type *</Label>
+                      <Select
+                        value={formData.useType}
+                        onValueChange={(value) =>
+                          handleInputChange("useType", value as CouponUseType)
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={CouponUseType.SINGLE_USE}>
+                            Single Use
+                          </SelectItem>
+                          <SelectItem value={CouponUseType.MULTI_USE}>
+                            Multiple Use
+                          </SelectItem>
+                          <SelectItem value={CouponUseType.ONCE_PER_USER}>
+                            Once Per User
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Usage Restrictions */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-5 h-5 text-gray-500" />
+                        <h3 className="text-lg font-medium">
+                          Usage Restrictions
+                        </h3>
+                      </div>
+
+                      {/* Allowed Days of Week */}
+                      <div>
+                        <Label>Allowed Days of Week</Label>
+                        <div className="mt-2 grid grid-cols-7 gap-2">
+                          {[0, 1, 2, 3, 4, 5, 6].map((dayNumber) => (
+                            <div
+                              key={dayNumber}
+                              className="flex flex-col items-center"
+                            >
+                              <Checkbox
+                                id={`day-${dayNumber}`}
+                                checked={formData.allowedDaysOfWeek.includes(
+                                  dayNumber,
+                                )}
+                                onCheckedChange={() =>
+                                  handleDayToggle(dayNumber)
+                                }
+                              />
+                              <Label
+                                htmlFor={`day-${dayNumber}`}
+                                className="text-xs mt-1 text-center"
+                              >
+                                {getDayName(dayNumber).slice(0, 3)}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Leave empty to allow all days
+                        </p>
+                      </div>
+
+                      {/* Time Restrictions */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="allowedTimeStart">
+                            Valid From Time
+                          </Label>
+                          <Input
+                            id="allowedTimeStart"
+                            type="time"
+                            value={formData.allowedTimeStart}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "allowedTimeStart",
+                                e.target.value,
+                              )
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="allowedTimeEnd">
+                            Valid Until Time
+                          </Label>
+                          <Input
+                            id="allowedTimeEnd"
+                            type="time"
+                            value={formData.allowedTimeEnd}
+                            onChange={(e) =>
+                              handleInputChange(
+                                "allowedTimeEnd",
+                                e.target.value,
+                              )
+                            }
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Settings */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <Shield className="w-5 h-5 text-gray-500" />
+                        <h3 className="text-lg font-medium">
+                          Additional Settings
+                        </h3>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="cannotCombineWithOtherCoupons"
+                            checked={formData.cannotCombineWithOtherCoupons}
+                            onCheckedChange={(checked) =>
+                              handleInputChange(
+                                "cannotCombineWithOtherCoupons",
+                                checked as boolean,
+                              )
+                            }
+                          />
+                          <Label htmlFor="cannotCombineWithOtherCoupons">
+                            Cannot be combined with other coupons
+                          </Label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="requiresIdVerification"
+                            checked={formData.requiresIdVerification}
+                            onCheckedChange={(checked) =>
+                              handleInputChange(
+                                "requiresIdVerification",
+                                checked as boolean,
+                              )
+                            }
+                          />
+                          <Label htmlFor="requiresIdVerification">
+                            Requires ID verification for redemption
+                          </Label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="maxUsesPerUser">
+                          Maximum Uses Per User
+                        </Label>
+                        <Input
+                          id="maxUsesPerUser"
+                          type="number"
+                          value={formData.maxUsesPerUser}
+                          onChange={(e) =>
+                            handleInputChange("maxUsesPerUser", e.target.value)
+                          }
+                          placeholder="1"
+                          className="mt-1"
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          Maximum times a single user can use this coupon
+                        </p>
                       </div>
                     </div>
 
@@ -782,13 +1203,65 @@ function BusinessCouponsContent() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Assigned User Information */}
+                    {coupon.assignedUser && (
+                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center space-x-2">
+                          <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            Assigned to:
+                          </span>
+                          <span className="text-sm text-blue-700 dark:text-blue-300">
+                            {coupon.assignedUser.name} (
+                            {coupon.assignedUser.userIdentifier})
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-2 ml-4">
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadCouponPDF(coupon.id)}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      PDF
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateQRCode(coupon.id)}
+                    >
                       <QrCode className="w-4 h-4 mr-2" />
                       QR Code
                     </Button>
+
+                    {/* Assignment Buttons */}
+                    {coupon.assignedUser ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unassignCoupon(coupon.id)}
+                        className="text-orange-600 hover:text-orange-700"
+                      >
+                        <UserMinus className="w-4 h-4 mr-2" />
+                        Unassign
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openAssignDialog(coupon.id)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Assign
+                      </Button>
+                    )}
+
                     <Button variant="outline" size="sm">
                       <Edit className="w-4 h-4 mr-2" />
                       Edit
@@ -856,6 +1329,100 @@ function BusinessCouponsContent() {
           )}
         </div>
       </div>
+
+      {/* User Assignment Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Coupon to Reviewer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="reviewerSearch">Search Reviewers</Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="reviewerSearch"
+                  placeholder="Search by name, email, or user ID..."
+                  value={reviewerSearch}
+                  onChange={(e) => {
+                    setReviewerSearch(e.target.value);
+                    fetchReviewers(e.target.value);
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto">
+              {loadingReviewers ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Loading reviewers...
+                  </p>
+                </div>
+              ) : reviewers.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {reviewerSearch
+                      ? "No reviewers found matching your search"
+                      : "No reviewers available"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {reviewers.map((reviewer) => (
+                    <div
+                      key={reviewer.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                              {reviewer.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {reviewer.name}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {reviewer.email} • ID: {reviewer.userIdentifier}
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">
+                              {reviewer.reviewsCount} reviews for your business
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => assignCouponToUser(reviewer.id)}
+                        disabled={assigning}
+                        size="sm"
+                      >
+                        {assigning ? "Assigning..." : "Assign"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowAssignDialog(false)}
+                disabled={assigning}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

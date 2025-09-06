@@ -106,7 +106,10 @@ export default function BusinessSidebar({
         <div className="flex flex-col h-full w-72">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-3">
+            <Link
+              href="/"
+              className="flex items-center space-x-3 cursor-pointer"
+            >
               <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
                 <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
@@ -118,7 +121,7 @@ export default function BusinessSidebar({
                   SnapRate
                 </p>
               </div>
-            </div>
+            </Link>
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"

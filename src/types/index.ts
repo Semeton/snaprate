@@ -125,6 +125,18 @@ export enum CouponStatus {
   DELETED = "DELETED",
 }
 
+export enum CouponUseType {
+  SINGLE_USE = "SINGLE_USE",
+  MULTI_USE = "MULTI_USE",
+  ONCE_PER_USER = "ONCE_PER_USER",
+}
+
+export enum RedemptionMethod {
+  IN_PERSON = "IN_PERSON",
+  ONLINE = "ONLINE",
+  QR_CODE = "QR_CODE",
+}
+
 export enum RewardType {
   CASH = "CASH",
   AIRTIME = "AIRTIME",
@@ -290,9 +302,11 @@ export interface Reward {
 // Coupon types
 export interface Coupon {
   id: string;
-  code: string;
+  businessId: string;
   title: string;
   description?: string;
+  baseCode: string; // Base 9-character code (K2X-PL7-YJ9)
+  userSpecificCode?: string; // Full code with user ID (K2X-PL7-YJ9-70BR)
   type: CouponType;
   value: number;
   minimumOrderAmount?: number;
@@ -304,10 +318,75 @@ export interface Coupon {
   validFrom: Date;
   validUntil: Date;
   status: CouponStatus;
-  businessId: string;
-  business: Business;
   createdAt: Date;
   updatedAt: Date;
+
+  // New fields for advanced restrictions
+  useType: CouponUseType;
+  allowedDaysOfWeek: number[]; // 0=Sunday, 1=Monday, etc.
+  allowedTimeStart?: string; // Format: "HH:MM" (24-hour)
+  allowedTimeEnd?: string; // Format: "HH:MM" (24-hour)
+  cannotCombineWithOtherCoupons: boolean;
+  requiresIdVerification: boolean;
+  maxUsesPerUser?: number;
+
+  // User assignment tracking
+  assignedUserId?: string;
+  assignedAt?: Date;
+
+  // Relations
+  business: Business;
+  assignedUser?: User;
+  redemptions: CouponRedemption[];
+}
+
+export interface CouponRedemption {
+  id: string;
+  couponId: string;
+  userId: string;
+  redeemedAt: Date;
+  orderAmount?: number;
+  discountApplied: number;
+  redemptionMethod: RedemptionMethod;
+  staffNotes?: string;
+  idVerified: boolean;
+  verificationCode?: string;
+  deletedAt?: Date;
+  coupon: Coupon;
+  user: User;
+}
+
+export interface CouponCreationData {
+  businessId: string;
+  title: string;
+  description?: string;
+  type: CouponType;
+  value: number;
+  minimumOrderAmount?: number;
+  maximumDiscount?: number;
+  maxUses?: number;
+  validFrom: Date;
+  validUntil: Date;
+  useType: CouponUseType;
+  allowedDaysOfWeek?: number[];
+  allowedTimeStart?: string;
+  allowedTimeEnd?: string;
+  cannotCombineWithOtherCoupons?: boolean;
+  requiresIdVerification?: boolean;
+  maxUsesPerUser?: number;
+}
+
+export interface CouponAssignmentData {
+  couponId: string;
+  userId: string;
+}
+
+export interface CouponVerificationData {
+  code: string;
+  orderAmount?: number;
+  redemptionMethod: RedemptionMethod;
+  staffNotes?: string;
+  idVerified?: boolean;
 }
 
 // Campaign types

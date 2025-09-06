@@ -85,6 +85,17 @@ export default function ServicesImageSlideshow({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't interfere with input fields, textareas, or contenteditable elements
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.contentEditable === "true" ||
+        target.closest("[contenteditable]")
+      ) {
+        return;
+      }
+
       switch (event.key) {
         case "ArrowLeft":
           event.preventDefault();

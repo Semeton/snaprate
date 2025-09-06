@@ -16,6 +16,7 @@ model User {
   role                    UserRole                 @default(REVIEWER)
   status                  AccountStatus            @default(PENDING)
   referralCode            String                   @unique @default(cuid())
+  userIdentifier          String?                  @unique @default(cuid())
   referredBy              String?
   state                   State
   city                    String
@@ -54,6 +55,8 @@ model User {
   sessions                Session[]
   referredByUser          User?                    @relation("UserReferrals", fields: [referredBy], references: [id])
   referrals               User[]                   @relation("UserReferrals")
+  coupons                 Coupon[]                 @relation("UserCoupons")
+  couponRedemptions       CouponRedemption[]
 
   @@map("users")
 }
@@ -303,7 +306,8 @@ model Coupon {
   businessId         String
   title              String
   description        String?
-  code               String             @unique
+  baseCode           String?             @unique // Base 9-character code (K2X-PL7-YJ9)
+  userSpecificCode  String?            @unique // Full code with user ID (K2X-PL7-YJ9-70BR)
   type               CouponType
   value              Float
   minimumOrderAmount Float?
@@ -318,8 +322,24 @@ model Coupon {
   updatedAt          DateTime           @updatedAt
   currentUses        Int                @default(0)
   deletedAt          DateTime?
+  
+  // New fields for advanced restrictions
+  useType            CouponUseType      @default(SINGLE_USE)
+  allowedDaysOfWeek  Int[]             @default([]) // 0=Sunday, 1=Monday, etc.
+  allowedTimeStart   String?           // Format: "HH:MM" (24-hour)
+  allowedTimeEnd     String?           // Format: "HH:MM" (24-hour)
+  cannotCombineWithOtherCoupons Boolean @default(true)
+  requiresIdVerification Boolean        @default(false)
+  maxUsesPerUser     Int?              @default(1)
+  
+  // User assignment tracking
+  assignedUserId     String?            // The user this coupon is assigned to
+  assignedAt         DateTime?
+  
+  // Relations
   redemptions        CouponRedemption[]
   business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
 
   @@map("coupons")
 }
@@ -331,8 +351,13 @@ model CouponRedemption {
   redeemedAt      DateTime  @default(now())
   orderAmount     Float?
   discountApplied Float
+  redemptionMethod RedemptionMethod @default(IN_PERSON)
+  staffNotes      String?
+  idVerified      Boolean   @default(false)
+  verificationCode String?  // For online verification
   deletedAt       DateTime?
   coupon          Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("coupon_redemptions")
 }
@@ -647,6 +672,18 @@ enum CouponStatus {
 enum CouponType {
   PERCENTAGE
   FIXED_AMOUNT
+}
+
+enum CouponUseType {
+  SINGLE_USE
+  MULTI_USE
+  ONCE_PER_USER
+}
+
+enum RedemptionMethod {
+  IN_PERSON
+  ONLINE
+  QR_CODE
 }
 
 enum BusinessVerificationStatus {

@@ -56,6 +56,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate that at least one additional verification document is provided
+    const hasBusinessDocuments = cleanCacDocumentType && cacDocumentImage;
+    const hasAddressEvidence = cleanAddressEvidenceType && addressEvidenceImage;
+
+    if (!hasBusinessDocuments && !hasAddressEvidence) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You must provide either business documents (CAC) or address verification evidence to complete your submission",
+        },
+        { status: 400 },
+      );
+    }
+
     // Log the cleaned data for debugging
     console.log("Cleaned verification data:", {
       directorIdType,
