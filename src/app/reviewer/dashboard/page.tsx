@@ -171,12 +171,26 @@ export default function ReviewerDashboard() {
         const businessesData = await businessesResponse.json();
         setRecentBusinesses(businessesData.data?.businesses || []);
       }
+
+      // Fetch business registrations (for both reviewers and agents)
+      if (
+        session?.user?.role === "REVIEWER" ||
+        session?.user?.role === "AGENT"
+      ) {
+        const registrationsResponse = await fetch(
+          "/api/agent/business-registration?limit=5",
+        );
+        if (registrationsResponse.ok) {
+          const registrationsData = await registrationsResponse.json();
+          setBusinessRegistrations(registrationsData.data?.registrations || []);
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session?.user?.role]);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {

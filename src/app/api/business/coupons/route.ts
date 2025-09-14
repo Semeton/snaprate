@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Allow BUSINESS_OWNER role and verified businesses
     if (session.user.role !== "BUSINESS_OWNER") {
       return NextResponse.json(
         { error: "Only business owners can create coupons" },
@@ -46,11 +47,24 @@ export async function POST(request: NextRequest) {
     // Get the user's business
     const business = await prisma.business.findUnique({
       where: { ownerId: session.user.id },
+      select: {
+        id: true,
+        name: true,
+        isVerified: true,
+      },
     });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
         { status: 404 },
+      );
+    }
+
+    // Check if business is verified
+    if (!business.isVerified) {
+      return NextResponse.json(
+        { error: "Only verified businesses can create coupons" },
+        { status: 403 },
       );
     }
 
@@ -64,12 +78,12 @@ export async function POST(request: NextRequest) {
       return code;
     };
 
-    let couponCode;
+    let baseCode;
     let isUnique = false;
     do {
-      couponCode = generateCouponCode();
+      baseCode = generateCouponCode();
       const existingCoupon = await prisma.coupon.findUnique({
-        where: { code: couponCode },
+        where: { baseCode: baseCode },
       });
       isUnique = !existingCoupon;
     } while (!isUnique);
@@ -89,7 +103,7 @@ export async function POST(request: NextRequest) {
         validFrom: new Date(validFrom),
         validUntil: new Date(validUntil),
         maxUses: maxUses ? parseInt(maxUses) : undefined,
-        code: couponCode,
+        baseCode: baseCode,
         businessId: business.id,
       },
     });
@@ -106,17 +120,21 @@ export async function POST(request: NextRequest) {
       message: "Coupon created successfully",
     });
   } catch (error) {
-    logger.error("Failed to create coupon", { error });
+    logger.error("Failed to create coupon", {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
       {
         error: "Failed to create coupon",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -134,11 +152,24 @@ export async function GET(request: NextRequest) {
     // Get the user's business
     const business = await prisma.business.findUnique({
       where: { ownerId: session.user.id },
+      select: {
+        id: true,
+        name: true,
+        isVerified: true,
+      },
     });
     if (!business) {
       return NextResponse.json(
         { error: "Business not found" },
         { status: 404 },
+      );
+    }
+
+    // Check if business is verified
+    if (!business.isVerified) {
+      return NextResponse.json(
+        { error: "Only verified businesses can access coupons" },
+        { status: 403 },
       );
     }
 

@@ -28,6 +28,7 @@ import {
   Edit,
   Trash2,
   AlertCircle,
+  Gift,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 import Image from "next/image";
@@ -789,6 +790,16 @@ export default function BusinessViewPage() {
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Back
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    router.push(`/businesses/${businessId}/coupons`)
+                  }
+                  className="text-white hover:bg-white/20 border-white/30"
+                >
+                  <Gift className="h-4 w-4 mr-2" />
+                  View Coupons
                 </Button>
                 <Button
                   onClick={handleAddReview}

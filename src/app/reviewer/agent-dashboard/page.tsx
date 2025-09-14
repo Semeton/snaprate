@@ -56,6 +56,31 @@ interface BusinessRecommendation {
   updatedAt: string;
 }
 
+interface BusinessRegistration {
+  id: string;
+  businessName: string;
+  businessCategory: string;
+  businessCity: string;
+  businessState: string;
+  businessAddress: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  businessWebsite?: string;
+  businessDescription?: string;
+  ownerName?: string;
+  ownerEmail?: string;
+  ownerPhone?: string;
+  ownerAddress?: string;
+  ownerCity?: string;
+  ownerState?: string;
+  registrationType: "FULL_REGISTRATION" | "RECOMMENDATION";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "VERIFIED";
+  adminNotes?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function AgentDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -63,6 +88,9 @@ export default function AgentDashboard() {
   const [stats, setStats] = useState<AgentStats | null>(null);
   const [recommendations, setRecommendations] = useState<
     BusinessRecommendation[]
+  >([]);
+  const [businessRegistrations, setBusinessRegistrations] = useState<
+    BusinessRegistration[]
   >([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,6 +118,19 @@ export default function AgentDashboard() {
       if (recommendationsResponse.ok) {
         const recommendationsData = await recommendationsResponse.json();
         setRecommendations(recommendationsData.data || []);
+      }
+
+      // Fetch business registrations
+      const registrationsResponse = await fetch(
+        "/api/agent/business-registration?limit=10",
+      );
+      if (registrationsResponse.ok) {
+        const registrationsData = await registrationsResponse.json();
+        console.log(
+          "Agent dashboard received registrations:",
+          registrationsData,
+        );
+        setBusinessRegistrations(registrationsData.data?.registrations || []);
       }
     } catch (error) {
       console.error("Failed to fetch agent data:", error);
@@ -426,6 +467,140 @@ export default function AgentDashboard() {
 
                       <div className="ml-4 flex-shrink-0">
                         {getStatusIcon(recommendation.status)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Business Registrations List */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Your Business Registrations
+            </h3>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/reviewer/recommend-business")}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Registration
+            </Button>
+          </div>
+
+          {businessRegistrations.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No registrations yet
+                </h4>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Start registering businesses with full verification documents
+                  for faster approval
+                </p>
+                <Button
+                  onClick={() => router.push("/reviewer/recommend-business")}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Register Your First Business
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {businessRegistrations.map((registration) => (
+                <Card
+                  key={registration.id}
+                  className="hover:shadow-md transition-shadow"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <h4 className="text-lg font-medium text-gray-900 dark:text-white">
+                            {registration.businessName}
+                          </h4>
+                          <Badge
+                            className={`${getStatusColor(
+                              registration.status,
+                            )} border`}
+                          >
+                            {registration.status}
+                          </Badge>
+                          {registration.registrationType && (
+                            <Badge variant="outline">
+                              {registration.registrationType ===
+                              "FULL_REGISTRATION"
+                                ? "Full Registration"
+                                : "Recommendation"}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Category:</strong>{" "}
+                              {registration.businessCategory}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Location:</strong>{" "}
+                              {registration.businessCity},{" "}
+                              {registration.businessState}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Phone:</strong>{" "}
+                              {registration.businessPhone || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Email:</strong>{" "}
+                              {registration.businessEmail || "N/A"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {registration.businessDescription && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            <strong>Description:</strong>{" "}
+                            {registration.businessDescription}
+                          </p>
+                        )}
+
+                        {registration.ownerName && (
+                          <div className="mb-3">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <strong>Owner:</strong> {registration.ownerName}
+                            </p>
+                            {registration.ownerPhone && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                <strong>Owner Phone:</strong>{" "}
+                                {registration.ownerPhone}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-sm text-gray-500">
+                          <span>
+                            Submitted: {formatDate(registration.createdAt)}
+                          </span>
+                          {registration.reviewedAt && (
+                            <span>
+                              Reviewed: {formatDate(registration.reviewedAt)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="ml-4 flex-shrink-0">
+                        {getStatusIcon(registration.status)}
                       </div>
                     </div>
                   </CardContent>

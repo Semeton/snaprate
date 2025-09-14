@@ -55,7 +55,7 @@ interface UserCoupon {
 
 export default function UserCouponsPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.REVIEWER]}>
+    <ProtectedRoute allowedRoles={[UserRole.REVIEWER, UserRole.AGENT]}>
       <UserCouponsContent />
     </ProtectedRoute>
   );

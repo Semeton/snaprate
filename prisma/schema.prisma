@@ -57,6 +57,7 @@ model User {
   referrals               User[]                   @relation("UserReferrals")
   coupons                 Coupon[]                 @relation("UserCoupons")
   couponRedemptions       CouponRedemption[]
+  couponFavorites         CouponFavorite[]         @relation("UserCouponFavorites")
   businessRegistrations   BusinessRegistration[]    @relation("AgentRegistrations")
   registeredBusinesses    Business[]                @relation("RegisteredBusinesses")
 
@@ -349,6 +350,7 @@ model Coupon {
   redemptions        CouponRedemption[]
   business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
+  favorites          CouponFavorite[]   @relation("CouponFavorites")
 
   @@map("coupons")
 }
@@ -369,6 +371,18 @@ model CouponRedemption {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("coupon_redemptions")
+}
+
+model CouponFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  couponId  String
+  createdAt DateTime @default(now())
+  user      User     @relation("UserCouponFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  coupon    Coupon   @relation("CouponFavorites", fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, couponId])
+  @@map("coupon_favorites")
 }
 
 model Agent {
@@ -559,6 +573,14 @@ model BusinessRegistration {
   firsTaxClearance  String?
   addressEvidenceType AddressEvidenceType?
   addressEvidenceImage String?
+  
+  // Owner information (required for all registrations)
+  ownerName         String?
+  ownerEmail        String?
+  ownerPhone        String?
+  ownerAddress      String?
+  ownerCity         String?
+  ownerState        State?
   
   agent             User      @relation("AgentRegistrations", fields: [agentId], references: [id], onDelete: Cascade)
   business          Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)

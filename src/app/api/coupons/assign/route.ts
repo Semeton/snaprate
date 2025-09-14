@@ -22,9 +22,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { couponId, userId } = body;
 
+    // Debug logging
+    console.log("Coupon assignment request body:", { couponId, userId, body });
+
     if (!couponId || !userId) {
       return NextResponse.json(
-        { error: "Coupon ID and User ID are required" },
+        {
+          error: "Coupon ID and User ID are required",
+          received: { couponId, userId },
+        },
         { status: 400 },
       );
     }
@@ -41,7 +47,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
 
-    if (coupon.businessId !== session.user.businessId) {
+    // Get the user's business to verify ownership
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Business not found" },
+        { status: 404 },
+      );
+    }
+
+    if (coupon.businessId !== business.id) {
       return NextResponse.json(
         { error: "You can only assign your own coupons" },
         { status: 403 },
@@ -65,20 +83,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.role !== "REVIEWER") {
+    if (!["REVIEWER", "AGENT"].includes(user.role)) {
       return NextResponse.json(
-        { error: "Only reviewers can be assigned coupons" },
+        { error: "Only reviewers and agents can be assigned coupons" },
         { status: 400 },
       );
     }
 
     // Assign the coupon to the user
-    const result = await couponService.assignCouponToUser(couponId, userId);
+    const result = await couponService.assignCouponToUser({ couponId, userId });
 
     return NextResponse.json({
       success: true,
       message: "Coupon assigned successfully",
-      coupon: result.coupon,
+      coupon: result,
     });
   } catch (error) {
     console.error("Failed to assign coupon:", error);
@@ -126,7 +144,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
 
-    if (coupon.businessId !== session.user.businessId) {
+    // Get the user's business to verify ownership
+    const business = await prisma.business.findUnique({
+      where: { ownerId: session.user.id },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Business not found" },
+        { status: 404 },
+      );
+    }
+
+    if (coupon.businessId !== business.id) {
       return NextResponse.json(
         { error: "You can only unassign your own coupons" },
         { status: 403 },

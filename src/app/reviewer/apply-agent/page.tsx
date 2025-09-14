@@ -102,17 +102,29 @@ export default function ApplyAgentPage() {
 
   const handleFileUpload = async (file: File) => {
     try {
+      console.log("Uploading ID document:", file.name, file.size, file.type);
+
+      // Validate file exists and has content
+      if (!file || file.size === 0) {
+        throw new Error("No file selected or file is empty");
+      }
+
       const formData = new FormData();
       formData.append("files", file);
       formData.append("type", "image");
+
+      console.log("FormData entries:", Array.from(formData.entries()));
 
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
+      console.log("Upload response status:", response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log("Upload response:", data);
         if (data.success && data.data.files && data.data.files.length > 0) {
           setApplicationForm((prev) => ({
             ...prev,
@@ -124,6 +136,7 @@ export default function ApplyAgentPage() {
         }
       } else {
         const errorData = await response.json();
+        console.error("Upload error response:", errorData);
         throw new Error(errorData.error || "Upload failed");
       }
     } catch (error) {
@@ -478,8 +491,17 @@ export default function ApplyAgentPage() {
                                 type="file"
                                 accept="image/*"
                                 onChange={(e) => {
-                                  if (e.target.files?.[0]) {
-                                    handleFileUpload(e.target.files[0]);
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    console.log(
+                                      "Selected ID document file:",
+                                      file.name,
+                                      file.size,
+                                      file.type,
+                                    );
+                                    handleFileUpload(file);
+                                  } else {
+                                    console.log("No ID document file selected");
                                   }
                                 }}
                                 className="hidden"

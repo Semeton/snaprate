@@ -154,16 +154,24 @@ export default function BusinessVerificationForm() {
     try {
       console.log("Uploading file:", field, file.name, file.size, file.type);
 
+      // Validate file exists and has content
+      if (!file || file.size === 0) {
+        throw new Error("No file selected or file is empty");
+      }
+
       const formData = new FormData();
       formData.append("files", file);
       formData.append("type", "image"); // All verification documents are images
 
       console.log("FormData created, sending request...");
+      console.log("FormData entries:", Array.from(formData.entries()));
 
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
+
+      console.log("Upload response status:", response.status);
 
       if (response.ok) {
         const data = await response.json();
@@ -438,11 +446,17 @@ export default function BusinessVerificationForm() {
                         accept="image/*,application/pdf"
                         onChange={(e) => {
                           console.log("File input change:", e.target.files);
-                          if (e.target.files?.[0]) {
-                            handleFileUpload(
-                              "directorIdImage",
-                              e.target.files[0],
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            console.log(
+                              "Selected file:",
+                              file.name,
+                              file.size,
+                              file.type,
                             );
+                            handleFileUpload("directorIdImage", file);
+                          } else {
+                            console.log("No file selected");
                           }
                         }}
                         className="hidden"
@@ -520,13 +534,20 @@ export default function BusinessVerificationForm() {
                         <input
                           type="file"
                           accept="image/*,application/pdf"
-                          onChange={(e) =>
-                            e.target.files?.[0] &&
-                            handleFileUpload(
-                              "cacDocumentImage",
-                              e.target.files[0],
-                            )
-                          }
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              console.log(
+                                "Selected CAC file:",
+                                file.name,
+                                file.size,
+                                file.type,
+                              );
+                              handleFileUpload("cacDocumentImage", file);
+                            } else {
+                              console.log("No CAC file selected");
+                            }
+                          }}
                           className="hidden"
                           id="cacDocumentImage"
                         />
@@ -569,13 +590,20 @@ export default function BusinessVerificationForm() {
                       <input
                         type="file"
                         accept="image/*,application/pdf"
-                        onChange={(e) =>
-                          e.target.files?.[0] &&
-                          handleFileUpload(
-                            "firsTaxClearance",
-                            e.target.files[0],
-                          )
-                        }
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            console.log(
+                              "Selected FIRS file:",
+                              file.name,
+                              file.size,
+                              file.type,
+                            );
+                            handleFileUpload("firsTaxClearance", file);
+                          } else {
+                            console.log("No FIRS file selected");
+                          }
+                        }}
                         className="hidden"
                         id="firsTaxClearance"
                       />
@@ -651,13 +679,20 @@ export default function BusinessVerificationForm() {
                         <input
                           type="file"
                           accept="image/*,application/pdf"
-                          onChange={(e) =>
-                            e.target.files?.[0] &&
-                            handleFileUpload(
-                              "addressEvidenceImage",
-                              e.target.files[0],
-                            )
-                          }
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              console.log(
+                                "Selected address evidence file:",
+                                file.name,
+                                file.size,
+                                file.type,
+                              );
+                              handleFileUpload("addressEvidenceImage", file);
+                            } else {
+                              console.log("No address evidence file selected");
+                            }
+                          }}
                           className="hidden"
                           id="addressEvidenceImage"
                         />

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CouponService } from "@/services/CouponService";
-import { CouponCreationData } from "@/types";
+import { CouponCreationData, CouponStatus } from "@/types";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -112,7 +112,6 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const businessId = searchParams.get("businessId");
     const status = searchParams.get("status");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
@@ -135,12 +134,15 @@ export async function GET(request: NextRequest) {
       const result = await couponService.getBusinessCoupons(business.id, {
         page,
         limit,
-        status: status as any,
+        status: status as CouponStatus | undefined,
       });
 
       return NextResponse.json(result);
-    } else if (session.user.role === "REVIEWER") {
-      // Reviewer gets their assigned coupons
+    } else if (
+      session.user.role === "REVIEWER" ||
+      session.user.role === "AGENT"
+    ) {
+      // Reviewers and agents get their assigned coupons
       const coupons = await couponService.getUserCoupons(session.user.id);
       return NextResponse.json({ coupons });
     } else {

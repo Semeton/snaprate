@@ -31,6 +31,15 @@ export async function POST(request: NextRequest) {
       "File names:",
       files.map((f) => f.name),
     );
+    console.log(
+      "All formData entries:",
+      Array.from(formData.entries()).map(([key, value]) => [
+        key,
+        value instanceof File
+          ? { name: value.name, size: value.size, type: value.type }
+          : value,
+      ]),
+    );
 
     if (!files || files.length === 0) {
       return NextResponse.json(

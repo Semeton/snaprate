@@ -61,14 +61,64 @@ export default function RecommendBusinessPage() {
     additionalNotes: "",
   });
 
+  // Verification documents state (for agents only)
+  const [verificationForm, setVerificationForm] = useState({
+    directorIdType: "",
+    directorIdNumber: "",
+    directorIdImage: "",
+    cacDocumentType: "",
+    cacDocumentImage: "",
+    firsTaxClearance: "",
+    addressEvidenceType: "",
+    addressEvidenceImage: "",
+  });
+
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isApprovedAgent, setIsApprovedAgent] = useState(false);
+  const [registrationType, setRegistrationType] = useState<
+    "RECOMMENDATION" | "FULL_REGISTRATION"
+  >("RECOMMENDATION");
+
+  // Check if any verification data is provided (for dynamic form behavior)
+  const hasVerificationData =
+    verificationForm.directorIdType ||
+    verificationForm.directorIdNumber ||
+    verificationForm.directorIdImage ||
+    verificationForm.cacDocumentType ||
+    verificationForm.cacDocumentImage ||
+    verificationForm.firsTaxClearance ||
+    verificationForm.addressEvidenceType ||
+    verificationForm.addressEvidenceImage;
+
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      if (session.user.role !== "AGENT") {
+    if (status === "authenticated" && session?.user && !isRedirecting) {
+      // Allow both REVIEWER and AGENT roles to recommend businesses
+      if (!["REVIEWER", "AGENT"].includes(session.user.role)) {
+        setIsRedirecting(true);
         router.push("/reviewer/dashboard");
         return;
       }
     }
-  }, [session, status, router]);
+  }, [session, status, router, isRedirecting]);
+
+  // Check if user is an approved agent
+  useEffect(() => {
+    const checkAgentStatus = async () => {
+      if (status === "authenticated" && session?.user?.role === "AGENT") {
+        try {
+          const response = await fetch("/api/reviewer/agent-stats");
+          if (response.ok) {
+            const data = await response.json();
+            setIsApprovedAgent(data.data?.isApprovedAgent || false);
+          }
+        } catch (error) {
+          console.error("Failed to check agent status:", error);
+        }
+      }
+    };
+
+    checkAgentStatus();
+  }, [status, session]);
 
   const handleBusinessFormChange = (field: string, value: string) => {
     setBusinessForm((prev) => ({ ...prev, [field]: value }));
@@ -76,6 +126,47 @@ export default function RecommendBusinessPage() {
 
   const handleOwnerFormChange = (field: string, value: string) => {
     setOwnerForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleVerificationFormChange = (field: string, value: string) => {
+    setVerificationForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileUpload = async (file: File, field: string) => {
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      formData.append("type", "image");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.files && data.data.files.length > 0) {
+          handleVerificationFormChange(field, data.data.files[0]);
+          toast({
+            title: "File uploaded successfully",
+            description: "Your document has been uploaded.",
+          });
+        } else {
+          throw new Error("Upload response format invalid");
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description:
+          error instanceof Error ? error.message : "Failed to upload file",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,8 +189,41 @@ export default function RecommendBusinessPage() {
       (field) => !ownerForm[field as keyof typeof ownerForm],
     );
 
-    if (missingBusinessFields.length > 0 || missingOwnerFields.length > 0) {
-      const missingFields = [...missingBusinessFields, ...missingOwnerFields];
+    // Validate verification documents based on user type
+    let missingVerificationFields: string[] = [];
+
+    // If user selected full registration, validate required fields
+    if (registrationType === "FULL_REGISTRATION") {
+      const requiredVerificationFields = [
+        "directorIdType",
+        "directorIdNumber",
+        "directorIdImage",
+      ];
+      missingVerificationFields = requiredVerificationFields.filter(
+        (field) => !verificationForm[field as keyof typeof verificationForm],
+      );
+
+      // Check if either CAC or address evidence is provided
+      if (
+        !verificationForm.cacDocumentImage &&
+        !verificationForm.addressEvidenceImage
+      ) {
+        missingVerificationFields.push(
+          "cacDocumentImage or addressEvidenceImage",
+        );
+      }
+    }
+
+    if (
+      missingBusinessFields.length > 0 ||
+      missingOwnerFields.length > 0 ||
+      missingVerificationFields.length > 0
+    ) {
+      const missingFields = [
+        ...missingBusinessFields,
+        ...missingOwnerFields,
+        ...missingVerificationFields,
+      ];
       toast({
         title: "Missing Information",
         description: `Please fill in all required fields: ${missingFields.join(
@@ -113,57 +237,125 @@ export default function RecommendBusinessPage() {
     try {
       setSubmitting(true);
 
-      const recommendationData = {
-        business: businessForm,
-        owner: ownerForm,
-      };
+      // Use the selected registration type
+      if (registrationType === "FULL_REGISTRATION") {
+        // Submit as full business registration with verification documents
+        const registrationData = {
+          registrationType: "FULL_REGISTRATION",
+          businessName: businessForm.businessName,
+          businessDescription: businessForm.businessDescription,
+          businessCategory: businessForm.businessCategory,
+          businessPhone: businessForm.businessPhone,
+          businessEmail: businessForm.businessEmail,
+          businessAddress: businessForm.businessAddress,
+          businessCity: businessForm.businessCity,
+          businessState: businessForm.businessState,
+          businessWebsite: businessForm.businessWebsite,
+          // Owner information
+          ownerName: ownerForm.ownerName,
+          ownerEmail: ownerForm.ownerEmail,
+          ownerPhone: ownerForm.ownerPhone,
+          ownerAddress: ownerForm.ownerAddress,
+          ownerCity: ownerForm.ownerCity,
+          ownerState: ownerForm.ownerState,
+          // Verification documents
+          directorIdType: verificationForm.directorIdType,
+          directorIdNumber: verificationForm.directorIdNumber,
+          directorIdImage: verificationForm.directorIdImage,
+          cacDocumentType: verificationForm.cacDocumentType || null,
+          cacDocumentImage: verificationForm.cacDocumentImage || null,
+          firsTaxClearance: verificationForm.firsTaxClearance || null,
+          addressEvidenceType: verificationForm.addressEvidenceType || null,
+          addressEvidenceImage: verificationForm.addressEvidenceImage || null,
+        };
 
-      const response = await fetch("/api/reviewer/business-recommendations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(recommendationData),
+        const response = await fetch("/api/agent/business-registration", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(registrationData),
+        });
+
+        if (response.ok) {
+          toast({
+            title: "Success",
+            description:
+              "Business registration submitted successfully! We'll review it and get back to you within 48 hours.",
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Failed to submit business registration",
+          );
+        }
+      } else {
+        // Submit as business recommendation (basic info only)
+        const recommendationData = {
+          business: businessForm,
+          owner: ownerForm,
+        };
+
+        const response = await fetch("/api/reviewer/business-recommendations", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(recommendationData),
+        });
+
+        if (response.ok) {
+          toast({
+            title: "Success",
+            description:
+              "Business recommendation submitted successfully! We'll review it and get back to you within 48 hours.",
+          });
+        } else {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || "Failed to submit business recommendation",
+          );
+        }
+      }
+
+      // Reset forms
+      setBusinessForm({
+        businessName: "",
+        businessCategory: "",
+        businessAddress: "",
+        businessCity: "",
+        businessState: "",
+        businessPhone: "",
+        businessEmail: "",
+        businessWebsite: "",
+        businessDescription: "",
       });
+      setOwnerForm({
+        ownerName: "",
+        ownerPhone: "",
+        ownerEmail: "",
+        ownerAddress: "",
+        ownerCity: "",
+        ownerState: "",
+        additionalNotes: "",
+      });
+      setVerificationForm({
+        directorIdType: "",
+        directorIdNumber: "",
+        directorIdImage: "",
+        cacDocumentType: "",
+        cacDocumentImage: "",
+        firsTaxClearance: "",
+        addressEvidenceType: "",
+        addressEvidenceImage: "",
+      });
+      setRegistrationType("RECOMMENDATION");
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description:
-            "Business recommendation submitted successfully! We'll review it and get back to you within 48 hours.",
-        });
-
-        // Reset forms
-        setBusinessForm({
-          businessName: "",
-          businessCategory: "",
-          businessAddress: "",
-          businessCity: "",
-          businessState: "",
-          businessPhone: "",
-          businessEmail: "",
-          businessWebsite: "",
-          businessDescription: "",
-        });
-        setOwnerForm({
-          ownerName: "",
-          ownerPhone: "",
-          ownerEmail: "",
-          ownerAddress: "",
-          ownerCity: "",
-          ownerState: "",
-          additionalNotes: "",
-        });
-
-        // Redirect to agent dashboard
+      // Redirect to appropriate dashboard
+      if (isApprovedAgent || session?.user?.role === "AGENT") {
         router.push("/reviewer/agent-dashboard");
       } else {
-        const error = await response.json();
-        toast({
-          title: "Error",
-          description: error.error || "Failed to submit recommendation",
-          variant: "destructive",
-        });
+        router.push("/reviewer/dashboard");
       }
     } catch (error) {
       console.error("Failed to submit recommendation:", error);
@@ -177,12 +369,14 @@ export default function RecommendBusinessPage() {
     }
   };
 
-  if (status === "loading") {
+  if (status === "loading" || isRedirecting) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 text-gray-600">
+            {isRedirecting ? "Redirecting..." : "Loading..."}
+          </p>
         </div>
       </div>
     );
@@ -224,7 +418,13 @@ export default function RecommendBusinessPage() {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => router.push("/reviewer/agent-dashboard")}
+                onClick={() => {
+                  if (session?.user?.role === "AGENT") {
+                    router.push("/reviewer/agent-dashboard");
+                  } else {
+                    router.push("/reviewer/dashboard");
+                  }
+                }}
                 className="text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft className="h-5 w-5 mr-2" />
@@ -277,6 +477,100 @@ export default function RecommendBusinessPage() {
         </Card>
 
         <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Registration Type Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="h-5 w-5" />
+                <span>Registration Type</span>
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Choose between a basic recommendation or full business
+                registration with verification documents.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                      registrationType === "RECOMMENDATION"
+                        ? "border-green-500 bg-green-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    onClick={() => {
+                      setRegistrationType("RECOMMENDATION");
+                      // Clear verification form when switching to basic recommendation
+                      setVerificationForm({
+                        directorIdType: "",
+                        directorIdNumber: "",
+                        directorIdImage: "",
+                        cacDocumentType: "",
+                        cacDocumentImage: "",
+                        firsTaxClearance: "",
+                        addressEvidenceType: "",
+                        addressEvidenceImage: "",
+                      });
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 ${
+                          registrationType === "RECOMMENDATION"
+                            ? "border-green-500 bg-green-500"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        {registrationType === "RECOMMENDATION" && (
+                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Basic Recommendation</h3>
+                        <p className="text-sm text-gray-600">
+                          Submit basic business information for review. No
+                          verification documents required.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                      registrationType === "FULL_REGISTRATION"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    onClick={() => {
+                      setRegistrationType("FULL_REGISTRATION");
+                    }}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 ${
+                          registrationType === "FULL_REGISTRATION"
+                            ? "border-blue-500 bg-blue-500"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        {registrationType === "FULL_REGISTRATION" && (
+                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Full Registration</h3>
+                        <p className="text-sm text-gray-600">
+                          Submit complete business registration with
+                          verification documents for faster approval.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Business Details */}
           <Card>
             <CardHeader>
@@ -543,6 +837,324 @@ export default function RecommendBusinessPage() {
             </CardContent>
           </Card>
 
+          {/* Verification Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="h-5 w-5" />
+                <span>Verification Documents (Full Registration)</span>
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                {registrationType === "FULL_REGISTRATION"
+                  ? "Complete the verification documents below for full business registration."
+                  : "Select 'Full Registration' above to enable verification document fields."}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`space-y-6 ${
+                  registrationType !== "FULL_REGISTRATION"
+                    ? "opacity-50 pointer-events-none"
+                    : ""
+                }`}
+              >
+                {/* Director ID Section */}
+                <div className="space-y-4">
+                  <h4 className="text-md font-medium">
+                    Director/Authorized Signatory ID *
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="directorIdType">ID Type *</Label>
+                      <Select
+                        value={verificationForm.directorIdType}
+                        onValueChange={(value) =>
+                          handleVerificationFormChange("directorIdType", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select ID type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NATIONAL_ID">
+                            National ID
+                          </SelectItem>
+                          <SelectItem value="INTERNATIONAL_PASSPORT">
+                            International Passport
+                          </SelectItem>
+                          <SelectItem value="DRIVERS_LICENSE">
+                            Driver's License
+                          </SelectItem>
+                          <SelectItem value="VOTER_CARD">Voter Card</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="directorIdNumber">ID Number *</Label>
+                      <Input
+                        id="directorIdNumber"
+                        value={verificationForm.directorIdNumber}
+                        onChange={(e) =>
+                          handleVerificationFormChange(
+                            "directorIdNumber",
+                            e.target.value,
+                          )
+                        }
+                        placeholder="Enter ID number"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="directorIdImage">ID Document Image *</Label>
+                    <div className="mt-2">
+                      <label
+                        htmlFor="directorIdImage"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                      >
+                        {verificationForm.directorIdImage ? (
+                          <div className="flex items-center space-x-2 text-green-600">
+                            <Shield className="h-5 w-5" />
+                            <span>Document uploaded</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Shield className="w-8 h-8 mb-4 text-gray-500" />
+                            <p className="mb-2 text-sm text-gray-500">
+                              <span className="font-semibold">
+                                Click to upload
+                              </span>{" "}
+                              ID document
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              PNG, JPG or PDF (MAX. 10MB)
+                            </p>
+                          </div>
+                        )}
+                        <input
+                          id="directorIdImage"
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleFileUpload(file, "directorIdImage");
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CAC Documents Section */}
+                <div className="space-y-4">
+                  <h4 className="text-md font-medium">CAC Documents</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="cacDocumentType">CAC Document Type</Label>
+                      <Select
+                        value={verificationForm.cacDocumentType}
+                        onValueChange={(value) =>
+                          handleVerificationFormChange("cacDocumentType", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select CAC document type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CAC_CERTIFICATE_OF_INCORPORATION">
+                            CAC Certificate of Incorporation
+                          </SelectItem>
+                          <SelectItem value="CAC_STATUS_REPORT">
+                            CAC Status Report
+                          </SelectItem>
+                          <SelectItem value="CAC_BUSINESS_NAME_REGISTRATION">
+                            CAC Business Name Registration
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="cacDocumentImage">
+                        CAC Document Image
+                      </Label>
+                      <div className="mt-2">
+                        <label
+                          htmlFor="cacDocumentImage"
+                          className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                        >
+                          {verificationForm.cacDocumentImage ? (
+                            <div className="flex items-center space-x-2 text-green-600">
+                              <Shield className="h-4 w-4" />
+                              <span className="text-sm">
+                                CAC document uploaded
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center pt-3 pb-4">
+                              <Shield className="w-6 h-6 mb-2 text-gray-500" />
+                              <p className="text-xs text-gray-500">
+                                Click to upload CAC document
+                              </p>
+                            </div>
+                          )}
+                          <input
+                            id="cacDocumentImage"
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileUpload(file, "cacDocumentImage");
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Evidence Section */}
+                <div className="space-y-4">
+                  <h4 className="text-md font-medium">Address Evidence</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="addressEvidenceType">
+                        Address Evidence Type
+                      </Label>
+                      <Select
+                        value={verificationForm.addressEvidenceType}
+                        onValueChange={(value) =>
+                          handleVerificationFormChange(
+                            "addressEvidenceType",
+                            value,
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select address evidence type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UTILITY_BILL">
+                            Utility Bill
+                          </SelectItem>
+                          <SelectItem value="LEASE_AGREEMENT">
+                            Lease Agreement
+                          </SelectItem>
+                          <SelectItem value="SIGNAGE_PHOTO">
+                            Business Signage Photo
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="addressEvidenceImage">
+                        Address Evidence Image
+                      </Label>
+                      <div className="mt-2">
+                        <label
+                          htmlFor="addressEvidenceImage"
+                          className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                        >
+                          {verificationForm.addressEvidenceImage ? (
+                            <div className="flex items-center space-x-2 text-green-600">
+                              <Shield className="h-4 w-4" />
+                              <span className="text-sm">
+                                Address evidence uploaded
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center pt-3 pb-4">
+                              <Shield className="w-6 h-6 mb-2 text-gray-500" />
+                              <p className="text-xs text-gray-500">
+                                Click to upload address evidence
+                              </p>
+                            </div>
+                          )}
+                          <input
+                            id="addressEvidenceImage"
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileUpload(file, "addressEvidenceImage");
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* FIRS Tax Clearance */}
+                <div>
+                  <Label htmlFor="firsTaxClearance">
+                    FIRS Tax Clearance (Optional)
+                  </Label>
+                  <div className="mt-2">
+                    <label
+                      htmlFor="firsTaxClearance"
+                      className="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                    >
+                      {verificationForm.firsTaxClearance ? (
+                        <div className="flex items-center space-x-2 text-green-600">
+                          <Shield className="h-4 w-4" />
+                          <span className="text-sm">
+                            FIRS tax clearance uploaded
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center pt-3 pb-4">
+                          <Shield className="w-6 h-6 mb-2 text-gray-500" />
+                          <p className="text-xs text-gray-500">
+                            Click to upload FIRS tax clearance
+                          </p>
+                        </div>
+                      )}
+                      <input
+                        id="firsTaxClearance"
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleFileUpload(file, "firsTaxClearance");
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Important:</p>
+                      <p>
+                        {registrationType === "FULL_REGISTRATION"
+                          ? "Director ID is mandatory. You must also provide either CAC documents OR address evidence for verification."
+                          : "Select 'Full Registration' above to enable verification document fields."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Submit Button */}
           <div className="flex justify-end">
             <Button
@@ -551,7 +1163,11 @@ export default function RecommendBusinessPage() {
               className="bg-green-600 hover:bg-green-700 px-8"
             >
               <Send className="h-4 w-4 mr-2" />
-              {submitting ? "Submitting..." : "Submit Recommendation"}
+              {submitting
+                ? "Submitting..."
+                : registrationType === "FULL_REGISTRATION"
+                ? "Submit Business Registration"
+                : "Submit Recommendation"}
             </Button>
           </div>
         </form>

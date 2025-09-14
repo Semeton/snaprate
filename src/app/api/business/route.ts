@@ -129,7 +129,24 @@ export async function GET(request: NextRequest) {
 
     const business = await prisma.business.findUnique({
       where: { ownerId: session.user.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        category: true,
+        phone: true,
+        email: true,
+        website: true,
+        address: true,
+        city: true,
+        state: true,
+        logo: true,
+        coverImage: true,
+        isVerified: true,
+        verificationStatus: true,
+        verifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
         owner: {
           select: {
             id: true,

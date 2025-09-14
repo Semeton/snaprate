@@ -16,9 +16,34 @@ export async function POST(request: NextRequest) {
       include: { agentProfile: true },
     });
 
-    if (!user || user.role !== "REVIEWER") {
+    console.log("Business registration request:", {
+      sessionUserId: session.user.id,
+      userEmail: session.user.email,
+      userRole: session.user.role,
+      dbUserRole: user?.role,
+      userExists: !!user,
+    });
+
+    if (!user) {
       return NextResponse.json(
-        { error: "Only reviewers can register businesses" },
+        { error: "User not found in database" },
+        { status: 404 },
+      );
+    }
+
+    // Allow reviewers and agents (both approved and non-approved) to register businesses
+    if (user.role === "REVIEWER") {
+      // Reviewers can register businesses (they become agents after 2 verified businesses)
+    } else if (user.role === "AGENT") {
+      // Agents can register businesses (they become approved after 2 verified businesses)
+      // No approval check needed - they need to register businesses to become approved
+    } else {
+      return NextResponse.json(
+        {
+          error: "Only reviewers and agents can register businesses",
+          userRole: user.role,
+          expectedRoles: ["REVIEWER", "AGENT"],
+        },
         { status: 403 },
       );
     }
@@ -44,6 +69,13 @@ export async function POST(request: NextRequest) {
       firsTaxClearance,
       addressEvidenceType,
       addressEvidenceImage,
+      // Owner information
+      ownerName,
+      ownerEmail,
+      ownerPhone,
+      ownerAddress,
+      ownerCity,
+      ownerState,
     } = body;
 
     // Validate registration type
@@ -52,6 +84,25 @@ export async function POST(request: NextRequest) {
         { error: "Invalid registration type" },
         { status: 400 },
       );
+    }
+
+    // Validate owner information (required for all registrations)
+    const requiredOwnerFields = [
+      "ownerName",
+      "ownerEmail",
+      "ownerPhone",
+      "ownerAddress",
+      "ownerCity",
+      "ownerState",
+    ];
+
+    for (const field of requiredOwnerFields) {
+      if (!body[field]) {
+        return NextResponse.json(
+          { error: `Missing required owner field: ${field}` },
+          { status: 400 },
+        );
+      }
     }
 
     // Validate required fields based on registration type
@@ -143,14 +194,14 @@ export async function POST(request: NextRequest) {
         businessCity,
         businessState,
         businessWebsite,
-        directorIdType,
-        directorIdNumber,
-        directorIdImage,
-        cacDocumentType,
-        cacDocumentImage,
-        firsTaxClearance,
-        addressEvidenceType,
-        addressEvidenceImage,
+        directorIdType: directorIdType || null,
+        directorIdNumber: directorIdNumber || null,
+        directorIdImage: directorIdImage || null,
+        cacDocumentType: cacDocumentType || null,
+        cacDocumentImage: cacDocumentImage || null,
+        firsTaxClearance: firsTaxClearance || null,
+        addressEvidenceType: addressEvidenceType || null,
+        addressEvidenceImage: addressEvidenceImage || null,
         status: RegistrationStatus.PENDING,
       },
     });
@@ -183,9 +234,33 @@ export async function GET(request: NextRequest) {
       where: { id: session.user.id },
     });
 
-    if (!user || user.role !== "REVIEWER") {
+    console.log("Business registration GET request:", {
+      sessionUserId: session.user.id,
+      userEmail: session.user.email,
+      userRole: session.user.role,
+      dbUserRole: user?.role,
+      userExists: !!user,
+    });
+
+    if (!user) {
       return NextResponse.json(
-        { error: "Only reviewers can view registrations" },
+        { error: "User not found in database" },
+        { status: 404 },
+      );
+    }
+
+    // Allow reviewers and agents (both approved and non-approved) to view registrations
+    if (user.role === "REVIEWER") {
+      // Reviewers can view their registrations
+    } else if (user.role === "AGENT") {
+      // Agents can view their registrations (both approved and non-approved)
+    } else {
+      return NextResponse.json(
+        {
+          error: "Only reviewers and agents can view registrations",
+          userRole: user.role,
+          expectedRoles: ["REVIEWER", "AGENT"],
+        },
         { status: 403 },
       );
     }

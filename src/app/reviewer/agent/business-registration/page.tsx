@@ -42,6 +42,7 @@ import {
   FileText,
   Shield,
 } from "lucide-react";
+import { BusinessCategory, State } from "@/types";
 
 interface BusinessRegistration {
   id: string;
@@ -79,21 +80,8 @@ interface RegistrationStats {
   earningsStartFrom: number;
 }
 
-const businessCategories = [
-  "RESTAURANT",
-  "HOTEL",
-  "RETAIL",
-  "HEALTHCARE",
-  "EDUCATION",
-  "BEAUTY",
-  "AUTOMOTIVE",
-  "REAL_ESTATE",
-  "TECHNOLOGY",
-  "ENTERTAINMENT",
-  "FITNESS",
-  "TRAVEL",
-  "OTHER",
-];
+// Use the enum values from types to ensure consistency with Prisma schema
+const businessCategories = Object.values(BusinessCategory);
 
 const idDocumentTypes = [
   { value: "NATIONAL_ID", label: "National ID" },
@@ -103,9 +91,15 @@ const idDocumentTypes = [
 ];
 
 const cacDocumentTypes = [
-  { value: "CAC_CERTIFICATE", label: "CAC Certificate" },
-  { value: "CAC_FORM_CO7", label: "CAC Form CO7" },
-  { value: "CAC_FORM_CO2", label: "CAC Form CO2" },
+  {
+    value: "CAC_CERTIFICATE_OF_INCORPORATION",
+    label: "CAC Certificate of Incorporation",
+  },
+  { value: "CAC_STATUS_REPORT", label: "CAC Status Report" },
+  {
+    value: "CAC_BUSINESS_NAME_REGISTRATION",
+    label: "CAC Business Name Registration",
+  },
 ];
 
 const addressEvidenceTypes = [
@@ -114,45 +108,8 @@ const addressEvidenceTypes = [
   { value: "SIGNAGE_PHOTO", label: "Business Signage Photo" },
 ];
 
-const states = [
-  "ABIA",
-  "ADAMAWA",
-  "AKWA_IBOM",
-  "ANAMBRA",
-  "BAUCHI",
-  "BAYELSA",
-  "BENUE",
-  "BORNO",
-  "CROSS_RIVER",
-  "DELTA",
-  "EBONYI",
-  "EDO",
-  "EKITI",
-  "ENUGU",
-  "GOMBE",
-  "IMO",
-  "JIGAWA",
-  "KADUNA",
-  "KANO",
-  "KATSINA",
-  "KEBBI",
-  "KOGI",
-  "KWARA",
-  "LAGOS",
-  "NASSARAWA",
-  "NIGER",
-  "OGUN",
-  "ONDO",
-  "OSUN",
-  "OYO",
-  "PLATEAU",
-  "RIVERS",
-  "SOKOTO",
-  "TARABA",
-  "YOBE",
-  "ZAMFARA",
-  "FCT",
-];
+// Use the enum values from types to ensure consistency with Prisma schema
+const states = Object.values(State);
 
 export default function BusinessRegistrationPage() {
   const { data: session, status } = useSession();
@@ -188,6 +145,13 @@ export default function BusinessRegistrationPage() {
     firsTaxClearance: "",
     addressEvidenceType: "",
     addressEvidenceImage: "",
+    // Owner information fields
+    ownerName: "",
+    ownerEmail: "",
+    ownerPhone: "",
+    ownerAddress: "",
+    ownerCity: "",
+    ownerState: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -234,24 +198,51 @@ export default function BusinessRegistrationPage() {
 
   const handleFileUpload = async (file: File, field: string) => {
     try {
+      console.log(
+        "Uploading business registration file:",
+        file.name,
+        file.size,
+        file.type,
+      );
+
+      // Validate file exists and has content
+      if (!file || file.size === 0) {
+        throw new Error("No file selected or file is empty");
+      }
+
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("folder", "business-registration");
+      formData.append("files", file); // Fixed: use "files" (plural)
+      formData.append("type", "image"); // Fixed: use "type" instead of "folder"
+
+      console.log("FormData entries:", Array.from(formData.entries()));
 
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       });
 
-      const data = await response.json();
-      if (data.success && data.data.files && data.data.files.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          [field]: data.data.files[0],
-        }));
-        return data.data.files[0];
+      console.log("Upload response status:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Upload response:", data);
+        if (data.success && data.data.files && data.data.files.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            [field]: data.data.files[0],
+          }));
+          toast({
+            title: "Upload successful",
+            description: "File uploaded successfully",
+          });
+          return data.data.files[0];
+        } else {
+          throw new Error("Upload response format invalid");
+        }
       } else {
-        throw new Error("Upload failed");
+        const errorData = await response.json();
+        console.error("Upload error response:", errorData);
+        throw new Error(errorData.error || "Upload failed");
       }
     } catch (error) {
       console.error("File upload error:", error);
@@ -298,6 +289,24 @@ export default function BusinessRegistrationPage() {
           setSubmitting(false);
           return;
         }
+      }
+
+      // Validate owner information (required for all registrations)
+      if (
+        !formData.ownerName ||
+        !formData.ownerEmail ||
+        !formData.ownerPhone ||
+        !formData.ownerAddress ||
+        !formData.ownerCity ||
+        !formData.ownerState
+      ) {
+        toast({
+          title: "Validation Error",
+          description: "All business owner information fields are required",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
       }
 
       const response = await fetch("/api/agent/business-registration", {
@@ -357,6 +366,13 @@ export default function BusinessRegistrationPage() {
       firsTaxClearance: "",
       addressEvidenceType: "",
       addressEvidenceImage: "",
+      // Owner information fields
+      ownerName: "",
+      ownerEmail: "",
+      ownerPhone: "",
+      ownerAddress: "",
+      ownerCity: "",
+      ownerState: "",
     });
   };
 
@@ -1066,6 +1082,139 @@ export default function BusinessRegistrationPage() {
                   </Alert>
                 </div>
               )}
+
+              {/* Owner Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Business Owner Information *
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Provide the business owner's details. An account will be
+                  created for them and an invitation email will be sent.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="ownerName" className="text-sm font-medium">
+                      Owner Name *
+                    </Label>
+                    <Input
+                      id="ownerName"
+                      value={formData.ownerName}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerName: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter business owner's full name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerEmail" className="text-sm font-medium">
+                      Owner Email *
+                    </Label>
+                    <Input
+                      id="ownerEmail"
+                      type="email"
+                      value={formData.ownerEmail}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerEmail: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter business owner's email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerPhone" className="text-sm font-medium">
+                      Owner Phone *
+                    </Label>
+                    <Input
+                      id="ownerPhone"
+                      value={formData.ownerPhone}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerPhone: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter business owner's phone"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label
+                      htmlFor="ownerAddress"
+                      className="text-sm font-medium"
+                    >
+                      Owner Address *
+                    </Label>
+                    <Input
+                      id="ownerAddress"
+                      value={formData.ownerAddress}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerAddress: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter business owner's address"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerCity" className="text-sm font-medium">
+                      Owner City *
+                    </Label>
+                    <Input
+                      id="ownerCity"
+                      value={formData.ownerCity}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerCity: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter business owner's city"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="ownerState" className="text-sm font-medium">
+                      Owner State *
+                    </Label>
+                    <Select
+                      value={formData.ownerState}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ownerState: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select owner's state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {states.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state.replace(/_/g, " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
 
               {/* Submit Button */}
               <div className="flex justify-end gap-4 pt-4">

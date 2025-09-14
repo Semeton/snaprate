@@ -343,22 +343,6 @@ export default function VerificationReview({
           </Card>
         ) : (
           <>
-            {/* Debug Info */}
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                Debug: Found {verifications.length} verification(s)
-              </p>
-              {verifications.map((v, i) => (
-                <div key={i} className="text-xs text-blue-600 mt-1">
-                  {v.business.name}:{" "}
-                  {v.directorIdImage ? "Has ID Image" : "No ID Image"} |
-                  {v.cacDocumentImage ? " Has CAC" : " No CAC"} |
-                  {v.firsTaxClearance ? " Has FIRS" : " No FIRS"} |
-                  {v.addressEvidenceImage ? " Has Address" : " No Address"}
-                </div>
-              ))}
-            </div>
-
             {/* Verifications List */}
             {verifications.map((verification) => (
               <Card key={verification.id}>

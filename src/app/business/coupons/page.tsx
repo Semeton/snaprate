@@ -47,7 +47,7 @@ interface Coupon {
   id: string;
   title: string;
   description?: string;
-  code: string;
+  baseCode: string;
   type: CouponType;
   value: number;
   minimumOrderAmount?: number;
@@ -72,6 +72,7 @@ interface Reviewer {
   name: string;
   email: string;
   userIdentifier: string;
+  role: string;
   joinedDate: string;
   reviewsCount: number;
 }
@@ -84,8 +85,35 @@ export default function BusinessCouponsPage() {
   );
 }
 
+interface Business {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  phone: string;
+  email: string;
+  website?: string;
+  address: string;
+  city: string;
+  state: string;
+  logo?: string;
+  coverImage?: string;
+  isVerified: boolean;
+  verificationStatus: string;
+  verifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
 function BusinessCouponsContent() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +175,7 @@ function BusinessCouponsContent() {
 
   useEffect(() => {
     fetchCoupons();
+    fetchBusiness();
   }, []);
 
   const fetchCoupons = async () => {
@@ -176,9 +205,21 @@ function BusinessCouponsContent() {
     }
   };
 
+  const fetchBusiness = async () => {
+    try {
+      const response = await fetch("/api/business");
+      if (response.ok) {
+        const data = await response.json();
+        setBusiness(data.business);
+      }
+    } catch (error) {
+      console.error("Failed to fetch business:", error);
+    }
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchCoupons();
+    await Promise.all([fetchCoupons(), fetchBusiness()]);
     setRefreshing(false);
   };
 
@@ -342,12 +383,13 @@ function BusinessCouponsContent() {
       }
 
       const data = await response.json();
+      console.log("Coupon assignment response:", data);
 
       // Update the coupon in the list
       setCoupons((prev) =>
         prev.map((coupon) =>
           coupon.id === selectedCouponId
-            ? { ...coupon, assignedUser: data.coupon.assignedUser }
+            ? { ...coupon, assignedUser: data.coupon?.assignedUser }
             : coupon,
         ),
       );
@@ -515,7 +557,7 @@ function BusinessCouponsContent() {
   const filteredCoupons = coupons.filter((coupon) => {
     const matchesSearch =
       coupon.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      coupon.code.toLowerCase().includes(searchTerm.toLowerCase());
+      coupon.baseCode?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || coupon.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -625,11 +667,28 @@ function BusinessCouponsContent() {
                 <Gift className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Coupon Management
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Coupon Management
+                  </h1>
+                  {business && (
+                    <Badge
+                      variant={business.isVerified ? "default" : "secondary"}
+                      className={`text-xs ${
+                        business.isVerified
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                          : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                      }`}
+                    >
+                      <Shield className="w-3 h-3 mr-1" />
+                      {business.isVerified ? "Verified" : "Unverified"}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Create and manage promotional offers
+                  {business?.isVerified
+                    ? "Create and manage promotional offers"
+                    : "Complete business verification to create coupons"}
                 </p>
               </div>
             </div>
@@ -650,7 +709,7 @@ function BusinessCouponsContent() {
                 onOpenChange={setShowCreateDialog}
               >
                 <DialogTrigger asChild>
-                  <Button>
+                  <Button disabled={!business?.isVerified}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Coupon
                   </Button>
@@ -1006,6 +1065,33 @@ function BusinessCouponsContent() {
           </div>
         )}
 
+        {/* Business Verification Notice */}
+        {business && !business.isVerified && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
+            <div className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              <div>
+                <p className="font-medium">Business Verification Required</p>
+                <p className="text-sm">
+                  Your business needs to be verified before you can create
+                  coupons. Please complete the verification process to start
+                  creating promotional offers.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() =>
+                    (window.location.href = "/business/verification")
+                  }
+                >
+                  Complete Verification
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Success/Error Message */}
         {message && (
           <div
@@ -1160,13 +1246,15 @@ function BusinessCouponsContent() {
                         </span>
                         <div className="flex items-center space-x-2 mt-1">
                           <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono">
-                            {coupon.code}
+                            {coupon.baseCode}
                           </code>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              navigator.clipboard.writeText(coupon.code);
+                              navigator.clipboard.writeText(
+                                coupon.baseCode || "",
+                              );
                               // You could add a toast notification here
                             }}
                           >
@@ -1334,11 +1422,11 @@ function BusinessCouponsContent() {
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Assign Coupon to Reviewer</DialogTitle>
+            <DialogTitle>Assign Coupon to Reviewer/Agent</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="reviewerSearch">Search Reviewers</Label>
+              <Label htmlFor="reviewerSearch">Search Reviewers & Agents</Label>
               <div className="relative mt-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -1359,7 +1447,7 @@ function BusinessCouponsContent() {
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600 dark:text-gray-400">
-                    Loading reviewers...
+                    Loading reviewers and agents...
                   </p>
                 </div>
               ) : reviewers.length === 0 ? (
@@ -1367,8 +1455,8 @@ function BusinessCouponsContent() {
                   <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 dark:text-gray-400">
                     {reviewerSearch
-                      ? "No reviewers found matching your search"
-                      : "No reviewers available"}
+                      ? "No reviewers or agents found matching your search"
+                      : "No reviewers or agents available"}
                   </p>
                 </div>
               ) : (
@@ -1386,9 +1474,23 @@ function BusinessCouponsContent() {
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white">
-                              {reviewer.name}
-                            </p>
+                            <div className="flex items-center space-x-2">
+                              <p className="font-medium text-gray-900 dark:text-white">
+                                {reviewer.name}
+                              </p>
+                              <Badge
+                                variant={
+                                  reviewer.role === "AGENT"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {reviewer.role === "AGENT"
+                                  ? "Agent"
+                                  : "Reviewer"}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
                               {reviewer.email} • ID: {reviewer.userIdentifier}
                             </p>

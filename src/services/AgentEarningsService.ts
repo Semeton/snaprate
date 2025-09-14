@@ -177,12 +177,20 @@ export class AgentEarningsService {
   static async updateAgentProfileEarnings(agentId: string): Promise<void> {
     const earningsData = await this.getAgentEarningsData(agentId);
 
-    await prisma.agent.update({
+    // Use upsert to create the agent record if it doesn't exist, or update if it does
+    await prisma.agent.upsert({
       where: { userId: agentId },
-      data: {
+      update: {
         registeredBusinessesCount: earningsData.verifiedBusinessesCount,
         verifiedBusinessesCount: earningsData.verifiedBusinessesCount,
         totalEarnings: earningsData.totalEarningsFromRegistrations,
+      },
+      create: {
+        userId: agentId,
+        registeredBusinessesCount: earningsData.verifiedBusinessesCount,
+        verifiedBusinessesCount: earningsData.verifiedBusinessesCount,
+        totalEarnings: earningsData.totalEarningsFromRegistrations,
+        totalBusinesses: earningsData.verifiedBusinessesCount,
       },
     });
   }
