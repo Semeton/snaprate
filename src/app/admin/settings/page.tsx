@@ -711,14 +711,13 @@ export default function AdminSettingsPage() {
                     }
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Minimum unique businesses a user must review to apply as an
-                    agent
+                    Minimum verified businesses a user must register to apply as
+                    an agent (Fixed at 2)
                   </p>
-                  {platformSettings.minimumBusinessesForAgent < 1 && (
-                    <p className="text-xs text-red-500 mt-1">
-                      Value must be at least 1
-                    </p>
-                  )}
+                  <p className="text-xs text-blue-500 mt-1">
+                    Note: This is now fixed at 2 verified businesses. Users must
+                    also verify their ID.
+                  </p>
                 </div>
               </div>
 
@@ -729,47 +728,51 @@ export default function AdminSettingsPage() {
                 </h4>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p>
-                    • Users must review <strong>different businesses</strong>,
-                    not just multiple reviews
+                    • Users must <strong>register businesses</strong> with full
+                    verification documents
                   </p>
                   <p>
-                    • This ensures agents have experience with various business
-                    types
+                    • This ensures agents have experience with business
+                    verification processes
                   </p>
                   <p>
                     • Current requirement:{" "}
                     <strong>
-                      {platformSettings.minimumBusinessesForAgent} unique
-                      businesses
+                      2 verified business registrations + ID verification
                     </strong>
                   </p>
                   <p>
-                    • Changes only affect new applications, not existing agents
+                    • Auto-approval occurs after 2 verified businesses are
+                    registered
+                  </p>
+                  <p>
+                    • Agents start earning from the 3rd registered business
+                    onwards
                   </p>
                 </div>
               </div>
 
               {/* Impact Warning */}
-              <div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-                <h4 className="font-medium text-amber-900 mb-2">
-                  ⚠️ Setting Impact
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-2">
+                  ℹ️ Agent Requirements Update
                 </h4>
-                <div className="text-sm text-amber-800 space-y-1">
+                <div className="text-sm text-blue-800 space-y-1">
                   <p>
-                    • <strong>Increasing</strong> this number makes it harder
-                    for users to become agents
+                    • <strong>New System:</strong> Agents must register 2
+                    verified businesses + verify ID
                   </p>
                   <p>
-                    • <strong>Decreasing</strong> this number makes it easier
-                    for users to become agents
+                    • <strong>Auto-Approval:</strong> Automatic approval after 2
+                    verified businesses
                   </p>
                   <p>
-                    • Changes only affect{" "}
-                    <strong>new agent applications</strong>
+                    • <strong>Earnings:</strong> Start earning from 3rd
+                    registered business onwards
                   </p>
-                  <p>• Existing agents and their privileges remain unchanged</p>
                   <p>
-                    • Consider the balance between quality and accessibility
+                    • <strong>Fixed Requirement:</strong> No longer configurable
+                    - set at 2 businesses
                   </p>
                 </div>
               </div>

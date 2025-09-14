@@ -22,6 +22,7 @@ import {
   Filter,
   Grid3X3,
   List,
+  AlertCircle,
 } from "lucide-react";
 
 interface Business {
@@ -37,6 +38,8 @@ interface Business {
   logo?: string;
   coverImage?: string;
   verificationStatus: string;
+  isVerified: boolean;
+  verificationSource: string;
   _count?: {
     reviews: number;
   };
@@ -287,12 +290,14 @@ export default function BusinessesPage() {
                     }`}
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <Badge
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      >
-                        {business.category}
-                      </Badge>
+                      <div className="flex flex-col gap-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                        >
+                          {business.category}
+                        </Badge>
+                      </div>
                       <div className="flex items-center space-x-1">
                         <Star className="h-4 w-4 text-yellow-400 fill-current" />
                         <span className="text-sm font-medium">

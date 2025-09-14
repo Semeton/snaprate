@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,16 +68,9 @@ export default function BusinessesPage() {
       fetchBusinesses();
       fetchUserReviews();
     }
-  }, [
-    session,
-    status,
-    searchQuery,
-    selectedCategory,
-    selectedState,
-    currentPage,
-  ]);
+  }, [session, status]);
 
-  const fetchBusinesses = async () => {
+  const fetchBusinesses = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -103,22 +96,22 @@ export default function BusinessesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchQuery, selectedCategory, selectedState]);
 
-  const fetchUserReviews = async () => {
+  const fetchUserReviews = useCallback(async () => {
     try {
       const response = await fetch(`/api/reviews?userId=${session?.user?.id}`);
       if (response.ok) {
         const data = await response.json();
         const reviewedBusinessIds = new Set(
-          data.data?.map((r: Review) => r.businessId) || [],
+          data.data?.reviews?.map((r: Review) => r.businessId) || [],
         );
         setHasReviewed(reviewedBusinessIds as Set<string>);
       }
     } catch (error) {
       console.error("Failed to fetch user reviews:", error);
     }
-  };
+  }, [session?.user?.id]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -404,7 +397,7 @@ export default function BusinessesPage() {
                       ) : (
                         <>
                           <Plus className="h-4 w-4 mr-2" />
-                          Review & Earn ₦50
+                          Review
                         </>
                       )}
                     </Button>

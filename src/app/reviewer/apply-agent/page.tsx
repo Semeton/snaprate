@@ -16,16 +16,25 @@ import {
   Star,
   MessageSquare,
   Building2,
+  Upload,
+  User,
 } from "lucide-react";
 
 interface UserStats {
   totalReviews: number;
   approvedReviews: number;
   averageRating: number;
-  uniqueBusinessesReviewed: number;
+  verifiedBusinessesCount: number;
   isEligible: boolean;
-  requiredBusinesses: number;
+  requiredVerifiedBusinesses: number;
 }
+
+const idDocumentTypes = [
+  { value: "VOTER_CARD", label: "Voter's Card" },
+  { value: "NATIONAL_ID", label: "National ID Card" },
+  { value: "PASSPORT", label: "International Passport" },
+  { value: "DRIVERS_LICENSE", label: "Driver's License" },
+];
 
 export default function ApplyAgentPage() {
   const { data: session, status } = useSession();
@@ -43,6 +52,9 @@ export default function ApplyAgentPage() {
     experience: "",
     businessKnowledge: "",
     commitment: "",
+    idDocumentType: "",
+    idDocumentNumber: "",
+    idDocumentImage: null as string | null,
   });
 
   useEffect(() => {
@@ -58,22 +70,25 @@ export default function ApplyAgentPage() {
       if (response.ok) {
         const data = await response.json();
 
-        // Fetch platform settings for the required number
-        const settingsResponse = await fetch("/api/platform-settings");
-        const settings = settingsResponse.ok
-          ? await settingsResponse.json()
-          : { data: { minimumBusinessesForAgent: 5 } };
-        const requiredBusinesses =
-          settings.data?.minimumBusinessesForAgent || 5;
+        // Get business registration stats
+        const registrationStatsResponse = await fetch(
+          "/api/agent/registration-stats",
+        );
+        const registrationStats = registrationStatsResponse.ok
+          ? await registrationStatsResponse.json()
+          : { data: { verifiedBusinessesCount: 0 } };
+
+        const requiredVerifiedBusinesses = 2; // Fixed requirement
+        const verifiedBusinessesCount =
+          registrationStats.data?.verifiedBusinessesCount || 0;
 
         const userStats = {
           totalReviews: data.data?.totalReviews || 0,
           approvedReviews: data.data?.totalReviews || 0,
           averageRating: data.data?.averageRating || 0,
-          uniqueBusinessesReviewed: data.data?.uniqueBusinessesReviewed || 0,
-          isEligible:
-            (data.data?.uniqueBusinessesReviewed || 0) >= requiredBusinesses,
-          requiredBusinesses,
+          verifiedBusinessesCount,
+          isEligible: verifiedBusinessesCount >= requiredVerifiedBusinesses,
+          requiredVerifiedBusinesses,
         };
         setStats(userStats);
       }
@@ -82,6 +97,38 @@ export default function ApplyAgentPage() {
       setError("Failed to load user statistics");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      formData.append("type", "image");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.files && data.data.files.length > 0) {
+          setApplicationForm((prev) => ({
+            ...prev,
+            idDocumentImage: data.data.files[0],
+          }));
+          setError("");
+        } else {
+          throw new Error("Upload response format invalid");
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Upload failed");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      setError("Failed to upload ID document. Please try again.");
     }
   };
 
@@ -109,6 +156,9 @@ export default function ApplyAgentPage() {
           experience: "",
           businessKnowledge: "",
           commitment: "",
+          idDocumentType: "",
+          idDocumentNumber: "",
+          idDocumentImage: null,
         });
       } else {
         const errorData = await response.json();
@@ -205,10 +255,12 @@ export default function ApplyAgentPage() {
                     <div className="text-center p-4 border rounded-lg">
                       <Building2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
                       <p className="text-2xl font-bold text-gray-900">
-                        {stats.uniqueBusinessesReviewed}/
-                        {stats.requiredBusinesses}
+                        {stats.verifiedBusinessesCount}/
+                        {stats.requiredVerifiedBusinesses}
                       </p>
-                      <p className="text-sm text-gray-600">Unique Businesses</p>
+                      <p className="text-sm text-gray-600">
+                        Verified Businesses
+                      </p>
                     </div>
                     <div className="text-center p-4 border rounded-lg">
                       <Star className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
@@ -331,6 +383,122 @@ export default function ApplyAgentPage() {
                       />
                     </div>
 
+                    {/* ID Verification Section */}
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                        <User className="h-5 w-5" />
+                        ID Verification
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label
+                            htmlFor="idDocumentType"
+                            className="text-sm font-medium"
+                          >
+                            ID Document Type *
+                          </Label>
+                          <select
+                            id="idDocumentType"
+                            value={applicationForm.idDocumentType}
+                            onChange={(e) =>
+                              setApplicationForm((prev) => ({
+                                ...prev,
+                                idDocumentType: e.target.value,
+                              }))
+                            }
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            required
+                          >
+                            <option value="">Select ID type</option>
+                            {idDocumentTypes.map((type) => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <Label
+                            htmlFor="idDocumentNumber"
+                            className="text-sm font-medium"
+                          >
+                            ID Document Number *
+                          </Label>
+                          <input
+                            id="idDocumentNumber"
+                            type="text"
+                            value={applicationForm.idDocumentNumber}
+                            onChange={(e) =>
+                              setApplicationForm((prev) => ({
+                                ...prev,
+                                idDocumentNumber: e.target.value,
+                              }))
+                            }
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Enter ID number"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <Label
+                          htmlFor="idDocumentImage"
+                          className="text-sm font-medium"
+                        >
+                          ID Document Image *
+                        </Label>
+                        <div className="mt-2">
+                          {applicationForm.idDocumentImage ? (
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-green-600" />
+                              <span className="text-sm text-green-600">
+                                Document uploaded
+                              </span>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setApplicationForm((prev) => ({
+                                    ...prev,
+                                    idDocumentImage: null,
+                                  }))
+                                }
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                              <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) {
+                                    handleFileUpload(e.target.files[0]);
+                                  }
+                                }}
+                                className="hidden"
+                                id="idDocumentImage"
+                              />
+                              <label
+                                htmlFor="idDocumentImage"
+                                className="cursor-pointer"
+                              >
+                                <span className="text-sm text-gray-600">
+                                  Click to upload ID document
+                                </span>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex justify-end">
                       <Button
                         type="submit"
@@ -352,25 +520,23 @@ export default function ApplyAgentPage() {
                       Not Eligible Yet
                     </h3>
                     <p className="text-yellow-800 mb-4">
-                      You need to review at least{" "}
-                      {stats?.requiredBusinesses || 5} different businesses to
+                      You need to register at least 2 verified businesses to
                       apply to become an agent.
                     </p>
                     <div className="space-y-2 text-sm text-yellow-700">
                       <p>
-                        Current unique businesses reviewed:{" "}
-                        {stats?.uniqueBusinessesReviewed || 0}/
-                        {stats?.requiredBusinesses || 5}
+                        Current verified businesses registered:{" "}
+                        {stats?.verifiedBusinessesCount || 0}/2
                       </p>
-                      <p>
-                        Keep reviewing different businesses to become eligible!
-                      </p>
+                      <p>Keep registering businesses to become eligible!</p>
                     </div>
                     <Button
-                      onClick={() => router.push("/reviewer/submit-review")}
+                      onClick={() =>
+                        router.push("/reviewer/agent/business-registration")
+                      }
                       className="mt-4 bg-yellow-600 hover:bg-yellow-700"
                     >
-                      Write More Reviews
+                      Register Businesses
                     </Button>
                   </div>
                 </CardContent>
@@ -395,10 +561,10 @@ export default function ApplyAgentPage() {
                     </div>
                     <div>
                       <p className="font-medium text-purple-900">
-                        Business Recommendations
+                        Business Registration
                       </p>
                       <p className="text-sm text-purple-700">
-                        Recommend new businesses to the platform
+                        Register businesses with full verification documents
                       </p>
                     </div>
                   </div>
@@ -408,10 +574,10 @@ export default function ApplyAgentPage() {
                     </div>
                     <div>
                       <p className="font-medium text-green-900">
-                        Enhanced Rewards
+                        Earnings from 3rd Business
                       </p>
                       <p className="text-sm text-green-700">
-                        Earn ₦100 per approved business recommendation
+                        Start earning from the 3rd registered business onwards
                       </p>
                     </div>
                   </div>
@@ -420,9 +586,9 @@ export default function ApplyAgentPage() {
                       <FileText className="h-4 w-4 text-blue-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-blue-900">Special Tools</p>
+                      <p className="font-medium text-blue-900">Auto-Approval</p>
                       <p className="text-sm text-blue-700">
-                        Access to business recommendation tools
+                        Automatically approved after 2 verified businesses
                       </p>
                     </div>
                   </div>
@@ -440,21 +606,27 @@ export default function ApplyAgentPage() {
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <span className="text-sm">
-                      Review at least {stats?.requiredBusinesses || 5} different
-                      businesses
+                      Verify your ID (Voter card, National ID, Passport, or
+                      Driving license)
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Good community standing</span>
+                    <span className="text-sm">
+                      Register at least 2 verified businesses
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Active participation</span>
+                    <span className="text-sm">
+                      Answer required application questions
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Quality review history</span>
+                    <span className="text-sm">
+                      Auto-approval after 2 verified businesses
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -471,26 +643,24 @@ export default function ApplyAgentPage() {
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                       1
                     </div>
-                    <span className="text-sm">Submit your application</span>
+                    <span className="text-sm">
+                      Verify your ID and submit application
+                    </span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                       2
                     </div>
-                    <span className="text-sm">We review within 48 hours</span>
+                    <span className="text-sm">
+                      Register at least 2 verified businesses
+                    </span>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    <div className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                       3
                     </div>
-                    <span className="text-sm">Get notified of decision</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                      4
-                    </div>
                     <span className="text-sm">
-                      Start recommending businesses
+                      Auto-approved as agent and start earning
                     </span>
                   </div>
                 </div>

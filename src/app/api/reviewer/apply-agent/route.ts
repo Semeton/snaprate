@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import PlatformSettingsService from "@/services/PlatformSettingsService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,56 +33,83 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get platform settings for dynamic validation
-    const platformSettingsService = PlatformSettingsService.getInstance();
-    const platformSettings = await platformSettingsService.getSettings();
-    const requiredBusinesses = platformSettings.minimumBusinessesForAgent;
+    const requiredVerifiedBusinesses = 2; // Fixed requirement: 2 verified businesses
 
-    // Check if user has reviewed enough unique businesses
-    const uniqueBusinessesReviewed = await prisma.review.groupBy({
-      by: ["businessId"],
-      where: { reviewerId: user.id },
-      _count: { businessId: true },
-    });
-
-    const uniqueBusinessesCount = uniqueBusinessesReviewed.length;
+    // Check if user has registered enough verified businesses
+    const verifiedBusinessRegistrations =
+      await prisma.businessRegistration.count({
+        where: {
+          agentId: user.id,
+          status: "VERIFIED",
+          registrationType: "FULL_REGISTRATION",
+        },
+      });
 
     // Log validation details for debugging
     console.log("Agent application validation:", {
       userId: user.id,
-      requiredBusinesses,
-      uniqueBusinessesCount,
-      uniqueBusinesses: uniqueBusinessesReviewed.map((b) => b.businessId),
+      requiredVerifiedBusinesses,
+      verifiedBusinessRegistrations,
     });
 
-    // Check if user has any reviews at all
-    if (uniqueBusinessesCount === 0) {
+    // Check if user has any verified business registrations
+    if (verifiedBusinessRegistrations === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: `You need to write at least one review before applying to become an agent.`,
+          error: `You need to register at least 2 verified businesses before applying to become an agent. You have registered ${verifiedBusinessRegistrations} verified businesses.`,
         },
         { status: 400 },
       );
     }
 
-    if (uniqueBusinessesCount < requiredBusinesses) {
+    if (verifiedBusinessRegistrations < requiredVerifiedBusinesses) {
       return NextResponse.json(
         {
           success: false,
-          error: `Need to review at least ${requiredBusinesses} different businesses to apply. You have reviewed ${uniqueBusinessesCount} unique businesses.`,
+          error: `You need to register at least ${requiredVerifiedBusinesses} verified businesses to apply. You have registered ${verifiedBusinessRegistrations} verified businesses.`,
         },
         { status: 400 },
       );
     }
 
     const body = await request.json();
-    const { motivation, experience, businessKnowledge, commitment } = body;
+    const {
+      motivation,
+      experience,
+      businessKnowledge,
+      commitment,
+      idDocumentType,
+      idDocumentNumber,
+      idDocumentImage,
+    } = body;
 
     // Validate required fields
     if (!motivation || !experience || !businessKnowledge || !commitment) {
       return NextResponse.json(
-        { success: false, error: "All fields are required" },
+        { success: false, error: "All application fields are required" },
+        { status: 400 },
+      );
+    }
+
+    // Validate ID verification fields
+    if (!idDocumentType || !idDocumentNumber || !idDocumentImage) {
+      return NextResponse.json(
+        { success: false, error: "ID verification document is required" },
+        { status: 400 },
+      );
+    }
+
+    // Validate ID document type
+    const validIdTypes = [
+      "VOTER_CARD",
+      "NATIONAL_ID",
+      "PASSPORT",
+      "DRIVERS_LICENSE",
+    ];
+    if (!validIdTypes.includes(idDocumentType)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid ID document type" },
         { status: 400 },
       );
     }
@@ -96,6 +122,9 @@ export async function POST(request: NextRequest) {
         experience,
         businessKnowledge,
         commitment,
+        idDocumentType,
+        idDocumentNumber,
+        idDocumentImage,
         status: "PENDING",
       },
     });
@@ -104,8 +133,8 @@ export async function POST(request: NextRequest) {
     console.log("Agent application created successfully:", {
       applicationId: application.id,
       userId: user.id,
-      uniqueBusinessesCount,
-      requiredBusinesses,
+      verifiedBusinessRegistrations,
+      requiredVerifiedBusinesses,
     });
 
     return NextResponse.json({

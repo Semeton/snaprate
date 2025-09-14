@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
+import Image from "next/image";
 import {
   Shield,
   Search,
@@ -31,10 +32,18 @@ import {
 
 interface AgentApplication {
   id: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "ID_VERIFIED" | "APPROVED" | "REJECTED";
   reason: string;
   experience: string;
   motivation: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  idDocumentImage?: string;
+  idVerified: boolean;
+  idVerifiedAt?: string;
+  idVerifiedBy?: string;
+  registeredBusinessesCount: number;
+  verifiedBusinessesCount: number;
   createdAt: string;
   user: {
     id: string;
@@ -83,6 +92,61 @@ export default function AdminAgentsPage() {
     }
   };
 
+  const handleIDVerification = async (
+    applicationId: string,
+    action: "APPROVE" | "REJECT",
+  ) => {
+    if (action === "REJECT" && !approvalNotes.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide notes for ID rejection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/verify-agent-id`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applicationId,
+          action,
+          adminNotes: approvalNotes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `ID verification ${action.toLowerCase()}d successfully`,
+        });
+
+        fetchApplications();
+        setShowDetails(false);
+        setSelectedApplication(null);
+        setApprovalNotes("");
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to process ID verification",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to process ID verification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process ID verification",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleApproval = async (
     applicationId: string,
     action: "APPROVED" | "REJECTED",
@@ -116,16 +180,17 @@ export default function AdminAgentsPage() {
           title: "Success",
           description: `Application ${action.toLowerCase()} successfully`,
         });
-        
+
         // If this was an approval, show session update message
         if (action === "APPROVED" && data.requiresSessionUpdate) {
           toast({
             title: "Important",
-            description: "The user's role has been updated. They may need to refresh their page to see the changes.",
+            description:
+              "The user's role has been updated. They may need to refresh their page to see the changes.",
             variant: "default",
           });
         }
-        
+
         fetchApplications();
         setShowDetails(false);
         setSelectedApplication(null);
@@ -177,16 +242,17 @@ export default function AdminAgentsPage() {
           title: "Success",
           description: `Agent status revoked successfully. ${userName} is now a reviewer again.`,
         });
-        
+
         // Show session update message
         if (data.requiresSessionUpdate) {
           toast({
             title: "Important",
-            description: "The user's role has been updated. They may need to refresh their page to see the changes.",
+            description:
+              "The user's role has been updated. They may need to refresh their page to see the changes.",
             variant: "default",
           });
         }
-        
+
         fetchApplications();
         setShowDetails(false);
         setSelectedApplication(null);
@@ -255,14 +321,21 @@ export default function AdminAgentsPage() {
         return (
           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
             <Clock className="h-3 w-3 mr-1" />
-            Pending
+            Pending ID Verification
+          </Badge>
+        );
+      case "ID_VERIFIED":
+        return (
+          <Badge variant="default" className="bg-blue-100 text-blue-800">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            ID Verified - Awaiting Business Registration
           </Badge>
         );
       case "APPROVED":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 mr-1" />
-            Approved
+            Approved Agent
           </Badge>
         );
       case "REJECTED":
@@ -398,7 +471,10 @@ export default function AdminAgentsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="PENDING">
+                      Pending ID Verification
+                    </SelectItem>
+                    <SelectItem value="ID_VERIFIED">ID Verified</SelectItem>
                     <SelectItem value="APPROVED">Approved</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
                   </SelectContent>
@@ -491,13 +567,47 @@ export default function AdminAgentsPage() {
                       <div className="mt-3 flex items-center space-x-2">
                         <Button
                           size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() =>
+                            handleIDVerification(application.id, "APPROVE")
+                          }
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Verify ID
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() =>
+                            handleIDVerification(application.id, "REJECT")
+                          }
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject ID
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          onClick={() => confirmDelete(application)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    )}
+
+                    {application.status === "ID_VERIFIED" && (
+                      <div className="mt-3 flex items-center space-x-2">
+                        <Button
+                          size="sm"
                           className="bg-green-600 hover:bg-green-700"
                           onClick={() =>
                             handleApproval(application.id, "APPROVED")
                           }
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
+                          Approve Agent
                         </Button>
                         <Button
                           size="sm"
@@ -508,15 +618,6 @@ export default function AdminAgentsPage() {
                         >
                           <XCircle className="h-4 w-4 mr-1" />
                           Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                          onClick={() => confirmDelete(application)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
                         </Button>
                       </div>
                     )}
@@ -681,7 +782,172 @@ export default function AdminAgentsPage() {
                   </p>
                 </div>
 
+                {/* ID Verification Details */}
+                {selectedApplication.idDocumentType && (
+                  <div className="border-t pt-4">
+                    <h4 className="text-lg font-semibold mb-3">
+                      ID Verification Details
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700">
+                          ID Document Type
+                        </Label>
+                        <p className="text-gray-900">
+                          {selectedApplication.idDocumentType?.replace(
+                            /_/g,
+                            " ",
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700">
+                          ID Document Number
+                        </Label>
+                        <p className="text-gray-900">
+                          {selectedApplication.idDocumentNumber}
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedApplication.idDocumentImage && (
+                      <div className="mt-4">
+                        <Label className="text-sm font-medium text-gray-700">
+                          ID Document Image
+                        </Label>
+                        <div className="mt-2">
+                          <Image
+                            src={selectedApplication.idDocumentImage}
+                            alt="ID Document"
+                            width={300}
+                            height={200}
+                            className="rounded-lg border"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedApplication.idVerified && (
+                      <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-800">
+                            ID Verified
+                          </span>
+                        </div>
+                        {selectedApplication.idVerifiedAt && (
+                          <p className="text-xs text-green-700 mt-1">
+                            Verified on:{" "}
+                            {new Date(
+                              selectedApplication.idVerifiedAt,
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Business Registration Progress */}
+                <div className="border-t pt-4">
+                  <h4 className="text-lg font-semibold mb-3">
+                    Business Registration Progress
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-900">
+                        {selectedApplication.registeredBusinessesCount}
+                      </div>
+                      <p className="text-sm text-blue-700">
+                        Registered Businesses
+                      </p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-900">
+                        {selectedApplication.verifiedBusinessesCount}
+                      </div>
+                      <p className="text-sm text-green-700">
+                        Verified Businesses
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="text-sm text-gray-600">
+                      <strong>Requirements:</strong> 2 verified businesses
+                      needed for auto-approval
+                    </div>
+                    <div className="mt-2 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${Math.min(
+                            (selectedApplication.verifiedBusinessesCount / 2) *
+                              100,
+                            100,
+                          )}%`,
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {selectedApplication.verifiedBusinessesCount}/2 verified
+                      businesses
+                    </div>
+                  </div>
+                </div>
+
                 {selectedApplication.status === "PENDING" && (
+                  <div className="border-t pt-4">
+                    <Label className="text-sm font-medium text-gray-700">
+                      Admin Notes (Required for rejection)
+                    </Label>
+                    <Textarea
+                      placeholder="Enter your notes..."
+                      value={approvalNotes}
+                      onChange={(e) => setApprovalNotes(e.target.value)}
+                      className="mt-2"
+                      rows={3}
+                    />
+
+                    <div className="flex items-center space-x-3 pt-4">
+                      <Button
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() =>
+                          handleIDVerification(
+                            selectedApplication.id,
+                            "APPROVE",
+                          )
+                        }
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Verify ID
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() =>
+                          handleIDVerification(selectedApplication.id, "REJECT")
+                        }
+                        disabled={!approvalNotes.trim()}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Reject ID
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() => confirmDelete(selectedApplication)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Application
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show approval functionality for ID verified applications */}
+                {selectedApplication.status === "ID_VERIFIED" && (
                   <div className="border-t pt-4">
                     <Label className="text-sm font-medium text-gray-700">
                       Admin Notes (Required for rejection)
@@ -702,7 +968,7 @@ export default function AdminAgentsPage() {
                         }
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Approve Application
+                        Approve Agent
                       </Button>
                       <Button
                         variant="destructive"
@@ -713,14 +979,6 @@ export default function AdminAgentsPage() {
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Reject Application
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="text-red-600 border-red-300 hover:bg-red-50"
-                        onClick={() => confirmDelete(selectedApplication)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Application
                       </Button>
                     </div>
                   </div>
@@ -744,7 +1002,12 @@ export default function AdminAgentsPage() {
                       <Button
                         variant="outline"
                         className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                        onClick={() => handleRevokeAgent(selectedApplication.user.id, selectedApplication.user.name)}
+                        onClick={() =>
+                          handleRevokeAgent(
+                            selectedApplication.user.id,
+                            selectedApplication.user.name,
+                          )
+                        }
                         disabled={!approvalNotes.trim()}
                       >
                         <Shield className="h-4 w-4 mr-2" />

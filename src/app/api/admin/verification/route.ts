@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, VerificationStatus } from "@prisma/client";
+import { RecommendationRewardService } from "@/services/RecommendationRewardService";
 
 export async function GET(request: NextRequest) {
   try {
@@ -184,8 +185,32 @@ export async function POST(request: NextRequest) {
         verificationStatus: businessVerificationStatus,
         addressVerificationStatus: businessAddressVerificationStatus,
         verifiedAt: action === "APPROVE" ? new Date() : null,
+        isVerified: action === "APPROVE", // Update the isVerified field
       },
     });
+
+    // If business is approved, process delayed recommendation rewards
+    if (action === "APPROVE") {
+      try {
+        const business = await prisma.business.findUnique({
+          where: { id: verification.businessId },
+          select: { name: true },
+        });
+
+        if (business) {
+          await RecommendationRewardService.processPendingRewardsForBusiness(
+            verification.businessId,
+            business.name,
+          );
+        }
+      } catch (rewardError) {
+        console.error(
+          "Error processing delayed recommendation rewards:",
+          rewardError,
+        );
+        // Don't fail the verification process if reward processing fails
+      }
+    }
 
     // Create admin action record
     await prisma.adminAction.create({

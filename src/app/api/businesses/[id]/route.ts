@@ -31,6 +31,8 @@ export async function GET(
         totalReviews: true,
         totalVisits: true,
         verificationStatus: true,
+        isVerified: true,
+        verificationSource: true,
         createdAt: true,
         owner: {
           select: {

@@ -27,10 +27,12 @@ import {
   X,
   Edit,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 import Image from "next/image";
 import ServicesImageSlideshow from "@/components/ServicesImageSlideshow";
+import { toast } from "@/components/ui/use-toast";
 
 interface Business {
   id: string;
@@ -49,6 +51,8 @@ interface Business {
   averageRating: number;
   totalReviews: number;
   totalVisits: number;
+  isVerified: boolean;
+  verificationSource: string;
   createdAt: string;
   owner: {
     id: string;
@@ -198,6 +202,11 @@ export default function BusinessViewPage() {
         setError("Failed to load reviews");
       }
     } catch (error) {
+      toast({
+        title: "Failed to load reviews.",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
       console.error("Failed to fetch reviews:", error);
       setError("Failed to load reviews");
     }
@@ -734,12 +743,23 @@ export default function BusinessViewPage() {
                   <h1 className="text-3xl md:text-4xl font-bold">
                     {business.name}
                   </h1>
-                  <Badge
-                    variant="secondary"
-                    className="bg-white/20 text-white border-white/30"
-                  >
-                    {formatCategory(business.category)}
-                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      variant="secondary"
+                      className="bg-white/20 text-white border-white/30"
+                    >
+                      {formatCategory(business.category)}
+                    </Badge>
+                    {!business.isVerified && (
+                      <Badge
+                        variant="outline"
+                        className="bg-orange-500/20 text-orange-200 border-orange-300/30"
+                      >
+                        <AlertCircle className="w-3 h-3 mr-1" />
+                        Unverified
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center space-x-6 text-sm">
                   <div className="flex items-center space-x-2">

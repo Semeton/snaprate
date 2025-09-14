@@ -45,7 +45,22 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          category: true,
+          city: true,
+          state: true,
+          averageRating: true,
+          totalReviews: true,
+          totalVisits: true,
+          logo: true,
+          coverImage: true,
+          verificationStatus: true,
+          isVerified: true,
+          verificationSource: true,
+          createdAt: true,
           owner: {
             select: {
               id: true,

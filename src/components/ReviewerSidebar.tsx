@@ -35,19 +35,46 @@ export default function ReviewerSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const [platformSettings, setPlatformSettings] = useState({
-    minimumBusinessesForAgent: 5,
-  });
-  const [loadingSettings, setLoadingSettings] = useState(false);
   const [showAgentModal, setShowAgentModal] = useState(false);
-  const [lastRoleCheck, setLastRoleCheck] = useState<Date>(new Date());
 
   // Check if user is an agent
   const isAgent = session?.user?.role === "AGENT";
+  const isReviewer = session?.user?.role === "REVIEWER";
 
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      fetchPlatformSettings();
+      const checkForRoleUpdates = async () => {
+        try {
+          const response = await fetch("/api/auth/refresh-session", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const currentRole = session?.user?.role;
+            const newRole = data.data.user.role;
+
+            // If role has changed, update the session
+            if (currentRole !== newRole) {
+              await update();
+
+              // Show notification to user
+              if (typeof window !== "undefined" && "Notification" in window) {
+                if (Notification.permission === "granted") {
+                  if (newRole === "AGENT") {
+                    new Notification("Agent Status Approved!", {
+                      body: "Congratulations! You are now an approved agent.",
+                      icon: "/favicon.ico",
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Failed to check for role updates", error);
+        }
+      };
 
       // Check for role updates every 30 seconds
       const interval = setInterval(() => {
@@ -56,63 +83,7 @@ export default function ReviewerSidebar({
 
       return () => clearInterval(interval);
     }
-  }, [session, status]);
-
-  const fetchPlatformSettings = async () => {
-    try {
-      setLoadingSettings(true);
-      const response = await fetch("/api/platform-settings");
-      if (response.ok) {
-        const data = await response.json();
-        setPlatformSettings(data.data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch platform settings", error);
-      // Use default value if fetch fails
-      setPlatformSettings({ minimumBusinessesForAgent: 5 });
-    } finally {
-      setLoadingSettings(false);
-    }
-  };
-
-  const checkForRoleUpdates = async () => {
-    try {
-      const response = await fetch("/api/auth/refresh-session", {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const currentRole = session?.user?.role;
-        const newRole = data.data.user.role;
-
-        // If role has changed, update the session
-        if (currentRole !== newRole) {
-          await update();
-          setLastRoleCheck(new Date());
-
-          // Show notification to user
-          if (typeof window !== "undefined" && "Notification" in window) {
-            if (Notification.permission === "granted") {
-              if (newRole === "AGENT") {
-                new Notification("Agent Status Approved!", {
-                  body: "Congratulations! You are now an approved agent.",
-                  icon: "/favicon.ico",
-                });
-              } else if (currentRole === "AGENT" && newRole === "REVIEWER") {
-                new Notification("Agent Status Revoked", {
-                  body: "Your agent status has been revoked.",
-                  icon: "/favicon.ico",
-                });
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to check for role updates", error);
-    }
-  };
+  }, [session, status, update]);
 
   const handleAgentApplication = () => {
     setShowAgentModal(true);
@@ -142,6 +113,16 @@ export default function ReviewerSidebar({
             href: "/reviewer/agent-dashboard",
             icon: Shield,
             current: pathname === "/reviewer/agent-dashboard",
+          },
+        ]
+      : []),
+    ...(isReviewer
+      ? [
+          {
+            name: "Business Registration",
+            href: "/reviewer/agent/business-registration",
+            icon: Building2,
+            current: pathname === "/reviewer/agent/business-registration",
           },
         ]
       : []),
@@ -341,95 +322,92 @@ export default function ReviewerSidebar({
                 </div>
               </div>
 
-              {loadingSettings ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-3"></div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Loading requirements...
+              {/* Dynamic Requirement Summary */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                  🎯 Current Requirement
+                </h3>
+                <p className="text-blue-800 dark:text-blue-200 text-sm">
+                  Register at least <span className="font-bold">2</span>{" "}
+                  verified businesses
+                </p>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  Requirements to become an agent:
+                </h3>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">•</span>
+                    <span>
+                      Verify your ID (Voter card, National ID, Passport, or
+                      Driving license)
+                    </span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">•</span>
+                    <span>
+                      Register at least <span className="font-medium">2</span>{" "}
+                      verified businesses
+                    </span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">•</span>
+                    <span>Answer required application questions</span>
+                  </li>
+                  <li className="flex items-start space-x-2">
+                    <span className="text-green-500 mt-0.5">•</span>
+                    <span>Auto-approval after 2 verified businesses</span>
+                  </li>
+                </ul>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-blue-800 dark:text-blue-200 text-xs">
+                    <strong>Note:</strong> You must register{" "}
+                    <strong>verified businesses</strong> with full verification
+                    documents. Start earning from the 3rd registered business
+                    onwards.
                   </p>
                 </div>
-              ) : (
-                <>
-                  {/* Dynamic Requirement Summary */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
-                      🎯 Current Requirement
-                    </h3>
-                    <p className="text-blue-800 dark:text-blue-200 text-sm">
-                      Review at least{" "}
-                      <span className="font-bold">
-                        {platformSettings.minimumBusinessesForAgent}
-                      </span>{" "}
-                      different businesses
-                    </p>
-                  </div>
+              </div>
 
-                  <div className="space-y-4 mb-6">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      Requirements to become an agent:
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                      <li className="flex items-start space-x-2">
-                        <span className="text-green-500 mt-0.5">•</span>
-                        <span>
-                          Review at least{" "}
-                          <span className="font-medium">
-                            {platformSettings?.minimumBusinessesForAgent || 5}
-                          </span>{" "}
-                          different businesses
-                        </span>
-                      </li>
-                      <li className="flex items-start space-x-2">
-                        <span className="text-green-500 mt-0.5">•</span>
-                        <span>Have a verified email and phone number</span>
-                      </li>
-                      <li className="flex items-start space-x-2">
-                        <span className="text-green-500 mt-0.5">•</span>
-                        <span>Provide motivation and experience details</span>
-                      </li>
-                      <li className="flex items-start space-x-2">
-                        <span className="text-green-500 mt-0.5">•</span>
-                        <span>Demonstrate commitment to the platform</span>
-                      </li>
-                    </ul>
+              <div className="space-y-3">
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                  onClick={() => {
+                    setShowAgentModal(false);
+                    router.push("/reviewer/apply-agent");
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Start Application
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowAgentModal(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
 
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                      <p className="text-yellow-800 dark:text-yellow-200 text-xs">
-                        <strong>Note:</strong> You must review{" "}
-                        <strong>different businesses</strong>, not just multiple
-                        reviews for the same business.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Button
-                      className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                      onClick={() => {
-                        setShowAgentModal(false);
-                        router.push("/reviewer/apply-agent");
-                      }}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Start Application
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => setShowAgentModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-
-                  <div className="mt-4 text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Progress indicator and requirements are updated in
-                      real-time by administrators.
-                    </p>
-                  </div>
-                </>
-              )}
+              <div className="mt-4 text-center">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Progress indicator and requirements are updated in real-time
+                  by administrators.
+                </p>
+              </div>
+              {/* Dynamic Requirement Summary */}
+              {/* <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                  🎯 Current Requirement
+                </h3>
+                <p className="text-blue-800 dark:text-blue-200 text-sm">
+                  Register at least <span className="font-bold">2</span>{" "}
+                  verified businesses
+                </p>
+              </div> */}
             </div>
           </div>
         </div>

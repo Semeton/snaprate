@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,12 +12,16 @@ import {
   Gift,
   Users,
   MessageSquare,
-  Calendar,
   MapPin,
   ArrowRight,
   Plus,
   User,
   Shield,
+  Building2,
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
 } from "lucide-react";
 
 interface DashboardStats {
@@ -65,6 +69,42 @@ interface RecentReward {
   createdAt: string;
 }
 
+interface BusinessRegistration {
+  id: string;
+  registrationType: "FULL_REGISTRATION" | "RECOMMENDATION";
+  status: "PENDING" | "VERIFIED" | "REJECTED";
+  businessName: string | null;
+  businessDescription: string | null;
+  businessCategory: string | null;
+  businessPhone: string | null;
+  businessEmail: string | null;
+  businessAddress: string | null;
+  businessCity: string | null;
+  businessState: string | null;
+  businessWebsite: string | null;
+  submittedAt: string;
+  verifiedAt: string | null;
+  adminNotes: string | null;
+  business?: {
+    id: string;
+    name: string;
+    isVerified: boolean;
+    verificationSource: string;
+  };
+}
+
+interface RegistrationStats {
+  totalRegistrations: number;
+  pendingRegistrations: number;
+  verifiedRegistrations: number;
+  rejectedRegistrations: number;
+  fullRegistrations: number;
+  recommendations: number;
+  verifiedBusinessesCount: number;
+  canEarnFromRegistrations: boolean;
+  earningsStartFrom: number;
+}
+
 interface RecentBusiness {
   id: string;
   name: string;
@@ -86,15 +126,12 @@ export default function ReviewerDashboard() {
   const [recentBusinesses, setRecentBusinesses] = useState<RecentBusiness[]>(
     [],
   );
+  const [businessRegistrations, setBusinessRegistrations] = useState<
+    BusinessRegistration[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      fetchDashboardData();
-    }
-  }, [session, status]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -139,7 +176,13 @@ export default function ReviewerDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      fetchDashboardData();
+    }
+  }, [session, status, fetchDashboardData]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -160,6 +203,54 @@ export default function ReviewerDashboard() {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return (
+          <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
+      case "VERIFIED":
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Verified
+          </Badge>
+        );
+      case "REJECTED":
+        return (
+          <Badge variant="secondary" className="bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
+            Rejected
+          </Badge>
+        );
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    return type === "FULL_REGISTRATION" ? (
+      <Badge
+        variant="outline"
+        className="bg-blue-50 text-blue-700 border-blue-200"
+      >
+        <Building2 className="w-3 h-3 mr-1" />
+        Full Registration
+      </Badge>
+    ) : (
+      <Badge
+        variant="outline"
+        className="bg-purple-50 text-purple-700 border-purple-200"
+      >
+        <FileText className="w-3 h-3 mr-1" />
+        Recommendation
+      </Badge>
+    );
   };
 
   if (status === "loading" || loading) {
@@ -655,6 +746,92 @@ export default function ReviewerDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Business Registrations - Only for Reviewers */}
+        {session?.user?.role === "REVIEWER" && (
+          <Card>
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle className="flex items-center space-x-2 dark:text-white">
+                <Building2 className="h-5 w-5" />
+                <span>Business Registrations</span>
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  router.push("/reviewer/agent/business-registration")
+                }
+                className="text-blue-600 hover:text-blue-700"
+              >
+                View All
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {businessRegistrations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Building2 className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    No business registrations yet
+                  </p>
+                  <Button
+                    onClick={() =>
+                      router.push("/reviewer/agent/business-registration")
+                    }
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Register Business
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {businessRegistrations.slice(0, 3).map((registration) => (
+                    <div
+                      key={registration.id}
+                      className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white truncate">
+                            {registration.businessName}
+                          </h4>
+                          <div className="flex gap-1">
+                            {getTypeBadge(registration.registrationType)}
+                            {getStatusBadge(registration.status)}
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {registration.businessCategory?.replace(/_/g, " ")} •{" "}
+                          {registration.businessCity},{" "}
+                          {registration.businessState}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Submitted: {formatDate(registration.submittedAt)}
+                          {registration.verifiedAt && (
+                            <span className="ml-2">
+                              • Verified: {formatDate(registration.verifiedAt)}
+                            </span>
+                          )}
+                        </p>
+                        {registration.business && (
+                          <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs text-green-800 dark:text-green-200">
+                            ✓ Business Created: {registration.business.name}
+                            {registration.business.isVerified && " (Verified)"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   );
