@@ -86,6 +86,8 @@ export default function BusinessCouponsPage() {
     | null
   >(null);
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
+  const [generatingQR, setGeneratingQR] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBusinessCoupons();
@@ -196,6 +198,68 @@ export default function BusinessCouponsPage() {
   const handleCloseClaimModal = () => {
     setIsClaimModalOpen(false);
     setSelectedCoupon(null);
+  };
+
+  const downloadCouponPDF = async (couponId: string) => {
+    try {
+      setDownloadingPDF(couponId);
+      const response = await fetch(`/api/coupons/${couponId}/pdf`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `coupon-${couponId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPDF(null);
+    }
+  };
+
+  const generateQRCode = async (couponId: string) => {
+    try {
+      setGeneratingQR(couponId);
+      const response = await fetch(`/api/coupons/${couponId}/qr`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate QR code");
+      }
+
+      const data = await response.json();
+
+      // Open QR code in new window
+      const qrWindow = window.open("", "_blank", "width=400,height=500");
+      if (qrWindow) {
+        qrWindow.document.write(`
+          <html>
+            <head><title>Coupon QR Code</title></head>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+              <h2>Coupon QR Code</h2>
+              <img src="${data.qrCode}" alt="QR Code" style="max-width: 300px; margin: 20px 0;">
+              <p><strong>Coupon Code:</strong> ${data.couponCode}</p>
+              <p><strong>Verification URL:</strong><br><a href="${data.verificationURL}" target="_blank">${data.verificationURL}</a></p>
+              <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print QR Code</button>
+            </body>
+          </html>
+        `);
+        qrWindow.document.close();
+      }
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+      alert("Failed to generate QR code. Please try again.");
+    } finally {
+      setGeneratingQR(null);
+    }
   };
 
   if (loading) {
@@ -473,13 +537,25 @@ export default function BusinessCouponsPage() {
                       {coupon.isAvailable ? "Claim Coupon" : "Already Claimed"}
                     </Button>
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => downloadCouponPDF(coupon.id)}
+                        disabled={downloadingPDF === coupon.id}
+                      >
                         <Download className="w-3 h-3 mr-1" />
-                        PDF
+                        {downloadingPDF === coupon.id ? "Generating..." : "PDF"}
                       </Button>
-                      <Button variant="outline" size="sm" className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => generateQRCode(coupon.id)}
+                        disabled={generatingQR === coupon.id}
+                      >
                         <QrCode className="w-3 h-3 mr-1" />
-                        QR
+                        {generatingQR === coupon.id ? "Generating..." : "QR"}
                       </Button>
                     </div>
                   </div>

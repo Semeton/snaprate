@@ -22,7 +22,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import BulkCouponOperations from "@/components/BulkCouponOperations";
+import CouponAnalyticsComponent from "@/components/CouponAnalytics";
 import { UserRole, CouponType, CouponStatus, CouponUseType } from "@/types";
 import {
   Gift,
@@ -41,6 +44,7 @@ import {
   UserPlus,
   UserMinus,
   UserCheck,
+  Settings,
 } from "lucide-react";
 
 interface Coupon {
@@ -1057,474 +1061,522 @@ function BusinessCouponsContent() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
-            <p className="font-medium">Error loading coupons:</p>
-            <p>{error}</p>
-          </div>
-        )}
+        <Tabs defaultValue="coupons" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="coupons" className="flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Coupons
+            </TabsTrigger>
+            <TabsTrigger value="bulk" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Bulk Operations
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Business Verification Notice */}
-        {business && !business.isVerified && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              <div>
-                <p className="font-medium">Business Verification Required</p>
-                <p className="text-sm">
-                  Your business needs to be verified before you can create
-                  coupons. Please complete the verification process to start
-                  creating promotional offers.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() =>
-                    (window.location.href = "/business/verification")
-                  }
-                >
-                  Complete Verification
-                </Button>
+          <TabsContent value="coupons" className="space-y-6">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200">
+                <p className="font-medium">Error loading coupons:</p>
+                <p>{error}</p>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Success/Error Message */}
-        {message && (
-          <div
-            className={`mb-6 p-4 rounded-lg ${
-              message.type === "success"
-                ? "bg-green-50 border border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200"
-                : "bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        {/* Filters and Search */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search coupons..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value={CouponStatus.ACTIVE}>Active</SelectItem>
-              <SelectItem value={CouponStatus.PAUSED}>Paused</SelectItem>
-              <SelectItem value={CouponStatus.EXPIRED}>Expired</SelectItem>
-              <SelectItem value={CouponStatus.DRAFT}>Draft</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Coupons
-              </CardTitle>
-              <Gift className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{coupons.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {coupons.filter((c) => c.status === CouponStatus.ACTIVE).length}{" "}
-                active
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Issued
-              </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {coupons
-                  .reduce((sum, c) => sum + c.totalIssued, 0)
-                  .toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Across all coupons
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Redeemed
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {coupons
-                  .reduce((sum, c) => sum + c.totalRedeemed, 0)
-                  .toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {(
-                  (coupons.reduce((sum, c) => sum + c.totalRedeemed, 0) /
-                    coupons.reduce((sum, c) => sum + c.totalIssued, 0)) *
-                  100
-                ).toFixed(1)}
-                % redemption rate
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Revenue Impact
-              </CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ₦
-                {coupons
-                  .reduce((sum, c) => {
-                    if (c.type === CouponType.PERCENTAGE) {
-                      return sum + c.totalRedeemed * (c.value / 100) * 1000; // Assuming avg order value
-                    } else {
-                      return sum + c.totalRedeemed * c.value;
-                    }
-                  }, 0)
-                  .toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Total discount value
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Coupons List */}
-        <div className="space-y-4">
-          {filteredCoupons.map((coupon) => (
-            <Card key={coupon.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {coupon.title}
-                      </h3>
-                      <Badge variant={getStatusColor(coupon.status)}>
-                        {coupon.status}
-                      </Badge>
-                    </div>
-
-                    <p className="text-gray-600 dark:text-gray-400 mb-3">
-                      {coupon.description}
+            {/* Business Verification Notice */}
+            {business && !business.isVerified && (
+              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  <div>
+                    <p className="font-medium">
+                      Business Verification Required
                     </p>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Code:
-                        </span>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono">
-                            {coupon.baseCode}
-                          </code>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                coupon.baseCode || "",
-                              );
-                              // You could add a toast notification here
-                            }}
-                          >
-                            <Copy className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Discount:
-                        </span>
-                        <p className="font-semibold text-green-600 mt-1">
-                          {getDiscountDisplay(coupon)}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Usage:
-                        </span>
-                        <p className="mt-1">
-                          {coupon.totalRedeemed}/{coupon.totalIssued}
-                          {coupon.maxUses && ` / ${coupon.maxUses}`}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Valid Until:
-                        </span>
-                        <p className="mt-1">
-                          {new Date(coupon.validUntil).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Assigned User Information */}
-                    {coupon.assignedUser && (
-                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <div className="flex items-center space-x-2">
-                          <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Assigned to:
-                          </span>
-                          <span className="text-sm text-blue-700 dark:text-blue-300">
-                            {coupon.assignedUser.name} (
-                            {coupon.assignedUser.userIdentifier})
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2 ml-4">
+                    <p className="text-sm">
+                      Your business needs to be verified before you can create
+                      coupons. Please complete the verification process to start
+                      creating promotional offers.
+                    </p>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => downloadCouponPDF(coupon.id)}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateQRCode(coupon.id)}
-                    >
-                      <QrCode className="w-4 h-4 mr-2" />
-                      QR Code
-                    </Button>
-
-                    {/* Assignment Buttons */}
-                    {coupon.assignedUser ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => unassignCoupon(coupon.id)}
-                        className="text-orange-600 hover:text-orange-700"
-                      >
-                        <UserMinus className="w-4 h-4 mr-2" />
-                        Unassign
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openAssignDialog(coupon.id)}
-                        className="text-blue-600 hover:text-blue-700"
-                      >
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Assign
-                      </Button>
-                    )}
-
-                    <Button variant="outline" size="sm">
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
-                    </Button>
-                    <Select
-                      value={coupon.status}
-                      onValueChange={(value) =>
-                        handleStatusUpdate(coupon.id, value as CouponStatus)
+                      className="mt-2"
+                      onClick={() =>
+                        (window.location.href = "/business/verification")
                       }
                     >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={CouponStatus.ACTIVE}>
-                          Active
-                        </SelectItem>
-                        <SelectItem value={CouponStatus.PAUSED}>
-                          Paused
-                        </SelectItem>
-                        <SelectItem value={CouponStatus.EXPIRED}>
-                          Expired
-                        </SelectItem>
-                        <SelectItem value={CouponStatus.DRAFT}>
-                          Draft
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteCoupon(coupon.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
+                      Complete Verification
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            )}
 
-          {filteredCoupons.length === 0 && (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Gift className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  {searchTerm || statusFilter !== "all"
-                    ? "No coupons found"
-                    : "No coupons yet"}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {searchTerm || statusFilter !== "all"
-                    ? "Try adjusting your search or filters"
-                    : "Create your first coupon to attract customers and boost sales!"}
-                </p>
-                {!searchTerm && statusFilter === "all" && (
-                  <Button onClick={() => setShowCreateDialog(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Coupon
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+            {/* Success/Error Message */}
+            {message && (
+              <div
+                className={`mb-6 p-4 rounded-lg ${
+                  message.type === "success"
+                    ? "bg-green-50 border border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200"
+                    : "bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200"
+                }`}
+              >
+                {message.text}
+              </div>
+            )}
 
-      {/* User Assignment Dialog */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Assign Coupon to Reviewer/Agent</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="reviewerSearch">Search Reviewers & Agents</Label>
-              <div className="relative mt-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            {/* Filters and Search */}
+            <div className="mb-6 flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  id="reviewerSearch"
-                  placeholder="Search by name, email, or user ID..."
-                  value={reviewerSearch}
-                  onChange={(e) => {
-                    setReviewerSearch(e.target.value);
-                    fetchReviewers(e.target.value);
-                  }}
+                  placeholder="Search coupons..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value={CouponStatus.ACTIVE}>Active</SelectItem>
+                  <SelectItem value={CouponStatus.PAUSED}>Paused</SelectItem>
+                  <SelectItem value={CouponStatus.EXPIRED}>Expired</SelectItem>
+                  <SelectItem value={CouponStatus.DRAFT}>Draft</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="max-h-96 overflow-y-auto">
-              {loadingReviewers ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Loading reviewers and agents...
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Coupons
+                  </CardTitle>
+                  <Gift className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{coupons.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {
+                      coupons.filter((c) => c.status === CouponStatus.ACTIVE)
+                        .length
+                    }{" "}
+                    active
                   </p>
-                </div>
-              ) : reviewers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {reviewerSearch
-                      ? "No reviewers or agents found matching your search"
-                      : "No reviewers or agents available"}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Issued
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {coupons
+                      .reduce((sum, c) => sum + c.totalIssued, 0)
+                      .toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Across all coupons
                   </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {reviewers.map((reviewer) => (
-                    <div
-                      key={reviewer.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Redeemed
+                  </CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {coupons
+                      .reduce((sum, c) => sum + c.totalRedeemed, 0)
+                      .toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {coupons.reduce((sum, c) => sum + c.totalIssued, 0) > 0
+                      ? (
+                          (coupons.reduce(
+                            (sum, c) => sum + c.totalRedeemed,
+                            0,
+                          ) /
+                            coupons.reduce(
+                              (sum, c) => sum + c.totalIssued,
+                              0,
+                            )) *
+                          100
+                        ).toFixed(1)
+                      : "0.0"}
+                    % redemption rate
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Revenue Impact
+                  </CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    ₦
+                    {coupons
+                      .reduce((sum, c) => {
+                        if (c.type === CouponType.PERCENTAGE) {
+                          return sum + c.totalRedeemed * (c.value / 100) * 1000; // Assuming avg order value
+                        } else {
+                          return sum + c.totalRedeemed * c.value;
+                        }
+                      }, 0)
+                      .toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total discount value
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Coupons List */}
+            <div className="space-y-4">
+              {filteredCoupons.map((coupon) => (
+                <Card key={coupon.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                              {reviewer.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {coupon.title}
+                          </h3>
+                          <Badge variant={getStatusColor(coupon.status)}>
+                            {coupon.status}
+                          </Badge>
+                        </div>
+
+                        <p className="text-gray-600 dark:text-gray-400 mb-3">
+                          {coupon.description}
+                        </p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <div className="flex items-center space-x-2">
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {reviewer.name}
-                              </p>
-                              <Badge
-                                variant={
-                                  reviewer.role === "AGENT"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                                className="text-xs"
+                            <span className="text-gray-500 dark:text-gray-400">
+                              Code:
+                            </span>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono">
+                                {coupon.baseCode}
+                              </code>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    coupon.baseCode || "",
+                                  );
+                                  // You could add a toast notification here
+                                }}
                               >
-                                {reviewer.role === "AGENT"
-                                  ? "Agent"
-                                  : "Reviewer"}
-                              </Badge>
+                                <Copy className="w-3 h-3" />
+                              </Button>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {reviewer.email} • ID: {reviewer.userIdentifier}
+                          </div>
+
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              Discount:
+                            </span>
+                            <p className="font-semibold text-green-600 mt-1">
+                              {getDiscountDisplay(coupon)}
                             </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {reviewer.reviewsCount} reviews for your business
+                          </div>
+
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              Usage:
+                            </span>
+                            <p className="mt-1">
+                              {coupon.totalRedeemed}/{coupon.totalIssued}
+                              {coupon.maxUses && ` / ${coupon.maxUses}`}
+                            </p>
+                          </div>
+
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">
+                              Valid Until:
+                            </span>
+                            <p className="mt-1">
+                              {new Date(coupon.validUntil).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
+
+                        {/* Assigned User Information */}
+                        {coupon.assignedUser && (
+                          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className="flex items-center space-x-2">
+                              <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                Assigned to:
+                              </span>
+                              <span className="text-sm text-blue-700 dark:text-blue-300">
+                                {coupon.assignedUser.name} (
+                                {coupon.assignedUser.userIdentifier})
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Button
-                        onClick={() => assignCouponToUser(reviewer.id)}
-                        disabled={assigning}
-                        size="sm"
-                      >
-                        {assigning ? "Assigning..." : "Assign"}
-                      </Button>
+
+                      <div className="flex items-center space-x-2 ml-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadCouponPDF(coupon.id)}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateQRCode(coupon.id)}
+                        >
+                          <QrCode className="w-4 h-4 mr-2" />
+                          QR Code
+                        </Button>
+
+                        {/* Assignment Buttons */}
+                        {coupon.assignedUser ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => unassignCoupon(coupon.id)}
+                            className="text-orange-600 hover:text-orange-700"
+                          >
+                            <UserMinus className="w-4 h-4 mr-2" />
+                            Unassign
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openAssignDialog(coupon.id)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Assign
+                          </Button>
+                        )}
+
+                        <Button variant="outline" size="sm">
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
+                        </Button>
+                        <Select
+                          value={coupon.status}
+                          onValueChange={(value) =>
+                            handleStatusUpdate(coupon.id, value as CouponStatus)
+                          }
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={CouponStatus.ACTIVE}>
+                              Active
+                            </SelectItem>
+                            <SelectItem value={CouponStatus.PAUSED}>
+                              Paused
+                            </SelectItem>
+                            <SelectItem value={CouponStatus.EXPIRED}>
+                              Expired
+                            </SelectItem>
+                            <SelectItem value={CouponStatus.DRAFT}>
+                              Draft
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteCoupon(coupon.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {filteredCoupons.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Gift className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      {searchTerm || statusFilter !== "all"
+                        ? "No coupons found"
+                        : "No coupons yet"}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      {searchTerm || statusFilter !== "all"
+                        ? "Try adjusting your search or filters"
+                        : "Create your first coupon to attract customers and boost sales!"}
+                    </p>
+                    {!searchTerm && statusFilter === "all" && (
+                      <Button onClick={() => setShowCreateDialog(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Coupon
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
               )}
             </div>
+          </TabsContent>
 
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowAssignDialog(false)}
-                disabled={assigning}
-              >
-                Cancel
-              </Button>
+          <TabsContent value="bulk" className="space-y-6">
+            <BulkCouponOperations />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            {business && (
+              <CouponAnalyticsComponent
+                businessId={business.id}
+                businessName={business.name}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* User Assignment Dialog */}
+        <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Assign Coupon to Reviewer/Agent</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="reviewerSearch">
+                  Search Reviewers & Agents
+                </Label>
+                <div className="relative mt-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    id="reviewerSearch"
+                    placeholder="Search by name, email, or user ID..."
+                    value={reviewerSearch}
+                    onChange={(e) => {
+                      setReviewerSearch(e.target.value);
+                      fetchReviewers(e.target.value);
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {loadingReviewers ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Loading reviewers and agents...
+                    </p>
+                  </div>
+                ) : reviewers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {reviewerSearch
+                        ? "No reviewers or agents found matching your search"
+                        : "No reviewers or agents available"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {reviewers.map((reviewer) => (
+                      <div
+                        key={reviewer.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                {reviewer.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {reviewer.name}
+                                </p>
+                                <Badge
+                                  variant={
+                                    reviewer.role === "AGENT"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {reviewer.role === "AGENT"
+                                    ? "Agent"
+                                    : "Reviewer"}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {reviewer.email} • ID: {reviewer.userIdentifier}
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">
+                                {reviewer.reviewsCount} reviews for your
+                                business
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => assignCouponToUser(reviewer.id)}
+                          disabled={assigning}
+                          size="sm"
+                        >
+                          {assigning ? "Assigning..." : "Assign"}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAssignDialog(false)}
+                  disabled={assigning}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

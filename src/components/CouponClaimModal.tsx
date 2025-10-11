@@ -24,6 +24,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Download,
+  QrCode,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { CouponType, CouponUseType } from "@/types";
@@ -73,6 +75,8 @@ const CouponClaimModal: React.FC<CouponClaimModalProps> = ({
     success: boolean;
     message: string;
   } | null>(null);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [generatingQR, setGeneratingQR] = useState(false);
 
   const handleClaim = async () => {
     if (!coupon) return;
@@ -143,6 +147,72 @@ const CouponClaimModal: React.FC<CouponClaimModalProps> = ({
   const handleClose = () => {
     setClaimResult(null);
     onClose();
+  };
+
+  const downloadCouponPDF = async () => {
+    if (!coupon) return;
+
+    try {
+      setDownloadingPDF(true);
+      const response = await fetch(`/api/coupons/${coupon.id}/pdf`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate PDF");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `coupon-${coupon.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
+  const generateQRCode = async () => {
+    if (!coupon) return;
+
+    try {
+      setGeneratingQR(true);
+      const response = await fetch(`/api/coupons/${coupon.id}/qr`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate QR code");
+      }
+
+      const data = await response.json();
+
+      // Open QR code in new window
+      const qrWindow = window.open("", "_blank", "width=400,height=500");
+      if (qrWindow) {
+        qrWindow.document.write(`
+          <html>
+            <head><title>Coupon QR Code</title></head>
+            <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
+              <h2>Coupon QR Code</h2>
+              <img src="${data.qrCode}" alt="QR Code" style="max-width: 300px; margin: 20px 0;">
+              <p><strong>Coupon Code:</strong> ${data.couponCode}</p>
+              <p><strong>Verification URL:</strong><br><a href="${data.verificationURL}" target="_blank">${data.verificationURL}</a></p>
+              <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print QR Code</button>
+            </body>
+          </html>
+        `);
+        qrWindow.document.close();
+      }
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+      alert("Failed to generate QR code. Please try again.");
+    } finally {
+      setGeneratingQR(false);
+    }
   };
 
   if (!coupon) {
@@ -357,6 +427,29 @@ const CouponClaimModal: React.FC<CouponClaimModalProps> = ({
           <Button variant="outline" onClick={handleClose} disabled={isClaiming}>
             Cancel
           </Button>
+
+          {/* PDF and QR Code buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={downloadCouponPDF}
+              disabled={downloadingPDF || isClaiming}
+              size="sm"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {downloadingPDF ? "Generating..." : "PDF"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={generateQRCode}
+              disabled={generatingQR || isClaiming}
+              size="sm"
+            >
+              <QrCode className="h-4 w-4 mr-2" />
+              {generatingQR ? "Generating..." : "QR"}
+            </Button>
+          </div>
+
           <Button
             onClick={handleClaim}
             disabled={isClaiming || claimResult?.success}

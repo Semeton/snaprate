@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { CouponService } from "@/services/CouponService";
 
 // Generate PDF for a coupon
@@ -11,24 +12,57 @@ export async function GET(
   try {
     const { id: couponId } = await params;
 
+    console.log(`PDF request for coupon ID: ${couponId}`);
+
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const couponService = new CouponService();
 
-    // Verify user has access to this coupon
-    const coupon = await couponService.getCouponByCode(couponId);
+    // Try to find coupon by ID first, then by code
+    let coupon = await prisma.coupon.findUnique({
+      where: { id: couponId },
+      include: {
+        business: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            state: true,
+            city: true,
+          },
+        },
+        assignedUser: {
+          select: {
+            id: true,
+            name: true,
+            userIdentifier: true,
+          },
+        },
+      },
+    });
+
+    console.log(`Coupon found by ID: ${!!coupon}`);
+
+    // If not found by ID, try by code
+    if (!coupon) {
+      coupon = await couponService.getCouponByCode(couponId);
+      console.log(`Coupon found by code: ${!!coupon}`);
+    }
+
     if (!coupon) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
 
-    // Check if user has access (business owner or assigned user)
-    const hasAccess =
-      session.user.role === "BUSINESS_OWNER" ||
-      coupon.assignedUserId === session.user.id ||
-      ["ADMIN", "SUPER_ADMIN"].includes(session.user.role || "");
+    // Check if user has access (business owner, assigned user, admin, or public access for active coupons)
+    const hasAccess = session?.user
+      ? session.user.role === "BUSINESS_OWNER" ||
+        coupon.assignedUserId === session.user.id ||
+        ["ADMIN", "SUPER_ADMIN"].includes(session.user.role || "")
+      : // Allow public access for active, unassigned coupons
+        coupon.status === "ACTIVE" &&
+        !coupon.assignedUserId &&
+        new Date(coupon.validUntil) > new Date() &&
+        new Date(coupon.validFrom) <= new Date();
 
     if (!hasAccess) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
