@@ -52,8 +52,12 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
+        phone: true,
+        city: true,
+        state: true,
         userIdentifier: true,
         role: true,
+        avatar: true,
         createdAt: true,
         _count: {
           select: {
@@ -74,8 +78,12 @@ export async function GET(request: NextRequest) {
       id: reviewer.id,
       name: reviewer.name,
       email: reviewer.email,
+      phone: reviewer.phone,
+      city: reviewer.city,
+      state: reviewer.state,
       userIdentifier: reviewer.userIdentifier,
       role: reviewer.role,
+      avatar: reviewer.avatar,
       joinedDate: reviewer.createdAt,
       reviewsCount: reviewer._count.reviews,
     }));

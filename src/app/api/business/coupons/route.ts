@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
       validFrom,
       validUntil,
       maxUses,
+      couponType,
+      requiresReview,
     } = body;
 
     // Validate required fields
@@ -105,6 +107,14 @@ export async function POST(request: NextRequest) {
         maxUses: maxUses ? parseInt(maxUses) : undefined,
         baseCode: baseCode,
         businessId: business.id,
+        couponType: couponType || "PUBLIC",
+        requiresReview: requiresReview || false,
+        // Set defaults for required fields
+        useType: "SINGLE_USE",
+        allowedDaysOfWeek: [],
+        cannotCombineWithOtherCoupons: true,
+        requiresIdVerification: false,
+        maxUsesPerUser: 1,
       },
     });
 

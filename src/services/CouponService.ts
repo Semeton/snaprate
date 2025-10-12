@@ -89,6 +89,10 @@ export class CouponService {
             couponData.cannotCombineWithOtherCoupons ?? true,
           requiresIdVerification: couponData.requiresIdVerification ?? false,
           maxUsesPerUser: couponData.maxUsesPerUser || 1,
+
+          // Public/Private coupon system
+          couponType: couponData.couponType || "PUBLIC",
+          requiresReview: couponData.requiresReview ?? false,
         },
         include: {
           business: {

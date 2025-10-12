@@ -63,9 +63,11 @@ export default function BusinessSidebar({
     },
     {
       name: "Coupons",
-      href: "/business/coupons",
+      href: "/business/coupons/simple",
       icon: Gift,
-      current: pathname === "/business/coupons",
+      current:
+        pathname === "/business/coupons" ||
+        pathname === "/business/coupons/simple",
     },
     {
       name: "Reviews",

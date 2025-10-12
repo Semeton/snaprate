@@ -131,6 +131,11 @@ export enum CouponUseType {
   ONCE_PER_USER = "ONCE_PER_USER",
 }
 
+export enum CouponVisibility {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+}
+
 export enum RedemptionMethod {
   IN_PERSON = "IN_PERSON",
   ONLINE = "ONLINE",
@@ -334,6 +339,10 @@ export interface Coupon {
   assignedUserId?: string;
   assignedAt?: Date;
 
+  // Public/Private coupon system
+  couponType: CouponVisibility; // PUBLIC or PRIVATE
+  requiresReview: boolean; // Whether user must review business to claim
+
   // Relations
   business: Business;
   assignedUser?: User;
@@ -374,6 +383,8 @@ export interface CouponCreationData {
   cannotCombineWithOtherCoupons?: boolean;
   requiresIdVerification?: boolean;
   maxUsesPerUser?: number;
+  couponType: CouponVisibility;
+  requiresReview?: boolean;
 }
 
 export interface CouponAssignmentData {

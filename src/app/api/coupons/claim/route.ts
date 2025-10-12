@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CouponService } from "@/services/CouponService";
+import { ReviewRequirementService } from "@/services/ReviewRequirementService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -128,6 +129,17 @@ export async function POST(request: NextRequest) {
         { error: "You can only have 5 active coupons at a time" },
         { status: 400 },
       );
+    }
+
+    // Check review requirements
+    const reviewCheck = await ReviewRequirementService.canUserClaimCoupon(
+      session.user.id,
+      coupon.businessId,
+      couponId,
+    );
+
+    if (!reviewCheck.canClaim) {
+      return NextResponse.json({ error: reviewCheck.reason }, { status: 400 });
     }
 
     // Claim the coupon

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Building2, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import CouponAnalyticsComponent from "@/components/CouponAnalytics";
@@ -17,7 +17,6 @@ interface Business {
 }
 
 export default function BusinessCouponAnalyticsPage() {
-  const { data: session } = useSession();
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +90,7 @@ export default function BusinessCouponAnalyticsPage() {
               <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
               <div className="space-x-4">
                 <Button onClick={fetchBusiness}>Try Again</Button>
-                <Link href="/business/coupons">
+                <Link href="/business/coupons/simple">
                   <Button variant="outline">Back to Coupons</Button>
                 </Link>
               </div>
@@ -131,7 +130,7 @@ export default function BusinessCouponAnalyticsPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             <div className="flex items-center gap-2 mb-6">
-              <Link href="/business/coupons">
+              <Link href="/business/coupons/simple">
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Coupons
@@ -193,7 +192,7 @@ export default function BusinessCouponAnalyticsPage() {
           </Link>
           <span>/</span>
           <Link
-            href="/business/coupons"
+            href="/business/coupons/simple"
             className="hover:text-gray-700 dark:hover:text-gray-300"
           >
             Coupons
@@ -207,7 +206,7 @@ export default function BusinessCouponAnalyticsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Link href="/business/coupons">
+            <Link href="/business/coupons/simple">
               <Button variant="outline" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Coupons

@@ -5,8 +5,14 @@
 ### Core Functionality
 
 - **Business Coupon Creation**: Any registered and verified business can create coupons
+- **Coupon Types**:
+  - **Public Coupons**: Any reviewer can claim them (displayed publicly)
+  - **Private Coupons**: Must be manually assigned by business (not displayed publicly)
 - **Coupon Restrictions**: Multiple conditions and restrictions per coupon
-- **User Assignment**: Reviewers can claim/be assigned coupons
+- **User Assignment**: Reviewers can claim public coupons or be assigned private coupons
+- **Review Requirements**:
+  - First time: No review required to claim coupons
+  - Subsequently: Must review the business to claim another coupon
 - **Redemption System**: QR code and manual verification for coupon redemption
 - **Security**: Unique codes, validation, and fraud prevention
 
@@ -66,80 +72,72 @@
 
 ### **NOT IMPLEMENTED**
 
-#### 1. User-Facing Coupon System
+#### 1. Public/Private Coupon System
 
-- ❌ **Coupon Discovery**: No interface for browsing available coupons
-- ❌ **Coupon Catalog**: No public business coupon listings
-- ❌ **Coupon Claiming**: No system for users to request/claim coupons
-- ❌ **Business Coupon Pages**: No public pages showing business coupons
+- ❌ **Coupon Type Selection**: No UI for choosing public vs private coupons
+- ❌ **Public Coupon Discovery**: No interface for browsing available public coupons
+- ❌ **Private Coupon Management**: No system for managing private coupon assignments
+- ❌ **Review Requirement Logic**: No enforcement of review requirements for subsequent claims
 
-#### 2. Enhanced Features
+#### 2. Simplified User Experience
 
-- ❌ **Coupon Analytics**: Limited business analytics on coupon performance
+- ❌ **Simplified Coupon Form**: Current form is too complex with too many fields
+- ❌ **Form Component Abstraction**: Form needs to be broken into reusable components
+- ❌ **Simplified Analytics**: Analytics dashboard is overly complex and needs simplification
+
+#### 3. Enhanced Features
+
 - ❌ **Bulk Operations**: No bulk coupon management
 - ❌ **Coupon Templates**: No pre-defined coupon templates
 
 ## 🎯 Implementation Roadmap
 
-### Phase 1: User-Facing Coupon Discovery (High Priority)
+### Phase 1: Public/Private Coupon System & Simplified UX (High Priority)
 
-#### 1.1 Business Coupon Catalog ✅ COMPLETED
+#### 1.1 Public/Private Coupon Types
 
-**Goal**: Allow users to browse available coupons from businesses
-
-**Tasks**:
-
-- [x] Create `/businesses/[id]/coupons` page
-- [x] Add public coupon listing API endpoint
-- [x] Implement coupon search and filtering
-- [x] Add coupon categories and tags
-
-**Files Created**:
-
-- ✅ `src/app/businesses/[id]/coupons/page.tsx`
-- ✅ `src/app/api/businesses/[id]/coupons/route.ts`
-- ✅ `src/components/CouponCatalog.tsx`
-- ✅ Added "View Coupons" button to business profile page
-
-#### 1.2 Coupon Claiming System ✅ COMPLETED
-
-**Goal**: Allow reviewers to claim available coupons
+**Goal**: Implement public and private coupon types with proper access controls
 
 **Tasks**:
 
-- [x] Add "Claim Coupon" functionality
-- [x] Implement coupon assignment logic
-- [x] Add notification system for successful claims
-- [x] Handle coupon availability conflicts
+- [ ] Add `couponType` field to database schema (PUBLIC/PRIVATE)
+- [ ] Update coupon creation form with type selection
+- [ ] Implement public coupon discovery interface
+- [ ] Add private coupon assignment system
+- [ ] Update API endpoints to handle both types
 
-**Files Created/Modified**:
+#### 1.2 Review Requirement Logic
 
-- ✅ `src/app/api/coupons/claim/route.ts`
-- ✅ `src/components/CouponClaimModal.tsx`
-- ✅ `src/services/CouponService.ts` (claim methods already existed)
-- ✅ Updated `src/app/businesses/[id]/coupons/page.tsx` with claiming functionality
-
-#### 1.3 Enhanced Business Access ✅ COMPLETED
-
-**Goal**: Allow verified businesses to create coupons
+**Goal**: Enforce review requirements for subsequent coupon claims
 
 **Tasks**:
 
-- [x] Update coupon creation API to allow verified businesses
-- [x] Add business verification status checks
-- [x] Update UI to show business verification status
-- [x] Add verification notice for unverified businesses
+- [ ] Add review requirement tracking to database
+- [ ] Implement logic to check if user has reviewed business
+- [ ] Update coupon claiming to enforce review requirements
+- [ ] Add UI indicators for review requirements
 
-**Files Modified**:
+#### 1.3 Simplified Coupon Form
 
-- ✅ `src/app/api/business/coupons/route.ts` - Added verification checks
-- ✅ `src/app/api/business/route.ts` - Added verification status to business data
-- ✅ `src/app/business/coupons/page.tsx` - Added verification status display and restrictions
+**Goal**: Simplify the coupon creation form and break into components
 
-**Files to Modify**:
+**Tasks**:
 
-- `src/app/api/business/coupons/route.ts`
-- `src/app/business/coupons/page.tsx`
+- [ ] Create simplified form with essential fields only
+- [ ] Abstract form into reusable components
+- [ ] Add form validation and error handling
+- [ ] Create form templates for common coupon types
+
+#### 1.4 Simplified Analytics
+
+**Goal**: Simplify the analytics dashboard for better usability
+
+**Tasks**:
+
+- [ ] Reduce complexity of analytics components
+- [ ] Focus on key metrics only
+- [ ] Improve data visualization
+- [ ] Add simplified reporting features
 
 ### Phase 2: Enhanced User Experience ✅ COMPLETED
 
