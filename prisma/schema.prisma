@@ -58,6 +58,7 @@ model User {
   coupons                 Coupon[]                 @relation("UserCoupons")
   couponRedemptions       CouponRedemption[]
   couponFavorites         CouponFavorite[]         @relation("UserCouponFavorites")
+  couponClaims            CouponClaim[]            @relation("UserCouponClaims")
   businessRegistrations   BusinessRegistration[]    @relation("AgentRegistrations")
   registeredBusinesses    Business[]                @relation("RegisteredBusinesses")
 
@@ -158,6 +159,7 @@ model Business {
   coupons               Coupon[]
   reviews               Review[]
   businessRegistrations BusinessRegistration[]
+  couponClaims          CouponClaim[]            @relation("BusinessCouponClaims")
 
   @@map("businesses")
 }
@@ -257,6 +259,7 @@ model Review {
   business             Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   reviewer             User            @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
   rewards              Reward[]
+  couponClaims         CouponClaim[]   @relation("CouponClaimReviews")
 
   @@map("reviews")
 }
@@ -346,11 +349,15 @@ model Coupon {
   assignedUserId     String?            // The user this coupon is assigned to
   assignedAt         DateTime?
   
+  // Visibility control
+  visibility         CouponVisibility  @default(PUBLIC)
+  
   // Relations
   redemptions        CouponRedemption[]
   business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
   favorites          CouponFavorite[]   @relation("CouponFavorites")
+  claims             CouponClaim[]      @relation("CouponClaims")
 
   @@map("coupons")
 }
@@ -371,6 +378,25 @@ model CouponRedemption {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("coupon_redemptions")
+}
+
+model CouponClaim {
+  id                String   @id @default(cuid())
+  couponId          String
+  userId            String
+  businessId        String
+  claimedAt         DateTime @default(now())
+  requiresReview    Boolean  @default(false)
+  reviewCompleted   Boolean  @default(false)
+  reviewId          String?
+  
+  coupon            Coupon   @relation("CouponClaims", fields: [couponId], references: [id], onDelete: Cascade)
+  user              User     @relation("UserCouponClaims", fields: [userId], references: [id], onDelete: Cascade)
+  business          Business @relation("BusinessCouponClaims", fields: [businessId], references: [id], onDelete: Cascade)
+  review            Review?  @relation("CouponClaimReviews", fields: [reviewId], references: [id])
+  
+  @@unique([couponId, userId])
+  @@map("coupon_claims")
 }
 
 model CouponFavorite {
@@ -764,6 +790,11 @@ enum CouponUseType {
   SINGLE_USE
   MULTI_USE
   ONCE_PER_USER
+}
+
+enum CouponVisibility {
+  PUBLIC
+  PRIVATE
 }
 
 enum RedemptionMethod {

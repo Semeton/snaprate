@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CouponService } from "@/services/CouponService";
+import { CouponVisibility } from "@/types";
 import logger from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -31,6 +33,14 @@ export async function POST(request: NextRequest) {
       validFrom,
       validUntil,
       maxUses,
+      useType,
+      allowedDaysOfWeek,
+      allowedTimeStart,
+      allowedTimeEnd,
+      cannotCombineWithOtherCoupons,
+      requiresIdVerification,
+      maxUsesPerUser,
+      visibility,
     } = body;
 
     // Validate required fields
@@ -68,50 +78,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique coupon code
-    const generateCouponCode = () => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      let code = "";
-      for (let i = 0; i < 8; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return code;
-    };
-
-    let baseCode;
-    let isUnique = false;
-    do {
-      baseCode = generateCouponCode();
-      const existingCoupon = await prisma.coupon.findUnique({
-        where: { baseCode: baseCode },
-      });
-      isUnique = !existingCoupon;
-    } while (!isUnique);
-
-    const coupon = await prisma.coupon.create({
-      data: {
-        title,
-        description,
-        type,
-        value: parseFloat(value),
-        minimumOrderAmount: minimumOrderAmount
-          ? parseFloat(minimumOrderAmount)
-          : undefined,
-        maximumDiscount: maximumDiscount
-          ? parseFloat(maximumDiscount)
-          : undefined,
-        validFrom: new Date(validFrom),
-        validUntil: new Date(validUntil),
-        maxUses: maxUses ? parseInt(maxUses) : undefined,
-        baseCode: baseCode,
-        businessId: business.id,
-      },
+    // Use CouponService to create coupon
+    const couponService = new CouponService();
+    const coupon = await couponService.createCoupon({
+      businessId: business.id,
+      title,
+      description,
+      type,
+      value: parseFloat(value),
+      minimumOrderAmount: minimumOrderAmount
+        ? parseFloat(minimumOrderAmount)
+        : undefined,
+      maximumDiscount: maximumDiscount
+        ? parseFloat(maximumDiscount)
+        : undefined,
+      validFrom: new Date(validFrom),
+      validUntil: new Date(validUntil),
+      maxUses: maxUses ? parseInt(maxUses) : undefined,
+      useType: useType || "SINGLE_USE",
+      allowedDaysOfWeek: allowedDaysOfWeek || [],
+      allowedTimeStart,
+      allowedTimeEnd,
+      cannotCombineWithOtherCoupons: cannotCombineWithOtherCoupons ?? true,
+      requiresIdVerification: requiresIdVerification ?? false,
+      maxUsesPerUser: maxUsesPerUser || 1,
+      visibility: visibility || CouponVisibility.PUBLIC,
     });
 
     logger.info(`Coupon created successfully: ${coupon.id}`, {
       couponId: coupon.id,
       businessId: business.id,
       ownerId: session.user.id,
+      visibility: coupon.visibility,
     });
 
     return NextResponse.json({

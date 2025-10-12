@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Building2, BarChart3 } from "lucide-react";
+import { ArrowLeft, Building2, BarChart3, Badge } from "lucide-react";
 import Link from "next/link";
 import CouponAnalyticsComponent from "@/components/CouponAnalytics";
 import PublicNavigation from "@/components/PublicNavigation";
@@ -48,7 +48,6 @@ export default function BusinessCouponAnalyticsPage() {
       const data = await response.json();
       setBusiness(data.business);
     } catch (error) {
-      console.error("Failed to fetch business:", error);
       setError(
         error instanceof Error
           ? error.message

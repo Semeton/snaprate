@@ -10,29 +10,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only business owners can view reviewers
-    if (session.user.role !== "BUSINESS_OWNER") {
-      return NextResponse.json(
-        { error: "Only business owners can view reviewers" },
-        { status: 403 },
-      );
-    }
+    // Comment out role restriction to allow all authenticated users to view reviewers
+    // if (session.user.role !== "BUSINESS_OWNER") {
+    //   return NextResponse.json(
+    //     { error: "Only business owners can view reviewers" },
+    //     { status: 403 },
+    //   );
+    // }
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    // Get the user's business first
-    const business = await prisma.business.findUnique({
-      where: { ownerId: session.user.id },
-    });
+    // Skip business check for non-business owners
+    // const business = await prisma.business.findUnique({
+    //   where: { ownerId: session.user.id },
+    // });
 
-    if (!business) {
-      return NextResponse.json(
-        { error: "Business not found" },
-        { status: 404 },
-      );
-    }
+    // if (!business) {
+    //   return NextResponse.json(
+    //     { error: "Business not found" },
+    //     { status: 404 },
+    //   );
+    // }
 
     // Fetch reviewers and agents with optional search (both can review businesses)
     const reviewers = await prisma.user.findMany({
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
           select: {
             reviews: {
               where: {
-                businessId: business.id,
+                // businessId: business.id,
               },
             },
           },

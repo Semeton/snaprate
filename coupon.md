@@ -344,6 +344,177 @@ model Coupon {
 
 The coupon management system is now fully functional with comprehensive features for businesses and users.
 
+## 🔄 NEW IMPROVEMENTS REQUIRED
+
+### Updated Requirements Analysis
+
+Based on new business requirements, the coupon system needs significant refactoring to support:
+
+#### 1. **Coupon Visibility Types**
+
+- **Public Coupons**: Any reviewer can claim them (displayed publicly)
+- **Private Coupons**: Must be manually assigned by business (not displayed publicly)
+
+#### 2. **Review Requirement System**
+
+- **First Time**: No review requirement to claim any coupon
+- **Subsequent Claims**: Must review the business before claiming another coupon
+
+### Current Implementation vs New Requirements
+
+#### **GAPS IDENTIFIED**
+
+1. **Missing Coupon Visibility System**
+
+   - ❌ No distinction between public and private coupons
+   - ❌ All coupons are currently treated as claimable by any reviewer
+   - ❌ No visibility control in database schema
+
+2. **Missing Review Requirement Logic**
+
+   - ❌ No tracking of user's review history per business
+   - ❌ No validation that user has reviewed business before claiming subsequent coupons
+   - ❌ No business logic to enforce review requirements
+
+3. **Incomplete Business Assignment System**
+   - ⚠️ Current system only supports manual assignment via `assignedUserId`
+   - ⚠️ No clear separation between public claiming vs private assignment
+
+### **REFACTOR PLAN**
+
+#### Phase 1: Database Schema Updates
+
+**1.1 Add Coupon Visibility Field**
+
+```prisma
+model Coupon {
+  // ... existing fields
+  visibility        CouponVisibility @default(PUBLIC)  // NEW FIELD
+  // ... rest of fields
+}
+
+enum CouponVisibility {
+  PUBLIC    // Any reviewer can claim
+  PRIVATE   // Must be manually assigned
+}
+```
+
+**1.2 Add Review Tracking for Coupon Claims**
+
+```prisma
+model CouponClaim {
+  id          String   @id @default(cuid())
+  couponId    String
+  userId      String
+  businessId  String
+  claimedAt   DateTime @default(now())
+  requiresReview Boolean @default(false)
+  reviewCompleted Boolean @default(false)
+  reviewId    String?  // Link to review if required
+
+  coupon      Coupon   @relation(fields: [couponId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  business    Business @relation(fields: [businessId], references: [id])
+  review      Review?  @relation(fields: [reviewId], references: [id])
+
+  @@unique([couponId, userId])
+  @@map("coupon_claims")
+}
+```
+
+#### Phase 2: Business Logic Updates
+
+**2.1 Coupon Creation Logic**
+
+- Add visibility selection in coupon creation form
+- Private coupons: Only assignable, not claimable
+- Public coupons: Claimable by any reviewer
+
+**2.2 Coupon Claiming Logic**
+
+- Check if user has ever claimed from this business before
+- If first time: Allow claim without review
+- If subsequent: Require review before allowing claim
+- Track claim history per user-business pair
+
+**2.3 Review Requirement Validation**
+
+- Before allowing coupon claim, check if user has reviewed the business
+- Track review completion status for coupon claims
+- Prevent claiming if review requirement not met
+
+#### Phase 3: UI/UX Updates
+
+**3.1 Business Coupon Management**
+
+- Add visibility toggle (Public/Private) in coupon creation
+- Show visibility status in coupon list
+- Separate public and private coupon management
+
+**3.2 Reviewer Coupon Discovery**
+
+- Show only public coupons in business pages
+- Private coupons only visible to assigned users
+- Clear indication of review requirements
+
+**3.3 Coupon Claiming Flow**
+
+- Show review requirement warnings
+- Guide users to review business if needed
+- Track and display claim history
+
+### **IMPLEMENTATION ROADMAP**
+
+#### Step 1: Database Schema Updates ✅ READY
+
+- [ ] Add `CouponVisibility` enum
+- [ ] Add `visibility` field to `Coupon` model
+- [ ] Create `CouponClaim` model for tracking
+- [ ] Add relations and constraints
+
+#### Step 2: Type Definitions ✅ READY
+
+- [ ] Add `CouponVisibility` enum to types
+- [ ] Update `Coupon` interface with visibility field
+- [ ] Create `CouponClaim` interface
+- [ ] Update service interfaces
+
+#### Step 3: Service Layer Updates ✅ READY
+
+- [ ] Update `CouponService.createCoupon()` for visibility
+- [ ] Refactor `CouponService.assignCouponToUser()` for private coupons
+- [ ] Create `CouponService.claimCoupon()` for public coupons
+- [ ] Add review requirement validation logic
+
+#### Step 4: API Endpoint Updates ✅ READY
+
+- [ ] Update coupon creation API
+- [ ] Update coupon claiming API with review requirements
+- [ ] Add business coupon visibility filtering
+- [ ] Add claim history tracking
+
+#### Step 5: UI Component Updates ✅ READY
+
+- [ ] Update coupon creation form with visibility toggle
+- [ ] Update business coupon management with visibility display
+- [ ] Update coupon discovery to show only public coupons
+- [ ] Add review requirement warnings in claiming flow
+
+#### Step 6: Testing & Validation ✅ READY
+
+- [ ] Test public coupon claiming flow
+- [ ] Test private coupon assignment flow
+- [ ] Test review requirement enforcement
+- [ ] Test first-time vs subsequent claim logic
+
+### **SUCCESS CRITERIA**
+
+1. **Public Coupons**: Any reviewer can claim without prior review
+2. **Private Coupons**: Only manually assigned, not publicly visible
+3. **Review Requirements**: Enforced for subsequent claims from same business
+4. **First-Time Claims**: No review requirement for first coupon from any business
+5. **UI Clarity**: Clear distinction between public/private coupons and review requirements
+
 ---
 
 _This document will be updated as implementation progresses. Each completed phase should be marked and documented._

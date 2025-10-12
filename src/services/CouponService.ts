@@ -4,10 +4,13 @@ import {
   CouponStatus,
   CouponType,
   CouponUseType,
+  CouponVisibility,
   RedemptionMethod,
   CouponCreationData,
   CouponAssignmentData,
   CouponVerificationData,
+  CouponClaim,
+  CouponClaimData,
 } from "@/types";
 import {
   generateCouponCode,
@@ -89,6 +92,9 @@ export class CouponService {
             couponData.cannotCombineWithOtherCoupons ?? true,
           requiresIdVerification: couponData.requiresIdVerification ?? false,
           maxUsesPerUser: couponData.maxUsesPerUser || 1,
+
+          // Visibility control
+          visibility: couponData.visibility || CouponVisibility.PUBLIC,
         },
         include: {
           business: {
@@ -689,6 +695,359 @@ export class CouponService {
     } catch (error) {
       throw new Error(
         `Failed to get coupon stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  // New methods for public/private coupon handling and review requirements
+
+  /**
+   * Check if user has ever claimed a coupon from a specific business
+   */
+  async hasUserClaimedFromBusiness(
+    userId: string,
+    businessId: string,
+  ): Promise<boolean> {
+    try {
+      const claimCount = await prisma.couponClaim.count({
+        where: {
+          userId,
+          businessId,
+        },
+      });
+
+      return claimCount > 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to check user claim history: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Check if user has reviewed a specific business
+   */
+  async hasUserReviewedBusiness(
+    userId: string,
+    businessId: string,
+  ): Promise<boolean> {
+    try {
+      const reviewCount = await prisma.review.count({
+        where: {
+          reviewerId: userId,
+          businessId,
+          status: { in: ["APPROVED", "VERIFIED"] },
+        },
+      });
+
+      return reviewCount > 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to check user review history: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Claim a public coupon (with review requirement validation)
+   */
+  async claimPublicCoupon(claimData: CouponClaimData): Promise<CouponClaim> {
+    try {
+      // Get the coupon details
+      const coupon = await prisma.coupon.findUnique({
+        where: { id: claimData.couponId },
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              isVerified: true,
+            },
+          },
+        },
+      });
+
+      if (!coupon) {
+        throw new Error("Coupon not found");
+      }
+
+      // Check if coupon is public
+      if (coupon.visibility !== "PUBLIC") {
+        throw new Error("This coupon is not available for public claiming");
+      }
+
+      // Check if business is verified
+      if (!coupon.business.isVerified) {
+        throw new Error("Cannot claim coupons from unverified businesses");
+      }
+
+      // Check if coupon is active
+      if (coupon.status !== "ACTIVE") {
+        throw new Error("Coupon is not active");
+      }
+
+      // Check if coupon is still valid
+      const now = new Date();
+      if (coupon.validFrom > now || coupon.validUntil < now) {
+        throw new Error("Coupon is not currently valid");
+      }
+
+      // Check if coupon has remaining uses
+      if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) {
+        throw new Error("Coupon has reached maximum usage limit");
+      }
+
+      // Check if user has already claimed this coupon
+      const existingClaim = await prisma.couponClaim.findUnique({
+        where: {
+          couponId_userId: {
+            couponId: claimData.couponId,
+            userId: claimData.userId,
+          },
+        },
+      });
+
+      if (existingClaim) {
+        throw new Error("You have already claimed this coupon");
+      }
+
+      // Check if user has claimed from this business before
+      const hasClaimedBefore = await this.hasUserClaimedFromBusiness(
+        claimData.userId,
+        claimData.businessId,
+      );
+
+      // If user has claimed before, check if they have reviewed the business
+      if (hasClaimedBefore) {
+        const hasReviewed = await this.hasUserReviewedBusiness(
+          claimData.userId,
+          claimData.businessId,
+        );
+
+        if (!hasReviewed) {
+          throw new Error(
+            "You must review this business before claiming another coupon",
+          );
+        }
+      }
+
+      // Create the claim record
+      const claim = await prisma.couponClaim.create({
+        data: {
+          couponId: claimData.couponId,
+          userId: claimData.userId,
+          businessId: claimData.businessId,
+          requiresReview: hasClaimedBefore,
+          reviewCompleted: hasClaimedBefore,
+        },
+        include: {
+          coupon: {
+            include: {
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                },
+              },
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+            },
+          },
+        },
+      });
+
+      // Update coupon usage count
+      await prisma.coupon.update({
+        where: { id: claimData.couponId },
+        data: {
+          currentUses: { increment: 1 },
+          totalIssued: { increment: 1 },
+        },
+      });
+
+      return claim as unknown as CouponClaim;
+    } catch (error) {
+      throw new Error(
+        `Failed to claim coupon: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Get public coupons for a business (for discovery)
+   */
+  async getPublicCouponsForBusiness(
+    businessId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      status?: CouponStatus;
+    } = {},
+  ): Promise<{
+    coupons: Coupon[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const { page = 1, limit = 10, status = "ACTIVE" } = options;
+      const skip = (page - 1) * limit;
+
+      const [coupons, total] = await Promise.all([
+        prisma.coupon.findMany({
+          where: {
+            businessId,
+            visibility: "PUBLIC",
+            status,
+            validFrom: { lte: new Date() },
+            validUntil: { gte: new Date() },
+          },
+          include: {
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                isVerified: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.coupon.count({
+          where: {
+            businessId,
+            visibility: "PUBLIC",
+            status,
+            validFrom: { lte: new Date() },
+            validUntil: { gte: new Date() },
+          },
+        }),
+      ]);
+
+      return {
+        coupons: coupons as unknown as Coupon[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get public coupons: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Get user's coupon claims with review status
+   */
+  async getUserCouponClaims(
+    userId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      businessId?: string;
+    } = {},
+  ): Promise<{
+    claims: CouponClaim[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const { page = 1, limit = 10, businessId } = options;
+      const skip = (page - 1) * limit;
+
+      const whereClause: { userId: string; businessId?: string } = { userId };
+      if (businessId) {
+        whereClause.businessId = businessId;
+      }
+
+      const [claims, total] = await Promise.all([
+        prisma.couponClaim.findMany({
+          where: whereClause,
+          include: {
+            coupon: {
+              include: {
+                business: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                  },
+                },
+              },
+            },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+              },
+            },
+            review: {
+              select: {
+                id: true,
+                rating: true,
+                content: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: { claimedAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.couponClaim.count({
+          where: whereClause,
+        }),
+      ]);
+
+      return {
+        claims: claims as unknown as CouponClaim[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get user coupon claims: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
       );

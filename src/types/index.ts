@@ -131,6 +131,11 @@ export enum CouponUseType {
   ONCE_PER_USER = "ONCE_PER_USER",
 }
 
+export enum CouponVisibility {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+}
+
 export enum RedemptionMethod {
   IN_PERSON = "IN_PERSON",
   ONLINE = "ONLINE",
@@ -334,10 +339,14 @@ export interface Coupon {
   assignedUserId?: string;
   assignedAt?: Date;
 
+  // Visibility control
+  visibility: CouponVisibility;
+
   // Relations
   business: Business;
   assignedUser?: User;
   redemptions: CouponRedemption[];
+  claims: CouponClaim[];
 }
 
 export interface CouponRedemption {
@@ -374,11 +383,36 @@ export interface CouponCreationData {
   cannotCombineWithOtherCoupons?: boolean;
   requiresIdVerification?: boolean;
   maxUsesPerUser?: number;
+  visibility: CouponVisibility;
 }
 
 export interface CouponAssignmentData {
   couponId: string;
   userId: string;
+}
+
+export interface CouponClaim {
+  id: string;
+  couponId: string;
+  userId: string;
+  businessId: string;
+  claimedAt: Date;
+  requiresReview: boolean;
+  reviewCompleted: boolean;
+  reviewId?: string;
+
+  // Relations
+  coupon: Coupon;
+  user: User;
+  business: Business;
+  review?: Review;
+}
+
+export interface CouponClaimData {
+  couponId: string;
+  userId: string;
+  businessId: string;
+  requiresReview: boolean;
 }
 
 export interface CouponVerificationData {

@@ -21,7 +21,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { CouponStatus, CouponType, CouponUseType } from "@/types";
+import {
+  CouponStatus,
+  CouponType,
+  CouponUseType,
+  CouponVisibility,
+} from "@/types";
 import Image from "next/image";
 import Link from "next/link";
 import CouponClaimModal from "@/components/CouponClaimModal";
@@ -48,6 +53,7 @@ interface BusinessCoupon {
   cannotCombineWithOtherCoupons: boolean;
   requiresIdVerification: boolean;
   maxUsesPerUser?: number;
+  visibility: CouponVisibility;
   createdAt: string;
   isAvailable: boolean;
   remainingUses?: number;
@@ -136,6 +142,17 @@ export default function BusinessCouponsPage() {
         return "Multiple Use";
       case CouponUseType.ONCE_PER_USER:
         return "Once Per User";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getVisibilityLabel = (visibility: CouponVisibility) => {
+    switch (visibility) {
+      case CouponVisibility.PUBLIC:
+        return "Public";
+      case CouponVisibility.PRIVATE:
+        return "Private";
       default:
         return "Unknown";
     }
@@ -437,6 +454,15 @@ export default function BusinessCouponsPage() {
                         </Badge>
                         <Badge variant="outline">
                           {getCouponTypeLabel(coupon.type)}
+                        </Badge>
+                        <Badge
+                          className={
+                            coupon.visibility === CouponVisibility.PUBLIC
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                              : "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                          }
+                        >
+                          {getVisibilityLabel(coupon.visibility)}
                         </Badge>
                       </div>
                     </div>

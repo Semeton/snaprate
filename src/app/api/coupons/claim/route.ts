@@ -20,17 +20,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the coupon details
+    // Get the coupon details to determine business ID
     const coupon = await prisma.coupon.findUnique({
       where: { id: couponId },
-      include: {
-        business: {
-          select: {
-            id: true,
-            name: true,
-            isVerified: true,
-          },
-        },
+      select: {
+        id: true,
+        businessId: true,
+        visibility: true,
       },
     });
 
@@ -38,88 +34,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
 
-    // Check if business is verified
-    if (!coupon.business.isVerified) {
+    // Check if coupon is public (only public coupons can be claimed)
+    if (coupon.visibility !== "PUBLIC") {
       return NextResponse.json(
-        { error: "Cannot claim coupons from unverified businesses" },
+        { error: "This coupon is not available for public claiming" },
         { status: 403 },
       );
     }
 
-    // Check if coupon is available for claiming
-    if (coupon.status !== "ACTIVE") {
-      return NextResponse.json(
-        { error: "Coupon is not active" },
-        { status: 400 },
-      );
-    }
-
-    if (coupon.assignedUserId) {
-      return NextResponse.json(
-        { error: "Coupon has already been claimed" },
-        { status: 400 },
-      );
-    }
-
-    // Check if coupon is still valid
-    const now = new Date();
-    if (coupon.validFrom > now || coupon.validUntil < now) {
-      return NextResponse.json(
-        { error: "Coupon is not currently valid" },
-        { status: 400 },
-      );
-    }
-
-    // Check if coupon has remaining uses
-    if (coupon.maxUses && coupon.currentUses >= coupon.maxUses) {
-      return NextResponse.json(
-        { error: "Coupon has reached maximum usage limit" },
-        { status: 400 },
-      );
-    }
-
-    // Check if user has already claimed this coupon (for single-use coupons)
-    if (coupon.useType === "SINGLE_USE") {
-      const existingClaim = await prisma.couponRedemption.findFirst({
-        where: {
-          couponId: couponId,
-          userId: session.user.id,
-        },
-      });
-
-      if (existingClaim) {
-        return NextResponse.json(
-          { error: "You have already claimed this coupon" },
-          { status: 400 },
-        );
-      }
-    }
-
-    // Check if user has reached the maximum uses per user limit
-    if (coupon.maxUsesPerUser) {
-      const userRedemptions = await prisma.couponRedemption.count({
-        where: {
-          couponId: couponId,
-          userId: session.user.id,
-        },
-      });
-
-      if (userRedemptions >= coupon.maxUsesPerUser) {
-        return NextResponse.json(
-          {
-            error: `You can only use this coupon ${coupon.maxUsesPerUser} time(s)`,
-          },
-          { status: 400 },
-        );
-      }
-    }
-
     // Check if user has reached the 5 active coupons limit
-    const activeCouponsCount = await prisma.coupon.count({
+    const now = new Date();
+    const activeCouponsCount = await prisma.couponClaim.count({
       where: {
-        assignedUserId: session.user.id,
-        status: "ACTIVE",
-        validUntil: { gte: now },
+        userId: session.user.id,
+        claimedAt: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
       },
     });
 
@@ -130,17 +58,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Claim the coupon
+    // Use the new claim logic
     const couponService = new CouponService();
-    const result = await couponService.assignCouponToUser({
+    const result = await couponService.claimPublicCoupon({
       couponId,
       userId: session.user.id,
+      businessId: coupon.businessId,
+      requiresReview: false, // Will be determined by the service
     });
 
     return NextResponse.json({
       success: true,
       message: "Coupon claimed successfully",
-      coupon: result,
+      claim: result,
     });
   } catch (error) {
     console.error("Failed to claim coupon:", error);

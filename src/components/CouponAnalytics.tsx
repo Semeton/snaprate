@@ -60,10 +60,10 @@ const CouponAnalyticsComponent: React.FC<CouponAnalyticsProps> = ({
 
       const [analyticsResponse, insightsResponse] = await Promise.all([
         fetch(
-          `/api/business/${businessId}/coupons/analytics?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+          `/api/businesses/${businessId}/coupons/analytics?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         ),
         fetch(
-          `/api/business/${businessId}/coupons/insights?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+          `/api/businesses/${businessId}/coupons/insights?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
         ),
       ]);
 
@@ -97,7 +97,7 @@ const CouponAnalyticsComponent: React.FC<CouponAnalyticsProps> = ({
       startDate.setDate(startDate.getDate() - parseInt(timeRange));
 
       const response = await fetch(
-        `/api/business/${businessId}/coupons/analytics/export?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
+        `/api/businesses/${businessId}/coupons/analytics/export?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`,
       );
 
       if (!response.ok) {
