@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CouponService } from "@/services/CouponService";
 import { QRCodeService } from "@/services/QRCodeService";
+import { Coupon } from "@/types";
 
 // Generate QR code for a coupon
 export async function GET(
@@ -14,8 +15,6 @@ export async function GET(
     const { id: couponId } = await params;
     const { searchParams } = new URL(request.url);
     const format = searchParams.get("format") || "dataurl";
-
-    console.log(`QR Code request for coupon ID: ${couponId}`);
 
     const session = await getServerSession(authOptions);
 
@@ -44,19 +43,19 @@ export async function GET(
       },
     });
 
-    console.log(`Coupon found by ID: ${!!coupon}`);
-
     // If not found by ID, try by code
     if (!coupon) {
-      coupon = await couponService.getCouponByCode(couponId);
-      console.log(`Coupon found by code: ${!!coupon}`);
+      coupon = (await couponService.getCouponByCode(
+        couponId,
+      )) as unknown as Coupon;
+      if (!coupon) {
+        return NextResponse.json(
+          { error: "Coupon not founddd" },
+          { status: 404 },
+        );
+      }
     }
 
-    if (!coupon) {
-      return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
-    }
-
-    // Check if user has access (business owner, assigned user, admin, or public access for active coupons)
     let hasAccess = false;
 
     if (session?.user) {
@@ -119,11 +118,12 @@ export async function GET(
       }
     }
 
-    const verificationURL = `https://snaprate.com/verify/${code}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://snaprate.com";
+    const verificationURL = `${appUrl.replace(/\/$/, "")}/verify/${code}`;
 
     if (format === "svg") {
       const qrCodeSVG = await QRCodeService.generateQRCodeSVG(verificationURL);
-      return new NextResponse(qrCodeSVG, {
+      return new NextResponse(Buffer.from(qrCodeSVG), {
         headers: {
           "Content-Type": "image/svg+xml",
           "Content-Disposition": `inline; filename="coupon-${code}-qr.svg"`,
@@ -133,7 +133,7 @@ export async function GET(
       const qrCodeBuffer = await QRCodeService.generateQRCodeBuffer(
         verificationURL,
       );
-      return new NextResponse(qrCodeBuffer, {
+      return new NextResponse(Buffer.from(qrCodeBuffer), {
         headers: {
           "Content-Type": "image/png",
           "Content-Disposition": `inline; filename="coupon-${code}-qr.png"`,

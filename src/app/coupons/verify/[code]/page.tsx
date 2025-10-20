@@ -6,12 +6,10 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   CheckCircle,
   XCircle,
-  Clock,
   Users,
   MapPin,
   Calendar,
@@ -20,12 +18,9 @@ import {
   Star,
   AlertCircle,
   Copy,
-  QrCode,
 } from "lucide-react";
 import { Coupon, Business } from "@/types";
 import { toast } from "@/components/ui/use-toast";
-
-interface CouponVerificationPageProps {}
 
 export default function CouponVerificationPage({}: CouponVerificationPageProps) {
   const params = useParams();
