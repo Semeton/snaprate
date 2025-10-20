@@ -31,6 +31,8 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import PasswordStrengthIndicator from "./PasswordStrengthIndicator";
+import { validatePassword } from "@/lib/utils";
 
 // Define state options outside component to avoid build-time issues
 const STATE_OPTIONS = Object.values(State);
@@ -68,7 +70,6 @@ export default function SignupForm() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear any previous errors when user starts typing
     if (submitError) setSubmitError("");
   };
 
@@ -97,10 +98,14 @@ export default function SignupForm() {
       setSubmitError("Passwords do not match");
       return false;
     }
-    if (formData.password.length < 6) {
-      setSubmitError("Password must be at least 6 characters");
+
+    // Use proper password validation
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      setSubmitError(passwordValidation.errors[0]); // Show first error
       return false;
     }
+
     if (!formData.state) {
       setSubmitError("State is required");
       return false;
@@ -168,7 +173,6 @@ export default function SignupForm() {
     }
   };
 
-  // Check if referral code is from URL
   const isReferralFromUrl = searchParams.get("ref") === formData.referralCode;
 
   return (
@@ -315,61 +319,66 @@ export default function SignupForm() {
           </div>
 
           {/* Password */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="password">Password *</Label>
-              <div className="relative mt-2">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create a password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    handleInputChange("password", e.target.value)
-                  }
-                  className="pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="password">Password *</Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      handleInputChange("password", e.target.value)
+                    }
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      handleInputChange("confirmPassword", e.target.value)
+                    }
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password *</Label>
-              <div className="relative mt-2">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirm your password"
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    handleInputChange("confirmPassword", e.target.value)
-                  }
-                  className="pr-10"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
+
+            {/* Password Strength Indicator */}
+            <PasswordStrengthIndicator password={formData.password} />
           </div>
 
           {/* Location Information */}

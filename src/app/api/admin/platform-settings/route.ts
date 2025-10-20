@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import PlatformSettingsService from "@/services/PlatformSettingsService";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
@@ -104,6 +104,19 @@ export async function PUT(request: NextRequest) {
     }
 
     if (
+      typeof settings.businessRegistrationRewardRate !== "number" ||
+      settings.businessRegistrationRewardRate < 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid business registration reward rate",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
       typeof settings.minimumBusinessesForAgent !== "number" ||
       settings.minimumBusinessesForAgent < 1
     ) {
@@ -125,6 +138,7 @@ export async function PUT(request: NextRequest) {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        businessRegistrationRewardRate: settings.businessRegistrationRewardRate,
         minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
         updatedAt: new Date(),
       },
@@ -135,6 +149,7 @@ export async function PUT(request: NextRequest) {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        businessRegistrationRewardRate: settings.businessRegistrationRewardRate,
         minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
@@ -88,11 +87,11 @@ function BusinessSettingsContent() {
           setProfile({
             name: session.user.name || "",
             email: session.user.email || "",
-            phone: "", // Will be fetched from user profile
-            state: "", // Will be fetched from user profile
-            city: "", // Will be fetched from user profile
-            address: "", // Will be fetched from user profile
-            avatar: session.user.avatar || "", // Include avatar from session
+            phone: "",
+            state: "",
+            city: "",
+            address: "",
+            avatar: session.user.avatar || "",
           });
         }
 
@@ -109,12 +108,9 @@ function BusinessSettingsContent() {
               state: profileData.state || "",
               city: profileData.city || "",
               address: profileData.address || "",
-              avatar: profileData.avatar || "", // Include avatar from profile
+              avatar: profileData.avatar || "",
             };
           });
-        } else if (response.status === 404) {
-          // Profile not found, keep basic info from session
-          console.log("User profile not found, using session data only");
         } else {
           throw new Error(`Failed to fetch profile: ${response.statusText}`);
         }
@@ -182,7 +178,6 @@ function BusinessSettingsContent() {
         text: "Profile picture updated successfully",
       });
 
-      // Update local profile state with new avatar
       setProfile((prev) =>
         prev ? { ...prev, avatar: responseData.data.avatarUrl } : prev,
       );
@@ -265,7 +260,6 @@ function BusinessSettingsContent() {
         throw new Error(`Failed to change password: ${response.statusText}`);
       }
 
-      // Reset form
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -311,7 +305,6 @@ function BusinessSettingsContent() {
         throw new Error(`Failed to delete account: ${response.statusText}`);
       }
 
-      // Sign out and redirect
       await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error("Failed to delete account:", error);

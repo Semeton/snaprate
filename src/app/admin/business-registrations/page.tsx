@@ -300,7 +300,8 @@ export default function BusinessRegistrationsPage() {
           Business Registrations
         </h1>
         <p className="text-gray-600">
-          Review and approve business registrations from agents
+          Review and approve full business registrations from agents (with
+          verification documents)
         </p>
       </div>
 
@@ -341,7 +342,6 @@ export default function BusinessRegistrationsPage() {
                   <SelectItem value="FULL_REGISTRATION">
                     Full Registration
                   </SelectItem>
-                  <SelectItem value="RECOMMENDATION">Recommendation</SelectItem>
                 </SelectContent>
               </Select>
             </div>

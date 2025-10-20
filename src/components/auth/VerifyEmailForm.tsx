@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,11 +28,10 @@ export default function VerifyEmailForm() {
   const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
 
-  // Auto-verify email if token is present in URL
   useEffect(() => {
     const token = searchParams.get("token");
+
     if (
       token &&
       !success &&
@@ -43,15 +41,25 @@ export default function VerifyEmailForm() {
     ) {
       setAutoVerifying(true);
       setVerificationAttempted(true);
-      handleEmailVerification(undefined, token);
-    }
-  }, [searchParams]);
 
-  useEffect(() => {
-    if (success && !isAutoLoggingIn) {
-      handleAutoLogin();
+      (async () => {
+        await handleEmailVerification(undefined, token);
+        setAutoVerifying(false);
+      })();
     }
-  }, [success]);
+
+    if (success && !isAutoLoggingIn) {
+      router.push("/dashboard");
+    }
+  }, [
+    searchParams,
+    success,
+    error,
+    autoVerifying,
+    verificationAttempted,
+    isAutoLoggingIn,
+    router,
+  ]);
 
   const handleAutoLogin = async () => {
     if (isAutoLoggingIn) return;
@@ -60,16 +68,7 @@ export default function VerifyEmailForm() {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const userRole = session?.user?.role;
-
-      if (userRole === "BUSINESS_OWNER") {
-        router.push("/business/dashboard");
-      } else if (userRole === "ADMIN" || userRole === "SUPER_ADMIN") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/reviewer/dashboard");
-      }
+      router.push("/dashboard");
     } catch (error) {
       console.error("Auto-login redirect failed:", error);
       router.push("/dashboard");
@@ -111,22 +110,17 @@ export default function VerifyEmailForm() {
         );
         setEmailCode("");
 
-        // Clear the token from URL
         if (token) {
           router.replace("/auth/verify");
         }
 
-        // Store the token in localStorage for automatic login
         if (data.token) {
           localStorage.setItem("verificationToken", data.token);
         }
       } else {
         const errorMessage = data.error || "Email verification failed";
 
-        // Handle specific error cases
         if (errorMessage.includes("Invalid or expired")) {
-          // This usually means the token was already used or expired
-          // Check if the user might already be verified
           setError(
             "This verification link has already been used or has expired. If you can sign in successfully, your email is already verified. Otherwise, please request a new verification email.",
           );

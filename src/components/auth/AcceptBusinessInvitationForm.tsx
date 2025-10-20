@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,11 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import PasswordStrengthIndicator from "./PasswordStrengthIndicator";
+import { validatePassword } from "@/lib/utils";
 
 interface BusinessInvitationData {
   email: string;
@@ -32,6 +36,8 @@ export default function AcceptBusinessInvitationForm() {
   );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     password: "",
@@ -48,17 +54,7 @@ export default function AcceptBusinessInvitationForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
-  useEffect(() => {
-    if (!isClient) return;
-
-    if (token) {
-      fetchInvitation();
-    } else {
-      setLoading(false);
-    }
-  }, [token, isClient]);
-
-  const fetchInvitation = async () => {
+  const fetchInvitation = useCallback(async () => {
     if (!isClient) return;
 
     try {
@@ -94,7 +90,17 @@ export default function AcceptBusinessInvitationForm() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isClient, token, router]);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    if (token) {
+      fetchInvitation();
+    } else {
+      setLoading(false);
+    }
+  }, [token, isClient, fetchInvitation]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -107,8 +113,12 @@ export default function AcceptBusinessInvitationForm() {
 
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters long";
+    } else {
+      // Use proper password validation
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        newErrors.password = passwordValidation.errors[0]; // Show first error
+      }
     }
 
     if (!formData.confirmPassword) {
@@ -309,43 +319,78 @@ export default function AcceptBusinessInvitationForm() {
               </p>
             </div>
 
-            <div>
-              <Label htmlFor="password">Set Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a strong password"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                className={errors.password ? "border-red-500" : ""}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-600 mt-1">{errors.password}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Must be at least 8 characters long
-              </p>
-            </div>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="password">Set Password</Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className={`pr-10 ${
+                      errors.password ? "border-red-500" : ""
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+                )}
+              </div>
 
-            <div>
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
-                className={errors.confirmPassword ? "border-red-500" : ""}
-              />
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-600 mt-1">
-                  {errors.confirmPassword}
-                </p>
-              )}
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        confirmPassword: e.target.value,
+                      })
+                    }
+                    className={`pr-10 ${
+                      errors.confirmPassword ? "border-red-500" : ""
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-600 mt-1">
+                    {errors.confirmPassword}
+                  </p>
+                )}
+              </div>
+
+              {/* Password Strength Indicator */}
+              <PasswordStrengthIndicator password={formData.password} />
             </div>
 
             <Button

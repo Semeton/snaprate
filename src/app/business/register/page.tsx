@@ -18,18 +18,17 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UserRole, BusinessCategory, State } from "@/types";
 import { Building2, CheckCircle, AlertCircle } from "lucide-react";
-import ServicesImageUpload from "@/components/ServicesImageUpload";
 
 interface BusinessFormData {
   name: string;
   description: string;
-  category: BusinessCategory;
+  category: string;
   phone: string;
   email: string;
   website: string;
   address: string;
   city: string;
-  state: State;
+  state: string;
   latitude: string;
   longitude: string;
   servicesImages: string[];
@@ -121,10 +120,6 @@ export default function BusinessRegisterPage() {
     }
   };
 
-  const getStateDisplayName = (state: string) => {
-    return state.replace(/_/g, " ");
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -193,7 +188,13 @@ export default function BusinessRegisterPage() {
                     <SelectContent>
                       {Object.values(BusinessCategory).map((category) => (
                         <SelectItem key={category} value={category}>
-                          {category.replace(/_/g, " ")}
+                          {category
+                            .split("_")
+                            .map(
+                              (word) =>
+                                word.charAt(0) + word.slice(1).toLowerCase(),
+                            )
+                            .join(" ")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -319,7 +320,16 @@ export default function BusinessRegisterPage() {
                     <SelectContent>
                       {Object.values(State).map((state) => (
                         <SelectItem key={state} value={state}>
-                          {getStateDisplayName(state)}
+                          {state === "FCT"
+                            ? "Federal Capital Territory"
+                            : state
+                                .split("_")
+                                .map(
+                                  (word) =>
+                                    word.charAt(0) +
+                                    word.slice(1).toLowerCase(),
+                                )
+                                .join(" ")}
                         </SelectItem>
                       ))}
                     </SelectContent>

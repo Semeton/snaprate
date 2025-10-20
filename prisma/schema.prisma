@@ -18,7 +18,7 @@ model User {
   referralCode            String                   @unique @default(cuid())
   userIdentifier          String?                  @unique @default(cuid())
   referredBy              String?
-  state                   State
+  state                   String
   city                    String
   address                 String
   avatar                  String?
@@ -109,29 +109,23 @@ model Business {
   ownerId               String                     @unique
   name                  String
   description           String?
-  category              BusinessCategory
+  category              String?
   phone                 String
   email                 String
   website               String?
   logo                  String?
   coverImage            String?
-  servicesImages        String[] // Array of service/product image URLs (max 3)
+  servicesImages        String[]
   address               String
   city                  String
-  state                 State
+  state                 String
   latitude              Float?
   longitude             Float?
-  
-  // New fields for dual status system
   reviewStatus          ReviewStatus @default(PENDING)
   addressVerificationStatus AddressVerificationStatus @default(UNVERIFIED)
-  
-  // Business verification status
   isVerified           Boolean @default(false)
-  verificationSource   VerificationSource @default(RECOMMENDATION) // REGISTRATION, RECOMMENDATION
+  verificationSource   VerificationSource @default(RECOMMENDATION)
   registeredByAgentId  String?
-  
-  // Existing verification fields (will be migrated later)
   verificationStatus    BusinessVerificationStatus @default(PENDING)
   verificationDocuments String[]
   verificationNotes     String?
@@ -148,7 +142,6 @@ model Business {
   onboardedByAgentId    String?
   deletedAt             DateTime?
   
-  // Relations
   analytics             BusinessAnalytics[]
   businessHours         BusinessHours[]
   businessSettings      BusinessSettings?
@@ -169,13 +162,10 @@ model BusinessVerification {
   id                    String   @id @default(cuid())
   businessId            String   @unique
   business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  // Director/Authorized Signatory ID
+
   directorIdType        DirectorIdType
   directorIdNumber      String
-  directorIdImage       String // URL to uploaded image
-  
-  // Business Documents
+  directorIdImage       String
   cacDocumentType       CacDocumentType?
   cacDocumentImage      String? // URL to uploaded image
   firsTaxClearance      String? // URL to uploaded image
@@ -319,8 +309,8 @@ model Coupon {
   businessId         String
   title              String
   description        String?
-  baseCode           String?             @unique // Base 9-character code (K2X-PL7-YJ9)
-  userSpecificCode  String?            @unique // Full code with user ID (K2X-PL7-YJ9-70BR)
+  baseCode           String?             @unique
+  userSpecificCode  String?            @unique
   type               CouponType
   value              Float
   minimumOrderAmount Float?
@@ -336,24 +326,20 @@ model Coupon {
   currentUses        Int                @default(0)
   deletedAt          DateTime?
   
-  // New fields for advanced restrictions
   useType            CouponUseType      @default(SINGLE_USE)
-  allowedDaysOfWeek  Int[]             @default([]) // 0=Sunday, 1=Monday, etc.
-  allowedTimeStart   String?           // Format: "HH:MM" (24-hour)
-  allowedTimeEnd     String?           // Format: "HH:MM" (24-hour)
+  allowedDaysOfWeek  Int[]             @default([])
+  allowedTimeStart   String?
+  allowedTimeEnd     String?
   cannotCombineWithOtherCoupons Boolean @default(true)
   requiresIdVerification Boolean        @default(false)
   maxUsesPerUser     Int?              @default(1)
   
-  // User assignment tracking (for private coupons)
-  assignedUserId     String?            // The user this coupon is assigned to (for private coupons)
+  assignedUserId     String?
   assignedAt         DateTime?
   
-  // Public/Private coupon system
-  couponType         CouponVisibility   @default(PUBLIC) // PUBLIC or PRIVATE
-  requiresReview     Boolean            @default(false)   // Whether user must review business to claim
+  couponType         CouponVisibility   @default(PUBLIC)
+  requiresReview     Boolean            @default(false)
   
-  // Relations
   redemptions        CouponRedemption[]
   business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
@@ -373,7 +359,7 @@ model CouponRedemption {
   redemptionMethod RedemptionMethod @default(IN_PERSON)
   staffNotes      String?
   idVerified      Boolean   @default(false)
-  verificationCode String?  // For online verification
+  verificationCode String?
   deletedAt       DateTime?
   coupon          Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -398,8 +384,8 @@ model CouponAssignment {
   couponId  String
   userId    String
   assignedAt DateTime @default(now())
-  assignedBy String? // Business owner who assigned it
-  userSpecificCode String? // Unique code for this user
+  assignedBy String?
+  userSpecificCode String?
   status    CouponAssignmentStatus @default(ASSIGNED)
   expiresAt DateTime?
   createdAt DateTime @default(now())
@@ -532,19 +518,19 @@ model BusinessRecommendation {
   additionalNotes     String?
   adminNotes          String?
   businessAddress     String
-  businessCategory    BusinessCategory
+  businessCategory    String
   businessCity        String
   businessDescription String?
   businessEmail       String?
   businessPhone       String?
-  businessState       State
+  businessState       String
   businessWebsite     String?
   ownerAddress        String?
   ownerCity           String?
   ownerEmail          String
   ownerName           String
   ownerPhone          String
-  ownerState          String?
+  ownerState          String
   reviewedAt          DateTime?
   reviewedBy          String?
   recommendedByUser   User             @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
@@ -560,19 +546,17 @@ model AgentApplication {
   businessKnowledge String
   commitment        String
   
-  // ID Verification Fields
-  idDocumentType    String?   // VOTER_CARD, NATIONAL_ID, PASSPORT, DRIVERS_LICENSE
+  idDocumentType    String?
   idDocumentNumber  String?
   idDocumentImage   String?
   idVerified        Boolean   @default(false)
   idVerifiedAt      DateTime?
   idVerifiedBy      String?
   
-  // Business Registration Tracking
   registeredBusinessesCount Int @default(0)
   verifiedBusinessesCount   Int @default(0)
   
-  status            String    @default("PENDING") // PENDING, ID_VERIFIED, APPROVED, REJECTED
+  status            String    @default("PENDING")
   adminNotes        String?
   reviewedAt        DateTime?
   reviewedBy        String?
@@ -587,25 +571,23 @@ model BusinessRegistration {
   id                String    @id @default(cuid())
   agentId           String
   businessId        String?
-  registrationType  RegistrationType // FULL_REGISTRATION, RECOMMENDATION
-  status            RegistrationStatus @default(PENDING) // PENDING, VERIFIED, REJECTED
+  registrationType  RegistrationType
+  status            RegistrationStatus @default(PENDING)
   submittedAt       DateTime  @default(now())
   verifiedAt        DateTime?
   verifiedBy        String?
   adminNotes        String?
   
-  // For full registration - complete business details
   businessName      String?
   businessDescription String?
-  businessCategory  BusinessCategory?
+  businessCategory  String?
   businessPhone     String?
   businessEmail     String?
   businessAddress   String?
   businessCity      String?
-  businessState     State?
+  businessState     String?
   businessWebsite   String?
   
-  // For verification documents (full registration only)
   directorIdType    DirectorIdType?
   directorIdNumber  String?
   directorIdImage   String?
@@ -615,13 +597,12 @@ model BusinessRegistration {
   addressEvidenceType AddressEvidenceType?
   addressEvidenceImage String?
   
-  // Owner information (required for all registrations)
   ownerName         String?
   ownerEmail        String?
   ownerPhone        String?
   ownerAddress      String?
   ownerCity         String?
-  ownerState        State?
+  ownerState        String?
   
   agent             User      @relation("AgentRegistrations", fields: [agentId], references: [id], onDelete: Cascade)
   business          Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -760,22 +741,6 @@ enum State {
   TARABA
   YOBE
   ZAMFARA
-}
-
-enum BusinessCategory {
-  RESTAURANT
-  RETAIL
-  HEALTHCARE
-  EDUCATION
-  ENTERTAINMENT
-  TECHNOLOGY
-  FINANCE
-  REAL_ESTATE
-  AUTOMOTIVE
-  BEAUTY
-  FITNESS
-  TRAVEL
-  OTHER
 }
 
 enum ReviewStatus {

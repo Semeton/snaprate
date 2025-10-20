@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +21,6 @@ import {
   Star,
   Gift,
   Download,
-  Filter,
   DollarSign,
   Activity,
   Target,
@@ -48,13 +46,13 @@ interface AnalyticsData {
   }>;
   peakHours: Array<{
     hour: string;
-    visits: number;
+    totalVisits: number;
   }>;
   monthlyTrends: Array<{
     month: string;
-    visits: number;
-    reviews: number;
-    revenue: number;
+    totalVisits: number;
+    totalReviews: number;
+    totalRevenue: number;
   }>;
 }
 
@@ -181,7 +179,19 @@ function BusinessAnalyticsContent() {
   }
 
   const getGrowthIndicator = (current: number, previous: number) => {
-    const growth = ((current - previous) / previous) * 100;
+    console.log("Current:", current);
+    console.log("Previous:", previous);
+    let growth: number;
+    if (previous === 0) {
+      if (current === 0) {
+        growth = 0;
+      } else {
+        growth = 100;
+      }
+    } else {
+      growth = ((current - previous) / previous) * 100;
+    }
+    console.log("Growth:", growth);
     return {
       value: Math.abs(growth).toFixed(1),
       isPositive: growth >= 0,
@@ -196,12 +206,12 @@ function BusinessAnalyticsContent() {
     analytics.monthlyTrends[analytics.monthlyTrends.length - 1];
 
   const visitsGrowth = getGrowthIndicator(
-    currentMonth?.visits || 0,
-    previousMonth?.visits || 0,
+    currentMonth?.totalVisits || 0,
+    previousMonth?.totalVisits || 0,
   );
   const revenueGrowth = getGrowthIndicator(
-    currentMonth?.revenue,
-    previousMonth?.revenue || 0,
+    currentMonth?.totalRevenue || 0,
+    previousMonth?.totalRevenue || 0,
   );
 
   return (

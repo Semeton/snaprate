@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,18 +34,19 @@ import {
   Eye,
   RefreshCw,
 } from "lucide-react";
+import Image from "next/image";
 
 interface BusinessProfile {
   id: string;
   name: string;
   description: string;
-  category: BusinessCategory;
+  category: string;
   phone: string;
   email: string;
   website?: string;
   address: string;
   city: string;
-  state: State;
+  state: string;
   logo?: string;
   coverImage?: string;
   servicesImages: string[];
@@ -68,7 +68,6 @@ export default function BusinessProfilePage() {
 }
 
 function BusinessProfileContent() {
-  const { data: session } = useSession();
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -82,19 +81,14 @@ function BusinessProfileContent() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    category: BusinessCategory.RESTAURANT,
+    category: "",
     phone: "",
     email: "",
     website: "",
     address: "",
     city: "",
-    state: State.LAGOS,
+    state: "",
   });
-
-  // Debug: Log profile changes
-  useEffect(() => {
-    console.log(`Profile state updated:`, profile);
-  }, [profile]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -103,7 +97,6 @@ function BusinessProfileContent() {
 
         if (!response.ok) {
           if (response.status === 404) {
-            // No business found - redirect to registration
             window.location.href = "/business/register";
             return;
           }
@@ -113,7 +106,6 @@ function BusinessProfileContent() {
         const data = await response.json();
         const businessData = data.business;
 
-        // Transform the data to match our interface
         const businessProfile: BusinessProfile = {
           id: businessData.id,
           name: businessData.name,
@@ -164,9 +156,9 @@ function BusinessProfileContent() {
       ...prev,
       [field]:
         field === "category"
-          ? (value as BusinessCategory)
+          ? (value as string)
           : field === "state"
-          ? (value as State)
+          ? (value as string)
           : value,
     }));
   };
@@ -174,9 +166,6 @@ function BusinessProfileContent() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Log the data being sent for debugging
-      console.log("Sending business update data:", formData);
-
       const response = await fetch("/api/business/update", {
         method: "PUT",
         headers: {
@@ -194,9 +183,8 @@ function BusinessProfileContent() {
         throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      await response.json();
 
-      // Update local state with the updated business data
       if (profile) {
         setProfile({
           ...profile,
@@ -212,7 +200,6 @@ function BusinessProfileContent() {
       setIsEditing(false);
       setSaving(false);
 
-      // Clear success message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error("Failed to save profile:", error);
@@ -223,13 +210,11 @@ function BusinessProfileContent() {
       });
       setSaving(false);
 
-      // Clear error message after 5 seconds
       setTimeout(() => setMessage(null), 5000);
     }
   };
 
   const handleCancel = () => {
-    // Reset form data to original values
     if (profile) {
       setFormData({
         name: profile.name,
@@ -258,7 +243,6 @@ function BusinessProfileContent() {
       const data = await response.json();
       const businessData = data.business;
 
-      // Transform the data to match our interface
       const businessProfile: BusinessProfile = {
         id: businessData.id,
         name: businessData.name,
@@ -426,10 +410,13 @@ function BusinessProfileContent() {
                 <div className="relative">
                   <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-lg flex items-center justify-center">
                     {profile.coverImage ? (
-                      <img
+                      <Image
                         src={profile.coverImage}
                         alt="Cover"
                         className="w-full h-full object-cover rounded-t-lg"
+                        width={1000}
+                        height={300}
+                        priority
                       />
                     ) : (
                       <div className="text-white text-center">
@@ -441,10 +428,13 @@ function BusinessProfileContent() {
                   <div className="absolute -bottom-12 left-6">
                     <div className="w-24 h-24 bg-white dark:bg-gray-800 rounded-xl border-4 border-white dark:border-gray-800 shadow-lg flex items-center justify-center">
                       {profile.logo ? (
-                        <img
-                          src={profile.logo}
+                        <Image
+                          src={profile.logo || ""}
                           alt="Logo"
                           className="w-full h-full object-cover rounded-lg"
+                          width={96}
+                          height={96}
+                          priority
                         />
                       ) : (
                         <Building2 className="w-12 h-12 text-gray-400" />
@@ -497,10 +487,7 @@ function BusinessProfileContent() {
                         <Select
                           value={formData.category}
                           onValueChange={(value) =>
-                            handleInputChange(
-                              "category",
-                              value as BusinessCategory,
-                            )
+                            handleInputChange("category", value as string)
                           }
                         >
                           <SelectTrigger className="mt-1">
@@ -588,10 +575,13 @@ function BusinessProfileContent() {
                           <div className="grid grid-cols-3 gap-3">
                             {profile.servicesImages.map((image, index) => (
                               <div key={index} className="relative">
-                                <img
-                                  src={image}
+                                <Image
+                                  src={image || ""}
                                   alt={`Service ${index + 1}`}
                                   className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                  width={100}
+                                  height={100}
+                                  priority
                                 />
                                 <div className="absolute bottom-1 left-1 bg-black/50 rounded px-2 py-1">
                                   <span className="text-xs text-white font-medium">

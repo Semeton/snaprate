@@ -230,8 +230,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the recommendation if provided
+    // Get the recommendation if provided - only from BusinessRecommendation table
     let recommendation = null;
+
     if (recommendationId) {
       recommendation = await prisma.businessRecommendation.findUnique({
         where: { id: recommendationId },

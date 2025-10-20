@@ -216,7 +216,7 @@ export default function SubmitReview() {
       });
 
       if (response.ok) {
-        setSuccess("Review submitted successfully! You've earned ₦50.");
+        setSuccess("Review submitted successfully! You've earned a reward.");
         setTimeout(() => {
           router.push("/reviewer/dashboard");
         }, 2000);

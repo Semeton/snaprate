@@ -6,6 +6,7 @@ export interface PlatformSettings {
   reviewRewardAmount: number;
   referralRewardAmount: number;
   businessRecommendationRewardAmount: number;
+  businessRegistrationRewardRate: number;
   minimumBusinessesForAgent: number;
 }
 
@@ -48,6 +49,7 @@ export class PlatformSettingsService {
           reviewRewardAmount: 50,
           referralRewardAmount: 20,
           businessRecommendationRewardAmount: 100,
+          businessRegistrationRewardRate: 200,
           minimumBusinessesForAgent: 5,
         };
 
@@ -68,6 +70,7 @@ export class PlatformSettingsService {
         referralRewardAmount: settings.referralRewardAmount,
         businessRecommendationRewardAmount:
           settings.businessRecommendationRewardAmount,
+        businessRegistrationRewardRate: settings.businessRegistrationRewardRate,
         minimumBusinessesForAgent: settings.minimumBusinessesForAgent,
       };
       this.lastFetch = now;
@@ -82,6 +85,7 @@ export class PlatformSettingsService {
         reviewRewardAmount: 50,
         referralRewardAmount: 20,
         businessRecommendationRewardAmount: 100,
+        businessRegistrationRewardRate: 200,
         minimumBusinessesForAgent: 5,
       };
     }
@@ -108,6 +112,7 @@ export class PlatformSettingsService {
           reviewRewardAmount: 50,
           referralRewardAmount: 20,
           businessRecommendationRewardAmount: 100,
+          businessRegistrationRewardRate: 200,
           minimumBusinessesForAgent: 5,
         },
       });

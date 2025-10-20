@@ -53,7 +53,7 @@ async function main() {
         reviewRewardAmount: 50,
         referralRewardAmount: 20,
         businessRecommendationRewardAmount: 100,
-        minimumBusinessesForAgent: 5,
+        minimumBusinessesForAgent: 2,
       },
     });
 

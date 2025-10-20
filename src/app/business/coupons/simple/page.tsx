@@ -14,7 +14,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, BarChart3, Gift, Eye, EyeOff, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  BarChart3,
+  Gift,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
+import Link from "next/link";
 import SimpleCouponForm, {
   CouponFormData,
 } from "@/components/coupon/SimpleCouponForm";
@@ -76,14 +85,19 @@ export default function SimpleBusinessCouponsPage() {
   const fetchCoupons = async () => {
     try {
       const response = await fetch("/api/business/coupons");
-      if (!response.ok) {
-        throw new Error("Failed to fetch coupons");
-      }
       const data = await response.json();
+
+      if (!response.ok) {
+        console.log(data, response);
+        throw new Error(data.error || "Failed to fetch coupons");
+      }
+
       setCoupons(data.coupons || []);
     } catch (error) {
       console.error("Failed to fetch coupons:", error);
-      setError("Failed to fetch coupons");
+      setError(
+        error instanceof Error ? error.message : "Failed to fetch coupons",
+      );
     }
   };
 
@@ -360,12 +374,24 @@ export default function SimpleBusinessCouponsPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-          <Button onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
-          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Coupon Management
+            </h1>
+            <hr className="my-4" />
+          </div>
+          <h1 className="text-2xl font-bold text-red-600 mb-2">
+            Unauthorized Access
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-2">{error}</p>
+          <div>
+            <Button variant="outline" asChild>
+              <Link href="/business/verification">
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Verify Business
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     );

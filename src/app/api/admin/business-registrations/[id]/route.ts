@@ -147,8 +147,35 @@ export async function POST(
       },
     });
 
-    // If approved, create the business and business owner account
+    // If approved, create reward for the agent and create the business
     if (action === "APPROVE") {
+      // Create reward for the agent who registered the business
+      try {
+        // Get platform settings for business registration reward amount
+        const platformSettings = await prisma.platformSettings.findFirst();
+        const businessRegistrationRewardAmount =
+          platformSettings?.businessRegistrationRewardRate || 200;
+
+        await prisma.reward.create({
+          data: {
+            referrerId: registration.agentId,
+            type: "BUSINESS_REGISTRATION",
+            amount: businessRegistrationRewardAmount,
+            description: `Business registration reward for ${registration.businessName}`,
+            isRedeemed: false,
+          },
+        });
+
+        console.log(
+          `Reward created for agent ${registration.agentId} for business registration: ${registration.businessName} (Amount: ₦${businessRegistrationRewardAmount})`,
+        );
+      } catch (rewardError) {
+        console.error(
+          "Failed to create business registration reward:",
+          rewardError,
+        );
+        // Don't fail the approval process if reward creation fails
+      }
       // Extract owner information from the registration
       const ownerData = {
         name: registration.ownerName || registration.businessName!, // Fallback to business name

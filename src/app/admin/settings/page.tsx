@@ -68,6 +68,7 @@ export default function AdminSettingsPage() {
     reviewRewardAmount: 50,
     referralRewardAmount: 20,
     businessRecommendationRewardAmount: 100,
+    businessRegistrationRewardRate: 200,
     minimumBusinessesForAgent: 5,
     maxReviewsPerBusiness: 1,
     reviewModerationRequired: true,
@@ -685,9 +686,27 @@ export default function AdminSettingsPage() {
                     }
                   />
                 </div>
+                <div>
+                  <Label htmlFor="businessRegistrationReward">
+                    Business Reg. Reward (₦)
+                  </Label>
+                  <Input
+                    id="businessRegistrationReward"
+                    type="number"
+                    value={platformSettings.businessRegistrationRewardRate}
+                    onChange={(e) =>
+                      setPlatformSettings({
+                        ...platformSettings,
+                        businessRegistrationRewardRate:
+                          parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+              {/* Currently fixed at 2 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 hidden">
                 <div>
                   <Label htmlFor="minBusinessesForAgent">
                     Min. Businesses for Agent
@@ -710,14 +729,6 @@ export default function AdminSettingsPage() {
                         : ""
                     }
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Minimum verified businesses a user must register to apply as
-                    an agent (Fixed at 2)
-                  </p>
-                  <p className="text-xs text-blue-500 mt-1">
-                    Note: This is now fixed at 2 verified businesses. Users must
-                    also verify their ID.
-                  </p>
                 </div>
               </div>
 
@@ -856,6 +867,10 @@ export default function AdminSettingsPage() {
                 <li>
                   Business recommendation reward: ₦
                   {platformSettings.businessRecommendationRewardAmount}
+                </li>
+                <li>
+                  Business registration reward: ₦
+                  {platformSettings.businessRegistrationRewardRate}
                 </li>
                 <li>
                   Minimum businesses for agent:{" "}

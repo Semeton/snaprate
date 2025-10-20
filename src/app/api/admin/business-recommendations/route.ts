@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all business recommendations with user information
+    // Get all business recommendations from BusinessRecommendation table only
     const recommendations = await prisma.businessRecommendation.findMany({
       include: {
         recommendedByUser: {

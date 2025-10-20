@@ -261,34 +261,32 @@ export default function BusinessRegistrationPage() {
 
     try {
       // Client-side validation for full registration
-      if (formData.registrationType === "FULL_REGISTRATION") {
-        // Check if Director ID is provided
-        if (
-          !formData.directorIdType ||
-          !formData.directorIdNumber ||
-          !formData.directorIdImage
-        ) {
-          toast({
-            title: "Validation Error",
-            description:
-              "Director ID information is mandatory for full registration",
-            variant: "destructive",
-          });
-          setSubmitting(false);
-          return;
-        }
+      // Check if Director ID is provided
+      if (
+        !formData.directorIdType ||
+        !formData.directorIdNumber ||
+        !formData.directorIdImage
+      ) {
+        toast({
+          title: "Validation Error",
+          description:
+            "Director ID information is mandatory for full registration",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
 
-        // Check if either CAC or address evidence is provided
-        if (!formData.cacDocumentImage && !formData.addressEvidenceImage) {
-          toast({
-            title: "Validation Error",
-            description:
-              "You must provide either CAC documents OR address evidence for verification",
-            variant: "destructive",
-          });
-          setSubmitting(false);
-          return;
-        }
+      // Check if either CAC or address evidence is provided
+      if (!formData.cacDocumentImage && !formData.addressEvidenceImage) {
+        toast({
+          title: "Validation Error",
+          description:
+            "You must provide either CAC documents OR address evidence for verification",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
       }
 
       // Validate owner information (required for all registrations)
@@ -582,9 +580,6 @@ export default function BusinessRegistrationPage() {
                     <SelectItem value="FULL_REGISTRATION">
                       Full Registration (Complete business details +
                       verification documents)
-                    </SelectItem>
-                    <SelectItem value="RECOMMENDATION">
-                      Recommendation (Basic business information only)
                     </SelectItem>
                   </SelectContent>
                 </Select>

@@ -32,12 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Allow reviewers and agents (both approved and non-approved) to register businesses
-    if (user.role === "REVIEWER") {
-      // Reviewers can register businesses (they become agents after 2 verified businesses)
-    } else if (user.role === "AGENT") {
-      // Agents can register businesses (they become approved after 2 verified businesses)
-      // No approval check needed - they need to register businesses to become approved
-    } else {
+    if (user.role !== "REVIEWER" && user.role !== "AGENT") {
       return NextResponse.json(
         {
           error: "Only reviewers and agents can register businesses",
@@ -78,10 +73,10 @@ export async function POST(request: NextRequest) {
       ownerState,
     } = body;
 
-    // Validate registration type
-    if (!Object.values(RegistrationType).includes(registrationType)) {
+    // Only allow FULL_REGISTRATION type
+    if (registrationType !== RegistrationType.FULL_REGISTRATION) {
       return NextResponse.json(
-        { error: "Invalid registration type" },
+        { error: "Only full registration is allowed for agents" },
         { status: 400 },
       );
     }
@@ -105,62 +100,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate required fields based on registration type
-    if (registrationType === RegistrationType.FULL_REGISTRATION) {
-      const requiredFields = [
-        "businessName",
-        "businessDescription",
-        "businessCategory",
-        "businessPhone",
-        "businessEmail",
-        "businessAddress",
-        "businessCity",
-        "businessState",
-        "directorIdType",
-        "directorIdNumber",
-        "directorIdImage",
-      ];
+    // Validate required fields for full registration
+    const requiredFields = [
+      "businessName",
+      "businessDescription",
+      "businessCategory",
+      "businessPhone",
+      "businessEmail",
+      "businessAddress",
+      "businessCity",
+      "businessState",
+      "directorIdType",
+      "directorIdNumber",
+      "directorIdImage",
+    ];
 
-      for (const field of requiredFields) {
-        if (!body[field]) {
-          return NextResponse.json(
-            {
-              error: `Missing required field: ${field}`,
-            },
-            { status: 400 },
-          );
-        }
-      }
-
-      // For full registration, either CAC or address evidence is required
-      if (!cacDocumentImage && !addressEvidenceImage) {
+    for (const field of requiredFields) {
+      if (!body[field]) {
         return NextResponse.json(
           {
-            error:
-              "Either CAC document or address evidence is required for full registration",
+            error: `Missing required field: ${field}`,
           },
           { status: 400 },
         );
       }
-    } else if (registrationType === RegistrationType.RECOMMENDATION) {
-      const requiredFields = [
-        "businessName",
-        "businessAddress",
-        "businessCity",
-        "businessState",
-        "businessCategory",
-      ];
+    }
 
-      for (const field of requiredFields) {
-        if (!body[field]) {
-          return NextResponse.json(
-            {
-              error: `Missing required field: ${field}`,
-            },
-            { status: 400 },
-          );
-        }
-      }
+    // Either CAC or address evidence is required
+    if (!cacDocumentImage && !addressEvidenceImage) {
+      return NextResponse.json(
+        {
+          error:
+            "Either CAC document or address evidence is required for full registration",
+        },
+        { status: 400 },
+      );
     }
 
     // Check if agent already has 5 pending registrations
@@ -202,6 +176,13 @@ export async function POST(request: NextRequest) {
         firsTaxClearance: firsTaxClearance || null,
         addressEvidenceType: addressEvidenceType || null,
         addressEvidenceImage: addressEvidenceImage || null,
+        // Owner information
+        ownerName,
+        ownerEmail,
+        ownerPhone,
+        ownerAddress,
+        ownerCity,
+        ownerState,
         status: RegistrationStatus.PENDING,
       },
     });
@@ -209,10 +190,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: registration,
-      message:
-        registrationType === RegistrationType.FULL_REGISTRATION
-          ? "Business registration submitted successfully"
-          : "Business recommendation submitted successfully",
+      message: "Business registration submitted successfully",
     });
   } catch (error) {
     console.error("Error creating business registration:", error);
@@ -271,7 +249,11 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
 
-    const where: any = {
+    const where: {
+      agentId: string;
+      status?: RegistrationStatus;
+      registrationType?: RegistrationType;
+    } = {
       agentId: user.id,
     };
 
@@ -279,14 +261,14 @@ export async function GET(request: NextRequest) {
       status &&
       Object.values(RegistrationStatus).includes(status as RegistrationStatus)
     ) {
-      where.status = status;
+      where.status = status as RegistrationStatus;
     }
 
     if (
       type &&
       Object.values(RegistrationType).includes(type as RegistrationType)
     ) {
-      where.registrationType = type;
+      where.registrationType = type as RegistrationType;
     }
 
     const [registrations, total] = await Promise.all([

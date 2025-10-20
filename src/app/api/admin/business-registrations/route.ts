@@ -28,20 +28,16 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
 
-    const where: any = {};
+    const where: any = {
+      // Only show FULL_REGISTRATION types - RECOMMENDATION types go to business-recommendations
+      registrationType: "FULL_REGISTRATION",
+    };
 
     if (
       status &&
       Object.values(RegistrationStatus).includes(status as RegistrationStatus)
     ) {
       where.status = status;
-    }
-
-    if (
-      type &&
-      Object.values(RegistrationType).includes(type as RegistrationType)
-    ) {
-      where.registrationType = type;
     }
 
     const [registrations, total] = await Promise.all([

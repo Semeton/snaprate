@@ -443,7 +443,7 @@ export default function BusinessVerificationForm() {
                       <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/*"
                         onChange={(e) => {
                           console.log("File input change:", e.target.files);
                           const file = e.target.files?.[0];
@@ -533,7 +533,7 @@ export default function BusinessVerificationForm() {
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                         <input
                           type="file"
-                          accept="image/*,application/pdf"
+                          accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
@@ -589,7 +589,7 @@ export default function BusinessVerificationForm() {
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -678,7 +678,7 @@ export default function BusinessVerificationForm() {
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                         <input
                           type="file"
-                          accept="image/*,application/pdf"
+                          accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
