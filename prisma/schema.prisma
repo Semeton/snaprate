@@ -58,6 +58,7 @@ model User {
   coupons                 Coupon[]                 @relation("UserCoupons")
   couponRedemptions       CouponRedemption[]
   couponFavorites         CouponFavorite[]         @relation("UserCouponFavorites")
+  couponAssignments       CouponAssignment[]       @relation("CouponAssignments")
   businessRegistrations   BusinessRegistration[]    @relation("AgentRegistrations")
   registeredBusinesses    Business[]                @relation("RegisteredBusinesses")
   businessReviews         UserBusinessReview[]      @relation("UserBusinessReviews")
@@ -344,8 +345,8 @@ model Coupon {
   requiresIdVerification Boolean        @default(false)
   maxUsesPerUser     Int?              @default(1)
   
-  // User assignment tracking
-  assignedUserId     String?            // The user this coupon is assigned to
+  // User assignment tracking (for private coupons)
+  assignedUserId     String?            // The user this coupon is assigned to (for private coupons)
   assignedAt         DateTime?
   
   // Public/Private coupon system
@@ -357,6 +358,7 @@ model Coupon {
   business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
   assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
   favorites          CouponFavorite[]   @relation("CouponFavorites")
+  assignments        CouponAssignment[] @relation("CouponAssignments")
 
   @@map("coupons")
 }

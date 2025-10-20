@@ -55,11 +55,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (coupon.assignedUserId) {
-      return NextResponse.json(
-        { error: "Coupon has already been claimed" },
-        { status: 400 },
-      );
+    // For private coupons, check if user has been assigned this coupon
+    if (coupon.couponType === "PRIVATE") {
+      const userAssignment = await prisma.couponAssignment.findFirst({
+        where: {
+          couponId: couponId,
+          userId: session.user.id,
+          status: "ASSIGNED",
+        },
+      });
+
+      if (!userAssignment) {
+        return NextResponse.json(
+          { error: "This coupon is not assigned to you" },
+          { status: 400 },
+        );
+      }
+    }
+
+    // For public coupons, check if user has already claimed this coupon
+    if (coupon.couponType === "PUBLIC") {
+      const existingAssignment = await prisma.couponAssignment.findFirst({
+        where: {
+          couponId: couponId,
+          userId: session.user.id,
+          status: "ASSIGNED",
+        },
+      });
+
+      if (existingAssignment) {
+        return NextResponse.json(
+          { error: "You have already claimed this coupon" },
+          { status: 400 },
+        );
+      }
     }
 
     // Check if coupon is still valid
@@ -116,11 +145,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user has reached the 5 active coupons limit
-    const activeCouponsCount = await prisma.coupon.count({
+    const activeCouponsCount = await prisma.couponAssignment.count({
       where: {
-        assignedUserId: session.user.id,
-        status: "ACTIVE",
-        validUntil: { gte: now },
+        userId: session.user.id,
+        status: "ASSIGNED",
+        expiresAt: { gte: now },
       },
     });
 

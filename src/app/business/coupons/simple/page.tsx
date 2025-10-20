@@ -119,12 +119,14 @@ export default function SimpleBusinessCouponsPage() {
           maxUses: formData.maxUses ? parseInt(formData.maxUses) : undefined,
           couponType: formData.couponType,
           requiresReview: formData.requiresReview,
+          useType: formData.useType,
+          maxUsesPerUser: formData.maxUsesPerUser
+            ? parseInt(formData.maxUsesPerUser)
+            : 1,
           // Set defaults for required fields
-          useType: "SINGLE_USE",
           allowedDaysOfWeek: [],
           cannotCombineWithOtherCoupons: true,
           requiresIdVerification: false,
-          maxUsesPerUser: 1,
         }),
       });
 
@@ -231,38 +233,40 @@ export default function SimpleBusinessCouponsPage() {
     }
   };
 
-  const handleAssignUser = async (couponId: string, userId: string) => {
+  const handleAssignUser = async (couponId: string, userIds: string[]) => {
     try {
       setCreating(true);
       setError(null);
 
-      const response = await fetch("/api/coupons/assign", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ couponId, userId }),
-      });
+      // Assign to each user individually
+      const assignmentPromises = userIds.map((userId) =>
+        fetch("/api/coupons/assign", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ couponId, userId }),
+        }),
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to assign coupon");
+      const responses = await Promise.all(assignmentPromises);
+
+      // Check if all assignments were successful
+      const failedAssignments = responses.filter((response) => !response.ok);
+
+      if (failedAssignments.length > 0) {
+        const errorData = await failedAssignments[0].json();
+        throw new Error(errorData.error || "Some assignments failed");
       }
 
-      const responseData = await response.json();
-
-      // Update the coupon in the local state
-      setCoupons((prev) =>
-        prev.map((coupon) =>
-          coupon.id === couponId
-            ? { ...coupon, ...responseData.coupon }
-            : coupon,
-        ),
-      );
+      // Refresh coupons to get updated assignment counts
+      await fetchCoupons();
 
       setMessage({
         type: "success",
-        text: "Coupon assigned successfully!",
+        text: `Coupon assigned to ${userIds.length} user${
+          userIds.length !== 1 ? "s" : ""
+        } successfully!`,
       });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {

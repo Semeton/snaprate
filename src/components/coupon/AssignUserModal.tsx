@@ -13,23 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/user-avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Search,
-  Users,
-  UserPlus,
-  X,
-  Mail,
-  Phone,
-  MapPin,
-  Star,
-} from "lucide-react";
+import { Search, Users, UserPlus, X, Mail, MapPin, Star } from "lucide-react";
 import { Coupon } from "@/types";
 
 interface User {
@@ -52,7 +36,7 @@ interface AssignUserModalProps {
   coupon: Coupon | null;
   isOpen: boolean;
   onClose: () => void;
-  onAssign: (couponId: string, userId: string) => Promise<void>;
+  onAssign: (couponId: string, userIds: string[]) => Promise<void>;
   loading?: boolean;
 }
 
@@ -66,7 +50,7 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -118,22 +102,30 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
   };
 
   const handleAssign = async () => {
-    if (!selectedUserId || !coupon) return;
+    if (selectedUserIds.length === 0 || !coupon) return;
 
     try {
-      await onAssign(coupon.id, selectedUserId);
-      setSelectedUserId("");
+      await onAssign(coupon.id, selectedUserIds);
+      setSelectedUserIds([]);
       onClose();
     } catch (error) {
-      console.error("Failed to assign user:", error);
+      console.error("Failed to assign users:", error);
     }
   };
 
   const handleClose = () => {
-    setSelectedUserId("");
+    setSelectedUserIds([]);
     setSearchTerm("");
     setError(null);
     onClose();
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
   };
 
   if (!coupon) return null;
@@ -144,11 +136,11 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            Assign Coupon to User
+            Assign Coupon to Users
           </DialogTitle>
           <DialogDescription>
-            Assign the coupon "{coupon.title}" to a specific user. Only assigned
-            users will be able to use this private coupon.
+            Assign the coupon &ldquo;{coupon.title}&rdquo; to one or more users.
+            Only assigned users will be able to use this coupon.
           </DialogDescription>
         </DialogHeader>
 
@@ -164,7 +156,11 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
                   {coupon.description || "No description"}
                 </p>
               </div>
-              <Badge variant="secondary">Private Coupon</Badge>
+              <Badge variant="secondary">
+                {coupon.couponType === "PRIVATE"
+                  ? "Private Coupon"
+                  : "Public Coupon"}
+              </Badge>
             </div>
           </div>
 
@@ -232,11 +228,11 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
                     <div
                       key={user.id}
                       className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedUserId === user.id
+                        selectedUserIds.includes(user.id)
                           ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
                           : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                       }`}
-                      onClick={() => setSelectedUserId(user.id)}
+                      onClick={() => toggleUserSelection(user.id)}
                     >
                       <Avatar
                         user={{
@@ -283,7 +279,7 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
                           )}
                         </div>
                       </div>
-                      {selectedUserId === user.id && (
+                      {selectedUserIds.includes(user.id) && (
                         <div className="flex-shrink-0">
                           <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
                             <X className="h-4 w-4 text-white" />
@@ -297,6 +293,23 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
             </div>
           )}
 
+          {/* Selected Users Count */}
+          {selectedUserIds.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                {selectedUserIds.length} user
+                {selectedUserIds.length !== 1 ? "s" : ""} selected
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedUserIds([])}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={handleClose}>
@@ -304,9 +317,13 @@ const AssignUserModal: React.FC<AssignUserModalProps> = ({
             </Button>
             <Button
               onClick={handleAssign}
-              disabled={!selectedUserId || loading}
+              disabled={selectedUserIds.length === 0 || loading}
             >
-              {loading ? "Assigning..." : "Assign Coupon"}
+              {loading
+                ? "Assigning..."
+                : `Assign to ${selectedUserIds.length} User${
+                    selectedUserIds.length !== 1 ? "s" : ""
+                  }`}
             </Button>
           </div>
         </div>

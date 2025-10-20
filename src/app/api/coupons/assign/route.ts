@@ -124,6 +124,7 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const couponId = searchParams.get("couponId");
+    const userId = searchParams.get("userId");
 
     if (!couponId) {
       return NextResponse.json(
@@ -132,12 +133,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const couponService = new CouponService();
-
     // Verify the coupon belongs to the business owner
     const coupon = await prisma.coupon.findUnique({
       where: { id: couponId },
-      select: { businessId: true, assignedUserId: true },
+      select: { businessId: true },
     });
 
     if (!coupon) {
@@ -163,27 +162,75 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    if (!coupon.assignedUserId) {
-      return NextResponse.json(
-        { error: "Coupon is not assigned to any user" },
-        { status: 400 },
-      );
+    // If userId is provided, unassign specific user
+    if (userId) {
+      const assignment = await prisma.couponAssignment.findFirst({
+        where: {
+          couponId: couponId,
+          userId: userId,
+          status: "ASSIGNED",
+        },
+      });
+
+      if (!assignment) {
+        return NextResponse.json(
+          { error: "User assignment not found" },
+          { status: 404 },
+        );
+      }
+
+      // Update assignment status to cancelled
+      await prisma.couponAssignment.update({
+        where: { id: assignment.id },
+        data: { status: "CANCELLED" },
+      });
+
+      // Decrease total issued count
+      await prisma.coupon.update({
+        where: { id: couponId },
+        data: { totalIssued: { decrement: 1 } },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "User assignment cancelled successfully",
+      });
+    } else {
+      // If no userId provided, cancel all assignments for this coupon
+      const assignments = await prisma.couponAssignment.findMany({
+        where: {
+          couponId: couponId,
+          status: "ASSIGNED",
+        },
+      });
+
+      if (assignments.length === 0) {
+        return NextResponse.json(
+          { error: "No active assignments found for this coupon" },
+          { status: 400 },
+        );
+      }
+
+      // Cancel all assignments
+      await prisma.couponAssignment.updateMany({
+        where: {
+          couponId: couponId,
+          status: "ASSIGNED",
+        },
+        data: { status: "CANCELLED" },
+      });
+
+      // Reset total issued count
+      await prisma.coupon.update({
+        where: { id: couponId },
+        data: { totalIssued: 0 },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "All assignments cancelled successfully",
+      });
     }
-
-    // Unassign the coupon
-    await prisma.coupon.update({
-      where: { id: couponId },
-      data: {
-        assignedUserId: null,
-        assignedAt: null,
-        userSpecificCode: null,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Coupon unassigned successfully",
-    });
   } catch (error) {
     console.error("Failed to unassign coupon:", error);
     return NextResponse.json(

@@ -28,7 +28,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { CouponType, CouponVisibility } from "@/types";
+import { CouponType, CouponVisibility, CouponUseType } from "@/types";
 
 interface SimpleCouponFormProps {
   onSubmit: (data: CouponFormData) => void;
@@ -46,6 +46,8 @@ export interface CouponFormData {
   maxUses: string;
   couponType: CouponVisibility;
   requiresReview: boolean;
+  useType: CouponUseType;
+  maxUsesPerUser: string;
 }
 
 const defaultFormData: CouponFormData = {
@@ -58,6 +60,8 @@ const defaultFormData: CouponFormData = {
   maxUses: "",
   couponType: CouponVisibility.PUBLIC,
   requiresReview: false,
+  useType: CouponUseType.SINGLE_USE,
+  maxUsesPerUser: "1",
 };
 
 export default function SimpleCouponForm({
@@ -110,6 +114,14 @@ export default function SimpleCouponForm({
       (isNaN(Number(formData.maxUses)) || Number(formData.maxUses) <= 0)
     ) {
       newErrors.maxUses = "Max uses must be a positive number";
+    }
+
+    if (
+      formData.maxUsesPerUser &&
+      (isNaN(Number(formData.maxUsesPerUser)) ||
+        Number(formData.maxUsesPerUser) <= 0)
+    ) {
+      newErrors.maxUsesPerUser = "Max uses per user must be a positive number";
     }
 
     setErrors(newErrors);
@@ -186,6 +198,87 @@ export default function SimpleCouponForm({
               </div>
             </div>
           </div>
+
+          {/* Use Type Selection */}
+          <div className="space-y-3">
+            <Label className="text-base font-medium">Usage Type</Label>
+            <div className="grid grid-cols-3 gap-4">
+              <div
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  formData.useType === CouponUseType.SINGLE_USE
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+                onClick={() =>
+                  handleInputChange("useType", CouponUseType.SINGLE_USE)
+                }
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">Single Use</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Each user can only use this coupon once
+                </p>
+              </div>
+              <div
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  formData.useType === CouponUseType.MULTI_USE
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+                onClick={() =>
+                  handleInputChange("useType", CouponUseType.MULTI_USE)
+                }
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">Multi Use</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Users can use this coupon multiple times
+                </p>
+              </div>
+              <div
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                  formData.useType === CouponUseType.ONCE_PER_USER
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-950"
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
+                onClick={() =>
+                  handleInputChange("useType", CouponUseType.ONCE_PER_USER)
+                }
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">Once Per User</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Each user can use this coupon once per day
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Max Uses Per User (only for multi-use) */}
+          {formData.useType === CouponUseType.MULTI_USE && (
+            <div>
+              <Label htmlFor="maxUsesPerUser">Maximum Uses Per User</Label>
+              <Input
+                id="maxUsesPerUser"
+                type="number"
+                value={formData.maxUsesPerUser}
+                onChange={(e) =>
+                  handleInputChange("maxUsesPerUser", e.target.value)
+                }
+                placeholder="1"
+                min="1"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                How many times each user can use this coupon
+              </p>
+            </div>
+          )}
 
           {/* Basic Information */}
           <div className="space-y-4">

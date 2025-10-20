@@ -1,587 +1,537 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Building2,
+  ArrowLeft,
+  Gift,
+  Search,
+  Star,
   MapPin,
-  Clock,
   Calendar,
   Users,
-  Search,
-  Gift,
-  CreditCard,
-  Download,
+  Eye,
   QrCode,
+  Download,
+  Copy,
   CheckCircle,
+  Clock,
   AlertCircle,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { CouponStatus, CouponType, CouponUseType } from "@/types";
-import Image from "next/image";
-import Link from "next/link";
-import CouponClaimModal from "@/components/CouponClaimModal";
-import PublicNavigation from "@/components/PublicNavigation";
+import { Coupon, CouponStatus, CouponVisibility, Business } from "@/types";
+import { toast } from "@/components/ui/use-toast";
 
-interface BusinessCoupon {
-  id: string;
-  title: string;
-  description?: string;
-  type: CouponType;
-  value: number;
-  minimumOrderAmount?: number;
-  maximumDiscount?: number;
-  validFrom: string;
-  validUntil: string;
-  maxUses?: number;
-  currentUses: number;
-  totalIssued: number;
-  totalRedeemed: number;
-  useType: CouponUseType;
-  allowedDaysOfWeek: number[];
-  allowedTimeStart?: string;
-  allowedTimeEnd?: string;
-  cannotCombineWithOtherCoupons: boolean;
-  requiresIdVerification: boolean;
-  maxUsesPerUser?: number;
-  createdAt: string;
-  isAvailable: boolean;
-  remainingUses?: number;
-}
+interface BusinessCouponsPageProps {}
 
-interface Business {
-  id: string;
-  name: string;
-  description?: string;
-  category: string;
-  address: string;
-  city: string;
-  state: string;
-  logo?: string;
-}
-
-export default function BusinessCouponsPage() {
+export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
   const params = useParams();
-  const businessId = params.id as string;
+  const router = useRouter();
+  const { data: session } = useSession();
 
   const [business, setBusiness] = useState<Business | null>(null);
-  const [coupons, setCoupons] = useState<BusinessCoupon[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [filteredCoupons, setFilteredCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCoupon, setSelectedCoupon] = useState<
-    | (BusinessCoupon & {
-        business: {
-          id: string;
-          name: string;
-          logo?: string;
-          city: string;
-          state: string;
-        };
-      })
-    | null
-  >(null);
-  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
-  const [downloadingPDF, setDownloadingPDF] = useState<string | null>(null);
-  const [generatingQR, setGeneratingQR] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("all");
+  const [userClaimedCoupons, setUserClaimedCoupons] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const businessId = params.id as string;
 
   useEffect(() => {
-    fetchBusinessCoupons();
+    if (businessId) {
+      fetchBusinessDetails();
+      fetchBusinessCoupons();
+    }
   }, [businessId]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserClaimedCoupons();
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    filterCoupons();
+  }, [coupons, searchTerm, activeTab]);
+
+  const fetchBusinessDetails = async () => {
+    try {
+      const response = await fetch(`/api/businesses/${businessId}`);
+      if (response.ok) {
+        const businessData = await response.json();
+        setBusiness(businessData);
+      } else {
+        setError("Failed to load business details");
+      }
+    } catch (error) {
+      console.error("Error fetching business:", error);
+      setError("Failed to load business details");
+    }
+  };
 
   const fetchBusinessCoupons = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const response = await fetch(`/api/businesses/${businessId}/coupons`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch coupons");
+      if (response.ok) {
+        const data = await response.json();
+        setCoupons(data.coupons || []);
+      } else {
+        setError("Failed to load coupons");
       }
-
-      const data = await response.json();
-      setBusiness(data.business);
-      setCoupons(data.coupons);
     } catch (error) {
-      console.error("Failed to fetch business coupons:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to fetch coupons",
-      );
+      console.error("Error fetching coupons:", error);
+      setError("Failed to load coupons");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCoupons = coupons.filter(
-    (coupon) =>
-      coupon.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      coupon.description?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const fetchUserClaimedCoupons = async () => {
+    if (!session?.user) return;
 
-  const getCouponTypeLabel = (type: CouponType) => {
-    return type === CouponType.PERCENTAGE ? "Percentage" : "Fixed Amount";
+    try {
+      const response = await fetch(`/api/user/coupons/assignments`);
+      if (response.ok) {
+        const data = await response.json();
+        const claimedCouponIds = new Set(
+          data.assignments?.map((assignment: any) => assignment.couponId) || [],
+        );
+        setUserClaimedCoupons(claimedCouponIds);
+      }
+    } catch (error) {
+      console.error("Error fetching user claimed coupons:", error);
+    }
   };
 
-  const getUseTypeLabel = (useType: CouponUseType) => {
-    switch (useType) {
-      case CouponUseType.SINGLE_USE:
-        return "Single Use";
-      case CouponUseType.MULTI_USE:
-        return "Multiple Use";
-      case CouponUseType.ONCE_PER_USER:
-        return "Once Per User";
+  const filterCoupons = () => {
+    let filtered = coupons;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (coupon) =>
+          coupon.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          coupon.description?.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+    }
+
+    // Filter by tab
+    switch (activeTab) {
+      case "public":
+        filtered = filtered.filter(
+          (coupon) => coupon.couponType === CouponVisibility.PUBLIC,
+        );
+        break;
+      case "private":
+        filtered = filtered.filter(
+          (coupon) => coupon.couponType === CouponVisibility.PRIVATE,
+        );
+        break;
+      case "active":
+        filtered = filtered.filter((coupon) => coupon.status === "ACTIVE");
+        break;
+      case "expired":
+        filtered = filtered.filter((coupon) => coupon.status === "EXPIRED");
+        break;
+      case "all":
       default:
-        return "Unknown";
+        // For "all" tab, show only active public coupons by default
+        filtered = filtered.filter(
+          (coupon) =>
+            coupon.couponType === CouponVisibility.PUBLIC &&
+            coupon.status === "ACTIVE",
+        );
+        break;
     }
+
+    setFilteredCoupons(filtered);
   };
 
-  const getDayNames = (dayNumbers: number[]) => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return dayNumbers.map((num) => days[num]).join(", ");
-  };
-
-  const getDiscountDisplay = (coupon: BusinessCoupon) => {
-    if (coupon.type === CouponType.PERCENTAGE) {
-      return `${coupon.value}% off`;
-    } else {
-      return `₦${coupon.value.toLocaleString()} off`;
+  const handleClaimCoupon = async (couponId: string) => {
+    if (!session?.user) {
+      router.push(`/auth/signin?redirect=/businesses/${businessId}/coupons`);
+      return;
     }
-  };
 
-  const getStatusColor = (coupon: BusinessCoupon) => {
-    if (!coupon.isAvailable)
-      return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-    if (coupon.remainingUses && coupon.remainingUses <= 5)
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-    return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-  };
-
-  const getStatusText = (coupon: BusinessCoupon) => {
-    if (!coupon.isAvailable) return "Unavailable";
-    if (coupon.remainingUses && coupon.remainingUses <= 5) return "Limited";
-    return "Available";
-  };
-
-  const handleClaimCoupon = (coupon: BusinessCoupon) => {
-    // Add business information to the coupon for the modal
-    const couponWithBusiness = {
-      ...coupon,
-      business: {
-        id: business.id,
-        name: business.name,
-        logo: business.logo,
-        city: business.city,
-        state: business.state,
-      },
-    };
-    setSelectedCoupon(couponWithBusiness);
-    setIsClaimModalOpen(true);
-  };
-
-  const handleClaimSuccess = (couponId: string) => {
-    // Update the coupon in the list to reflect it's been claimed
-    setCoupons((prevCoupons) =>
-      prevCoupons.map((coupon) =>
-        coupon.id === couponId ? { ...coupon, isAvailable: false } : coupon,
-      ),
-    );
-    setIsClaimModalOpen(false);
-    setSelectedCoupon(null);
-  };
-
-  const handleCloseClaimModal = () => {
-    setIsClaimModalOpen(false);
-    setSelectedCoupon(null);
-  };
-
-  const downloadCouponPDF = async (couponId: string) => {
     try {
-      setDownloadingPDF(couponId);
-      const response = await fetch(`/api/coupons/${couponId}/pdf`);
+      const response = await fetch("/api/coupons/claim", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ couponId }),
+      });
 
-      if (!response.ok) {
-        throw new Error("Failed to generate PDF");
+      if (response.ok) {
+        toast({
+          title: "Coupon Claimed!",
+          description: "You have successfully claimed this coupon.",
+        });
+        // Refresh coupons to update counts and user's claimed coupons
+        fetchBusinessCoupons();
+        fetchUserClaimedCoupons();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Failed to Claim Coupon",
+          description: errorData.error || "Something went wrong.",
+          variant: "destructive",
+        });
       }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `coupon-${couponId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
     } catch (error) {
-      console.error("Failed to download PDF:", error);
-      alert("Failed to download PDF. Please try again.");
-    } finally {
-      setDownloadingPDF(null);
+      console.error("Failed to claim coupon:", error);
+      toast({
+        title: "Error",
+        description: "Failed to claim coupon. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const generateQRCode = async (couponId: string) => {
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast({
+      title: "Code Copied!",
+      description: "Coupon code has been copied to clipboard.",
+    });
+  };
+
+  const handleDownloadQR = async (couponId: string) => {
     try {
-      setGeneratingQR(couponId);
       const response = await fetch(`/api/coupons/${couponId}/qr`);
-
-      if (!response.ok) {
-        throw new Error("Failed to generate QR code");
-      }
-
-      const data = await response.json();
-
-      // Open QR code in new window
-      const qrWindow = window.open("", "_blank", "width=400,height=500");
-      if (qrWindow) {
-        qrWindow.document.write(`
-          <html>
-            <head><title>Coupon QR Code</title></head>
-            <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
-              <h2>Coupon QR Code</h2>
-              <img src="${data.qrCode}" alt="QR Code" style="max-width: 300px; margin: 20px 0;">
-              <p><strong>Coupon Code:</strong> ${data.couponCode}</p>
-              <p><strong>Verification URL:</strong><br><a href="${data.verificationURL}" target="_blank">${data.verificationURL}</a></p>
-              <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; background: #2563eb; color: white; border: none; border-radius: 5px; cursor: pointer;">Print QR Code</button>
-            </body>
-          </html>
-        `);
-        qrWindow.document.close();
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `coupon-${couponId}-qr.png`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
       }
     } catch (error) {
-      console.error("Failed to generate QR code:", error);
-      alert("Failed to generate QR code. Please try again.");
-    } finally {
-      setGeneratingQR(null);
+      console.error("Failed to download QR code:", error);
     }
+  };
+
+  const getStatusColor = (status: CouponStatus) => {
+    switch (status) {
+      case "ACTIVE":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "DRAFT":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      case "PAUSED":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "EXPIRED":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "USED":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const isCouponExpired = (coupon: Coupon) => {
+    return new Date(coupon.validUntil) < new Date();
+  };
+
+  const isCouponActive = (coupon: Coupon) => {
+    const now = new Date();
+    return (
+      coupon.status === "ACTIVE" &&
+      new Date(coupon.validFrom) <= now &&
+      new Date(coupon.validUntil) >= now
+    );
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <PublicNavigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">
-                Loading coupons...
-              </p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading coupons...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !business) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <PublicNavigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Error Loading Coupons
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-              <Button onClick={fetchBusinessCoupons}>Try Again</Button>
-            </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl font-semibold mb-2">
+            {error || "Business Not Found"}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!business) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <PublicNavigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-              Business Not Found
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              The business you're looking for doesn't exist or is not verified.
-            </p>
-          </div>
+          <p className="text-gray-600 mb-4">
+            {error || "The business you're looking for doesn't exist."}
+          </p>
+          <Button onClick={() => router.back()}>Go Back</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <PublicNavigation />
-      <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumb Navigation */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
-          <Link
-            href="/"
-            className="hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            Home
-          </Link>
-          <span>/</span>
-          <Link
-            href="/businesses"
-            className="hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            Businesses
-          </Link>
-          <span>/</span>
-          <Link
-            href={`/businesses/${businessId}`}
-            className="hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            {business.name}
-          </Link>
-          <span>/</span>
-          <span className="text-gray-900 dark:text-white font-medium">
-            Coupons
-          </span>
-        </nav>
-
-        {/* Business Header */}
-        <div className="mb-8">
-          <div className="flex items-start space-x-4 mb-4">
-            {business.logo && (
-              <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-                <Image
-                  src={business.logo}
-                  alt={business.name}
-                  width={64}
-                  height={64}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {business.name}
-              </h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <div className="flex items-center space-x-1">
-                  <Building2 className="w-4 h-4" />
-                  <span>{business.category}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <MapPin className="w-4 h-4" />
-                  <span>
-                    {business.city}, {business.state}
-                  </span>
-                </div>
-              </div>
-              {business.description && (
-                <p className="text-gray-600 dark:text-gray-400">
-                  {business.description}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => router.back()}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {business.name} Coupons
+                </h1>
+                <p className="text-gray-600">
+                  Discover and claim exclusive offers from {business.name}
                 </p>
-              )}
-              <div className="mt-4">
-                <Link href={`/businesses/${businessId}`}>
-                  <Button variant="outline" size="sm">
-                    <Building2 className="w-4 h-4 mr-2" />
-                    View Business Details
-                  </Button>
-                </Link>
               </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-600">
+                {business.city}, {business.state}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search and Filters */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search coupons..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search coupons..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="all">
+                Available (
+                {
+                  coupons.filter(
+                    (c) =>
+                      c.couponType === CouponVisibility.PUBLIC &&
+                      c.status === "ACTIVE",
+                  ).length
+                }
+                )
+              </TabsTrigger>
+              <TabsTrigger value="public">
+                Public (
+                {
+                  coupons.filter(
+                    (c) => c.couponType === CouponVisibility.PUBLIC,
+                  ).length
+                }
+                )
+              </TabsTrigger>
+              <TabsTrigger value="private">
+                Private (
+                {
+                  coupons.filter(
+                    (c) => c.couponType === CouponVisibility.PRIVATE,
+                  ).length
+                }
+                )
+              </TabsTrigger>
+              <TabsTrigger value="active">
+                Active ({coupons.filter((c) => c.status === "ACTIVE").length})
+              </TabsTrigger>
+              <TabsTrigger value="expired">
+                Expired ({coupons.filter((c) => c.status === "EXPIRED").length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Coupons Grid */}
-        {filteredCoupons.length === 0 ? (
-          <div className="text-center py-12">
-            <Gift className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-              {searchTerm ? "No coupons found" : "No coupons available"}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              {searchTerm
-                ? "Try adjusting your search terms"
-                : "This business doesn't have any available coupons at the moment."}
-            </p>
-          </div>
-        ) : (
+        {filteredCoupons.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCoupons.map((coupon) => (
-              <Card key={coupon.id} className="relative">
+              <Card key={coupon.id} className="relative overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-lg mb-2">
+                      <CardTitle className="text-lg font-semibold line-clamp-2">
                         {coupon.title}
                       </CardTitle>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Badge className={getStatusColor(coupon)}>
-                          {getStatusText(coupon)}
-                        </Badge>
-                        <Badge variant="outline">
-                          {getCouponTypeLabel(coupon.type)}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {getDiscountDisplay(coupon)}
-                      </div>
-                      {coupon.minimumOrderAmount && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Min: ₦{coupon.minimumOrderAmount.toLocaleString()}
-                        </div>
+                      {coupon.description && (
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                          {coupon.description}
+                        </p>
                       )}
                     </div>
+                    <Badge
+                      variant="outline"
+                      className={`${getStatusColor(coupon.status)} ml-2`}
+                    >
+                      {coupon.status}
+                    </Badge>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {coupon.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {coupon.description}
+                  {/* Coupon Value */}
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">
+                      {coupon.type === "PERCENTAGE"
+                        ? `${coupon.value}%`
+                        : `₦${coupon.value}`}
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {coupon.type === "PERCENTAGE" ? "off" : "discount"}
                     </p>
+                  </div>
+
+                  {/* Coupon Code */}
+                  {coupon.baseCode && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs text-gray-500">
+                            Coupon Code
+                          </Label>
+                          <p className="font-mono text-lg font-semibold">
+                            {coupon.baseCode}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCopyCode(coupon.baseCode!)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
 
-                  {/* Coupon Details */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Use Type:
-                      </span>
-                      <span>{getUseTypeLabel(coupon.useType)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">
-                        Valid Until:
-                      </span>
-                      <span className="flex items-center space-x-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>{formatDate(coupon.validUntil)}</span>
+                  {/* Validity Period */}
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <span>
+                        Valid until{" "}
+                        {new Date(coupon.validUntil).toLocaleDateString()}
                       </span>
                     </div>
-
-                    {coupon.allowedDaysOfWeek.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Valid Days:
-                        </span>
-                        <span>{getDayNames(coupon.allowedDaysOfWeek)}</span>
-                      </div>
-                    )}
-
-                    {(coupon.allowedTimeStart || coupon.allowedTimeEnd) && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Valid Times:
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <Clock className="w-3 h-3" />
-                          <span>
-                            {coupon.allowedTimeStart || "00:00"} -{" "}
-                            {coupon.allowedTimeEnd || "23:59"}
-                          </span>
-                        </span>
-                      </div>
-                    )}
-
-                    {coupon.remainingUses && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Remaining:
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <Users className="w-3 h-3" />
-                          <span>{coupon.remainingUses} uses</span>
-                        </span>
-                      </div>
-                    )}
-
-                    {coupon.requiresIdVerification && (
-                      <div className="flex items-center space-x-1 text-amber-600 dark:text-amber-400">
-                        <CheckCircle className="w-3 h-3" />
-                        <span className="text-xs">
-                          ID verification required
+                    {coupon.maxUses && (
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Users className="h-4 w-4 mr-2" />
+                        <span>
+                          {coupon.currentUses || 0} / {coupon.maxUses} uses
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="pt-4 border-t space-y-2">
+                  {/* Actions */}
+                  <div className="flex space-x-2">
+                    {isCouponActive(coupon) &&
+                    coupon.couponType === CouponVisibility.PUBLIC ? (
+                      <Button
+                        onClick={() => handleClaimCoupon(coupon.id)}
+                        className="flex-1"
+                        disabled={
+                          !session?.user || userClaimedCoupons.has(coupon.id)
+                        }
+                        variant={
+                          userClaimedCoupons.has(coupon.id)
+                            ? "outline"
+                            : "default"
+                        }
+                      >
+                        {!session?.user ? (
+                          <>
+                            <Gift className="h-4 w-4 mr-2" />
+                            Sign In to Claim
+                          </>
+                        ) : userClaimedCoupons.has(coupon.id) ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Already Claimed
+                          </>
+                        ) : (
+                          <>
+                            <Gift className="h-4 w-4 mr-2" />
+                            Claim Coupon
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="flex-1" disabled>
+                        {isCouponExpired(coupon) ? (
+                          <>
+                            <Clock className="h-4 w-4 mr-2" />
+                            Expired
+                          </>
+                        ) : coupon.couponType === CouponVisibility.PRIVATE ? (
+                          <>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Private
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-4 w-4 mr-2" />
+                            Inactive
+                          </>
+                        )}
+                      </Button>
+                    )}
                     <Button
-                      className="w-full"
+                      variant="outline"
                       size="sm"
-                      onClick={() => handleClaimCoupon(coupon)}
-                      disabled={!coupon.isAvailable}
+                      onClick={() => handleDownloadQR(coupon.id)}
                     >
-                      <Gift className="w-3 h-3 mr-1" />
-                      {coupon.isAvailable ? "Claim Coupon" : "Already Claimed"}
+                      <QrCode className="h-4 w-4" />
                     </Button>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => downloadCouponPDF(coupon.id)}
-                        disabled={downloadingPDF === coupon.id}
-                      >
-                        <Download className="w-3 h-3 mr-1" />
-                        {downloadingPDF === coupon.id ? "Generating..." : "PDF"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => generateQRCode(coupon.id)}
-                        disabled={generatingQR === coupon.id}
-                      >
-                        <QrCode className="w-3 h-3 mr-1" />
-                        {generatingQR === coupon.id ? "Generating..." : "QR"}
-                      </Button>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
+        ) : (
+          <div className="text-center py-12">
+            <Gift className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No coupons found
+            </h3>
+            <p className="text-gray-500">
+              {searchTerm
+                ? "Try adjusting your search terms"
+                : "This business hasn't published any coupons yet."}
+            </p>
+          </div>
         )}
-
-        {/* Back to Business */}
-        <div className="mt-8 text-center">
-          <Link href={`/businesses/${businessId}`}>
-            <Button variant="outline">
-              <Building2 className="w-4 h-4 mr-2" />
-              View Business Profile
-            </Button>
-          </Link>
-        </div>
-
-        {/* Coupon Claim Modal */}
-        <CouponClaimModal
-          isOpen={isClaimModalOpen}
-          onClose={handleCloseClaimModal}
-          coupon={selectedCoupon}
-          onClaimSuccess={handleClaimSuccess}
-        />
       </div>
     </div>
   );

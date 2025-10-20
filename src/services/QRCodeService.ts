@@ -98,7 +98,7 @@ export class QRCodeService {
     try {
       // Generate QR code
       const qrCodeDataURL = await this.generateQRCodeDataURL(
-        `https://snaprate.com/verify/${pdfData.couponCode}`,
+        `${process.env.NEXT_PUBLIC_APP_URL}/verify/${pdfData.couponCode}`,
         { width: 200 },
       );
 
@@ -213,7 +213,11 @@ export class QRCodeService {
    * Generate QR code for verification URL
    */
   static async generateVerificationQRCode(couponCode: string): Promise<string> {
-    const verificationURL = `https://snaprate.com/verify/${couponCode}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://snaprate.com";
+    const verificationURL = `${baseUrl.replace(
+      /\/+$/,
+      "",
+    )}/verify/${couponCode}`;
     return await this.generateQRCodeDataURL(verificationURL, {
       width: 256,
       color: {

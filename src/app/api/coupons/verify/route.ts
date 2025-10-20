@@ -1,52 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CouponService } from "@/services/CouponService";
-import { CouponVerificationData } from "@/types";
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { code, orderAmount, redemptionMethod, staffNotes, idVerified } =
-      body;
-
-    // Validate required fields
-    if (!code || !redemptionMethod) {
-      return NextResponse.json(
-        { error: "code and redemptionMethod are required" },
-        { status: 400 },
-      );
-    }
-
-    const verificationData: CouponVerificationData = {
-      code,
-      orderAmount: orderAmount ? parseFloat(orderAmount) : undefined,
-      redemptionMethod,
-      staffNotes,
-      idVerified: idVerified || false,
-    };
-
-    const couponService = new CouponService();
-    const result = await couponService.redeemCoupon(verificationData);
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      redemption: result.redemption,
-      message: "Coupon redeemed successfully",
-    });
-  } catch (error) {
-    console.error("Failed to verify coupon:", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to verify coupon",
-      },
-      { status: 500 },
-    );
-  }
-}
+import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,52 +14,121 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const couponService = new CouponService();
-    const coupon = await couponService.getCouponByCode(code);
+    // Find coupon by base code or user-specific code
+    const coupon = await prisma.coupon.findFirst({
+      where: {
+        OR: [{ baseCode: code }, { userSpecificCode: code }],
+      },
+      include: {
+        business: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            city: true,
+            state: true,
+            averageRating: true,
+            totalReviews: true,
+            isVerified: true,
+          },
+        },
+        _count: {
+          select: {
+            redemptions: true,
+            assignments: true,
+          },
+        },
+      },
+    });
 
     if (!coupon) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
 
-    // Return coupon details for verification page
+    // Check if business is verified
+    if (!coupon.business.isVerified) {
+      return NextResponse.json(
+        {
+          error: "Cannot verify coupons from unverified businesses",
+          verification: {
+            isValid: false,
+            message: "This business is not verified",
+            canRedeem: false,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    // Check coupon validity
+    const now = new Date();
+    const isExpired = coupon.validUntil < now;
+    const isNotYetValid = coupon.validFrom > now;
+    const isActive = coupon.status === "ACTIVE";
+    const hasReachedMaxUses =
+      coupon.maxUses && (coupon.currentUses || 0) >= coupon.maxUses;
+
+    let isValid = true;
+    let message = "Coupon is valid";
+    let canRedeem = true;
+
+    if (isExpired) {
+      isValid = false;
+      message = "This coupon has expired";
+      canRedeem = false;
+    } else if (isNotYetValid) {
+      isValid = false;
+      message = "This coupon is not yet valid";
+      canRedeem = false;
+    } else if (!isActive) {
+      isValid = false;
+      message = "This coupon is not active";
+      canRedeem = false;
+    } else if (hasReachedMaxUses) {
+      isValid = false;
+      message = "This coupon has reached its maximum usage limit";
+      canRedeem = false;
+    }
+
+    // Update coupon status if expired
+    if (isExpired && coupon.status === "ACTIVE") {
+      await prisma.coupon.update({
+        where: { id: coupon.id },
+        data: { status: "EXPIRED" },
+      });
+    }
+
+    logger.info(`Coupon verification: ${code}`, {
+      couponId: coupon.id,
+      isValid,
+      canRedeem,
+      businessId: coupon.businessId,
+    });
+
     return NextResponse.json({
       success: true,
       coupon: {
-        id: coupon.id,
-        title: coupon.title,
-        description: coupon.description,
-        type: coupon.type,
-        value: coupon.value,
-        minimumOrderAmount: coupon.minimumOrderAmount,
-        maximumDiscount: coupon.maximumDiscount,
-        validFrom: coupon.validFrom,
-        validUntil: coupon.validUntil,
-        status: coupon.status,
-        useType: coupon.useType,
-        allowedDaysOfWeek: coupon.allowedDaysOfWeek,
-        allowedTimeStart: coupon.allowedTimeStart,
-        allowedTimeEnd: coupon.allowedTimeEnd,
-        requiresIdVerification: coupon.requiresIdVerification,
-        business: {
-          id: coupon.business.id,
-          name: coupon.business.name,
-          category: coupon.business.category,
-          state: coupon.business.state,
-          city: coupon.business.city,
-        },
-        assignedUser: coupon.assignedUser
-          ? {
-              id: coupon.assignedUser.id,
-              name: coupon.assignedUser.name,
-              userIdentifier: coupon.assignedUser.userIdentifier,
-            }
-          : null,
+        ...coupon,
+        currentUses: coupon._count.redemptions,
+        totalAssignments: coupon._count.assignments,
+      },
+      business: coupon.business,
+      verification: {
+        isValid,
+        message,
+        canRedeem,
       },
     });
   } catch (error) {
-    console.error("Failed to get coupon details:", error);
+    logger.error("Failed to verify coupon", {
+      error: error instanceof Error ? error.message : error,
+      code: request.nextUrl.searchParams.get("code"),
+    });
     return NextResponse.json(
-      { error: "Failed to get coupon details" },
+      {
+        error: "Failed to verify coupon",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     );
   }

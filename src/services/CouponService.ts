@@ -145,8 +145,31 @@ export class CouponService {
         throw new Error("Coupon is not active");
       }
 
-      if (coupon.assignedUserId) {
-        throw new Error("Coupon is already assigned to a user");
+      // Check if user has already been assigned this coupon
+      const existingAssignment = await prisma.couponAssignment.findFirst({
+        where: {
+          couponId: couponId,
+          userId: userId,
+          status: "ASSIGNED",
+        },
+      });
+
+      if (existingAssignment) {
+        throw new Error("User has already been assigned this coupon");
+      }
+
+      // For public coupons, check if there are remaining slots
+      if (coupon.couponType === "PUBLIC" && coupon.maxUses) {
+        const currentAssignments = await prisma.couponAssignment.count({
+          where: {
+            couponId: couponId,
+            status: "ASSIGNED",
+          },
+        });
+
+        if (currentAssignments >= coupon.maxUses) {
+          throw new Error("This coupon has reached its maximum usage limit");
+        }
       }
 
       // Generate user-specific code
@@ -156,7 +179,7 @@ export class CouponService {
       );
 
       // Check if user-specific code already exists
-      const existingCode = await prisma.coupon.findUnique({
+      const existingCode = await prisma.couponAssignment.findFirst({
         where: { userSpecificCode },
       });
 
@@ -164,15 +187,28 @@ export class CouponService {
         throw new Error("User-specific coupon code already exists");
       }
 
-      // Update coupon with user assignment
-      const updatedCoupon = await prisma.coupon.update({
+      // Create assignment record for both private and public coupons
+      await prisma.couponAssignment.create({
+        data: {
+          couponId: couponId,
+          userId: userId,
+          userSpecificCode: userSpecificCode,
+          status: "ASSIGNED",
+          expiresAt: coupon.validUntil,
+        },
+      });
+
+      // Update coupon total issued count
+      await prisma.coupon.update({
         where: { id: couponId },
         data: {
-          userSpecificCode,
-          assignedUserId: userId,
-          assignedAt: new Date(),
           totalIssued: { increment: 1 },
         },
+      });
+
+      // Return the coupon with assignment info
+      const updatedCoupon = await prisma.coupon.findUnique({
+        where: { id: couponId },
         include: {
           business: {
             select: {
@@ -181,12 +217,20 @@ export class CouponService {
               category: true,
             },
           },
-          assignedUser: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              userIdentifier: true,
+          assignments: {
+            where: {
+              userId: userId,
+              status: "ASSIGNED",
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  userIdentifier: true,
+                },
+              },
             },
           },
         },
@@ -550,24 +594,43 @@ export class CouponService {
 
   async getUserCoupons(userId: string) {
     try {
-      const coupons = await prisma.coupon.findMany({
+      // Get user's coupon assignments with coupon details
+      const assignments = await prisma.couponAssignment.findMany({
         where: {
-          assignedUserId: userId,
-          status: "ACTIVE",
+          userId: userId,
+          status: "ASSIGNED",
         },
         include: {
-          business: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              state: true,
-              city: true,
+          coupon: {
+            include: {
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                  state: true,
+                  city: true,
+                },
+              },
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { assignedAt: "desc" },
       });
+
+      // Filter out assignments where the coupon is null or not active
+      const validAssignments = assignments.filter(
+        (assignment) =>
+          assignment.coupon !== null && assignment.coupon.status === "ACTIVE",
+      );
+
+      // Transform to the expected format
+      const coupons = validAssignments.map((assignment) => ({
+        ...assignment.coupon,
+        userSpecificCode: assignment.userSpecificCode,
+        assignedAt: assignment.assignedAt,
+        expiresAt: assignment.expiresAt,
+      }));
 
       return coupons as unknown as Coupon[];
     } catch (error) {
@@ -602,7 +665,7 @@ export class CouponService {
     }
   }
 
-  async generateCouponPDF(couponId: string): Promise<Buffer> {
+  async generateCouponPDF(couponId: string, userId?: string): Promise<Buffer> {
     try {
       const coupon = await prisma.coupon.findUnique({
         where: { id: couponId },
@@ -614,13 +677,6 @@ export class CouponService {
               category: true,
             },
           },
-          assignedUser: {
-            select: {
-              id: true,
-              name: true,
-              userIdentifier: true,
-            },
-          },
         },
       });
 
@@ -628,21 +684,49 @@ export class CouponService {
         throw new Error("Coupon not found");
       }
 
-      const code = coupon.userSpecificCode || coupon.baseCode!;
+      // Get user-specific code if userId is provided
+      let userSpecificCode = coupon.baseCode!;
+      let userIdentifier: string | undefined;
+      let userName: string | undefined;
+
+      if (userId) {
+        const assignment = await prisma.couponAssignment.findFirst({
+          where: {
+            couponId: couponId,
+            userId: userId,
+            status: "ASSIGNED",
+          },
+          include: {
+            user: {
+              select: {
+                name: true,
+                userIdentifier: true,
+              },
+            },
+          },
+        });
+
+        if (assignment) {
+          userSpecificCode = assignment.userSpecificCode || coupon.baseCode!;
+          userIdentifier = assignment.user.userIdentifier || undefined;
+          userName = assignment.user.name || undefined;
+        }
+      }
+
       const value =
         coupon.type === CouponType.PERCENTAGE
           ? `${coupon.value}% off`
           : `₦${coupon.value.toLocaleString()} off`;
 
       const pdfData: CouponPDFData = {
-        couponCode: code,
+        couponCode: userSpecificCode,
         businessName: coupon.business.name,
         couponTitle: coupon.title,
         couponDescription: coupon.description || undefined,
         couponValue: value,
         validUntil: coupon.validUntil.toLocaleDateString(),
-        userIdentifier: coupon.assignedUser?.userIdentifier || undefined,
-        userName: coupon.assignedUser?.name || undefined,
+        userIdentifier: userIdentifier,
+        userName: userName,
       };
 
       return await QRCodeService.generateCouponPDF(pdfData);
