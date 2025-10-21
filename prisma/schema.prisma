@@ -1,9 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -11,143 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User roles enum
-enum UserRole {
-  REVIEWER
-  BUSINESS_OWNER
-  AGENT
-  ADMIN
-  SUPER_ADMIN
-}
-
-// Account status enum
-enum AccountStatus {
-  PENDING
-  ACTIVE
-  SUSPENDED
-  BANNED
-}
-
-// Business verification status
-enum BusinessVerificationStatus {
-  PENDING
-  VERIFIED
-  REJECTED
-}
-
-// Review status
-enum ReviewStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// Coupon status
-enum CouponStatus {
-  ACTIVE
-  USED
-  EXPIRED
-  CANCELLED
-}
-
-// Reward type
-enum RewardType {
-  CASH
-  AIRTIME
-  COUPON
-  REFERRAL_BONUS
-  BUSINESS_ONBOARDING
-}
-
-// States enum
-enum State {
-  ABUJA
-  LAGOS
-  ENUGU
-  ANAMBRA
-  PH
-  IBADAN
-  IMO
-  EBONYI
-}
-
-// Business category
-enum BusinessCategory {
-  HOSPITALITY
-  TRANSPORT
-  RETAIL
-  HEALTHCARE
-  EDUCATION
-  ENTERTAINMENT
-  OTHER
-}
-
-// User model (base for all user types)
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  phone         String   @unique
-  password     String?
-  name          String
-  role          UserRole @default(REVIEWER)
-  status        AccountStatus @default(PENDING)
-  
-  // Profile fields
-  avatar        String?
-  dateOfBirth   DateTime?
-  gender        String?
-  state         State?
-  city          String?
-  address       String?
-  
-  // Verification
-  emailVerified DateTime?
-  phoneVerified DateTime?
-  isVerified    Boolean @default(false)
-  
-  // Referral system
-  referralCode  String @unique @default(cuid())
-  referredBy    String?
-  referredByUser User? @relation("UserReferrals", fields: [referredBy], references: [id])
-  referrals     User[] @relation("UserReferrals")
-  
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
-  accounts      Account[]
-  sessions      Session[]
-  reviews       Review[]
-  rewards       Reward[]
-  business      Business?
-  agentProfile  AgentProfile?
-  
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  phone                   String?
+  password                String
+  role                    UserRole                 @default(REVIEWER)
+  status                  AccountStatus            @default(PENDING)
+  referralCode            String                   @unique @default(cuid())
+  userIdentifier          String?                  @unique @default(cuid())
+  referredBy              String?
+  state                   String
+  city                    String
+  address                 String
+  avatar                  String?
+  dateOfBirth             DateTime?
+  gender                  String?
+  emailVerified           DateTime?
+  phoneVerified           DateTime?
+  isVerified              Boolean                  @default(false)
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
+  passwordResetToken      String?
+  passwordResetExpiry     DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  deletedAt               DateTime?
+  lastLoginAt             DateTime?
+  accounts                Account[]
+  adminActions            AdminAction[]            @relation("AdminActions")
+  adminInvitations        AdminInvitation[]        @relation("AdminInvitations")
+  agentApplications       AgentApplication[]
+  agentProfile            Agent?
+  businessInvitations     BusinessInvitation[]     @relation("BusinessInvitations")
+  businessRecommendations BusinessRecommendation[] @relation("UserRecommendations")
+  businessViews           BusinessView[]           @relation("UserBusinessViews")
+  business                Business?
+  commentVotes            CommentVote[]            @relation("CommentVoter")
+  reportedContent         ReportedContent[]        @relation("UserReports")
+  resolvedReports         ReportedContent[]        @relation("AdminResolutions")
+  comments                ReviewComment[]          @relation("CommentAuthor")
+  reviewVotes             ReviewVote[]             @relation("ReviewVoter")
+  reviews                 Review[]
+  rewardRedemptions       RewardRedemption[]
+  rewards                 Reward[]                 @relation("ReferrerRewards")
+  sessions                Session[]
+  referredByUser          User?                    @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals               User[]                   @relation("UserReferrals")
+  coupons                 Coupon[]                 @relation("UserCoupons")
+  couponRedemptions       CouponRedemption[]
+  couponFavorites         CouponFavorite[]         @relation("UserCouponFavorites")
+  couponAssignments       CouponAssignment[]       @relation("CouponAssignments")
+  businessRegistrations   BusinessRegistration[]    @relation("AgentRegistrations")
+  registeredBusinesses    Business[]                @relation("RegisteredBusinesses")
+  businessReviews         UserBusinessReview[]      @relation("UserBusinessReviews")
+
   @@map("users")
 }
 
-// NextAuth Account model
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
 
-// NextAuth Session model
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -158,7 +95,6 @@ model Session {
   @@map("sessions")
 }
 
-// NextAuth VerificationToken model
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -168,254 +104,770 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// Business model
 model Business {
-  id          String @id @default(cuid())
-  name        String
-  description String?
-  category    BusinessCategory
-  logo        String?
-  images      String[] // Array of image URLs
+  id                    String                     @id @default(cuid())
+  ownerId               String                     @unique
+  name                  String
+  description           String?
+  category              String?
+  phone                 String
+  email                 String
+  website               String?
+  logo                  String?
+  coverImage            String?
+  servicesImages        String[]
+  address               String
+  city                  String
+  state                 String
+  latitude              Float?
+  longitude             Float?
+  reviewStatus          ReviewStatus @default(PENDING)
+  addressVerificationStatus AddressVerificationStatus @default(UNVERIFIED)
+  isVerified           Boolean @default(false)
+  verificationSource   VerificationSource @default(RECOMMENDATION)
+  registeredByAgentId  String?
+  verificationStatus    BusinessVerificationStatus @default(PENDING)
+  verificationDocuments String[]
+  verificationNotes     String?
+  verifiedAt            DateTime?
+  cacNumber             String?
+  utilityBill           String?
   
-  // Contact information
-  phone       String
-  email       String
-  website     String?
+  averageRating         Float                      @default(0)
+  totalReviews          Int                        @default(0)
+  totalVisits           Int                        @default(0)
+  isActive              Boolean                    @default(true)
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  onboardedByAgentId    String?
+  deletedAt             DateTime?
   
-  // Location
-  state       State
-  city        String
-  address     String
-  coordinates Json? // {lat: number, lng: number}
-  
-  // Business details
-  cacNumber   String?
-  utilityBill String?
-  verificationStatus BusinessVerificationStatus @default(PENDING)
-  verifiedAt  DateTime?
-  
-  // Business owner
-  ownerId     String @unique
-  owner       User   @relation(fields: [ownerId], references: [id])
-  
-  // Staff members
-  staffMembers BusinessStaff[]
-  
-  // Business metrics
-  rating      Float @default(0)
-  reviewCount Int @default(0)
-  visitCount  Int @default(0)
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  reviews     Review[]
-  coupons     Coupon[]
-  campaigns   Campaign[]
-  onboardedBy AgentProfile? @relation(fields: [onboardedByAgentId], references: [id])
-  onboardedByAgentId String?
-  
+  analytics             BusinessAnalytics[]
+  businessHours         BusinessHours[]
+  businessSettings      BusinessSettings?
+  views                 BusinessView[]
+  verification          BusinessVerification?
+  onboardedByAgent      Agent?                     @relation("OnboardedBusinesses", fields: [onboardedByAgentId], references: [id])
+  registeredByAgent     User?                      @relation("RegisteredBusinesses", fields: [registeredByAgentId], references: [id])
+  owner                 User                       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  coupons               Coupon[]
+  reviews               Review[]
+  businessRegistrations BusinessRegistration[]
+  userReviews           UserBusinessReview[]      @relation("UserBusinessReviews")
+
   @@map("businesses")
 }
 
-// Business staff model
-model BusinessStaff {
-  id          String @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+model BusinessVerification {
+  id                    String   @id @default(cuid())
+  businessId            String   @unique
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  directorIdType        DirectorIdType
+  directorIdNumber      String
+  directorIdImage       String
+  cacDocumentType       CacDocumentType?
+  cacDocumentImage      String? // URL to uploaded image
+  firsTaxClearance      String? // URL to uploaded image
   
-  // Staff details
-  name        String
-  email       String
-  phone       String
-  role        String // e.g., "Manager", "Staff"
+  // Address Verification
+  addressEvidenceType   AddressEvidenceType?
+  addressEvidenceImage  String? // URL to uploaded image
   
-  // Access permissions
-  canManageCoupons Boolean @default(false)
-  canViewAnalytics Boolean @default(false)
-  canManageReviews Boolean @default(false)
+  // Verification Status
+  verificationStatus    VerificationStatus @default(PENDING)
+  adminNotes            String?
+  reviewedBy            String?
+  reviewedAt            DateTime?
   
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
   
-  @@map("business_staff")
+  @@map("business_verifications")
 }
 
-// Review model
+model BusinessHours {
+  id         String   @id @default(cuid())
+  businessId String
+  dayOfWeek  Int
+  openTime   String
+  closeTime  String
+  isOpen     Boolean  @default(true)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, dayOfWeek])
+  @@map("business_hours")
+}
+
+model BusinessSettings {
+  id                  String   @id @default(cuid())
+  businessId          String   @unique
+  emailNotifications  Boolean  @default(true)
+  smsNotifications    Boolean  @default(false)
+  reviewAlerts        Boolean  @default(true)
+  couponRedemptions   Boolean  @default(true)
+  weeklyReports       Boolean  @default(true)
+  marketingUpdates    Boolean  @default(false)
+  profileVisibility   String   @default("PUBLIC")
+  showContactInfo     Boolean  @default(true)
+  showRevenue         Boolean  @default(false)
+  allowDirectMessages Boolean  @default(true)
+  twoFactorAuth       Boolean  @default(false)
+  sessionTimeout      Int      @default(30)
+  loginNotifications  Boolean  @default(true)
+  googleAnalytics     Boolean  @default(false)
+  facebookPixel       Boolean  @default(false)
+  mailchimp           Boolean  @default(false)
+  zapier              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_settings")
+}
+
 model Review {
-  id          String @id @default(cuid())
-  
-  // Review content
-  rating      Int // 1-5 stars
-  title       String?
-  content     String
-  images      String[] // Array of image URLs
-  video       String? // Video URL
-  
-  // Review metadata
-  status      ReviewStatus @default(PENDING)
-  isAnonymous Boolean @default(false)
-  
-  // Relationships
-  userId      String
-  user        User @relation(fields: [userId], references: [id])
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  // Moderation
-  reported    Boolean @default(false)
-  reportReason String?
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  reward      Reward?
-  
+  id                   String          @id @default(cuid())
+  businessId           String
+  reviewerId           String
+  rating               Int
+  content              String
+  images               String[]
+  video                String?
+  status               ReviewStatus    @default(PENDING)
+  isVerified           Boolean         @default(false)
+  helpfulCount         Int             @default(0)
+  businessResponse     String?
+  businessResponseDate DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  isAnonymous          Boolean         @default(false)
+  reportReason         String?
+  reported             Boolean         @default(false)
+  deletedAt            DateTime?
+  comments             ReviewComment[]
+  votes                ReviewVote[]
+  business             Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reviewer             User            @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  rewards              Reward[]
+
   @@map("reviews")
 }
 
-// Reward model
-model Reward {
-  id          String @id @default(cuid())
-  
-  // Reward details
-  type        RewardType
-  amount      Float // Amount in NGN
-  description String
-  
-  // User relationship
-  userId      String
-  user        User @relation(fields: [userId], references: [id])
-  
-  // Related entities
-  reviewId    String? @unique
-  review      Review? @relation(fields: [reviewId], references: [id])
-  
-  // Reward status
-  isRedeemed  Boolean @default(false)
-  redeemedAt  DateTime?
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("rewards")
+model ReviewComment {
+  id         String          @id @default(cuid())
+  reviewId   String
+  authorId   String
+  authorType String
+  content    String
+  parentId   String?
+  isEdited   Boolean         @default(false)
+  editedAt   DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  deletedAt  DateTime?
+  votes      CommentVote[]
+  author     User            @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent     ReviewComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    ReviewComment[] @relation("CommentReplies")
+  review     Review          @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_comments")
 }
 
-// Coupon model
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  voteType  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation("ReviewVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@map("review_votes")
+}
+
+model CommentVote {
+  id        String        @id @default(cuid())
+  commentId String
+  userId    String
+  voteType  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+  comment   ReviewComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User          @relation("CommentVoter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@map("comment_votes")
+}
+
 model Coupon {
-  id          String @id @default(cuid())
+  id                 String             @id @default(cuid())
+  businessId         String
+  title              String
+  description        String?
+  baseCode           String?             @unique
+  userSpecificCode  String?            @unique
+  type               CouponType
+  value              Float
+  minimumOrderAmount Float?
+  maximumDiscount    Float?
+  validFrom          DateTime
+  validUntil         DateTime
+  maxUses            Int?
+  totalIssued        Int                @default(0)
+  totalRedeemed      Int                @default(0)
+  status             CouponStatus       @default(DRAFT)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  currentUses        Int                @default(0)
+  deletedAt          DateTime?
   
-  // Coupon details
-  code        String @unique
-  title       String
-  description String?
-  discountType String // "PERCENTAGE" or "FIXED_AMOUNT"
-  discountValue Float
-  minPurchase Float?
-  maxDiscount Float?
+  useType            CouponUseType      @default(SINGLE_USE)
+  allowedDaysOfWeek  Int[]             @default([])
+  allowedTimeStart   String?
+  allowedTimeEnd     String?
+  cannotCombineWithOtherCoupons Boolean @default(true)
+  requiresIdVerification Boolean        @default(false)
+  maxUsesPerUser     Int?              @default(1)
   
-  // Usage limits
-  maxUses     Int?
-  currentUses Int @default(0)
+  assignedUserId     String?
+  assignedAt         DateTime?
   
-  // Validity
-  validFrom   DateTime
-  validUntil  DateTime
-  status      CouponStatus @default(ACTIVE)
+  couponType         CouponVisibility   @default(PUBLIC)
+  requiresReview     Boolean            @default(false)
   
-  // Business relationship
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  redemptions        CouponRedemption[]
+  business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  assignedUser       User?              @relation("UserCoupons", fields: [assignedUserId], references: [id])
+  favorites          CouponFavorite[]   @relation("CouponFavorites")
+  assignments        CouponAssignment[] @relation("CouponAssignments")
+
   @@map("coupons")
 }
 
-// Campaign model
-model Campaign {
-  id          String @id @default(cuid())
-  
-  // Campaign details
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime
-  
-  // Campaign settings
-  isActive    Boolean @default(true)
-  budget      Float?
-  spentAmount Float @default(0)
-  
-  // Business relationship
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("campaigns")
+model CouponRedemption {
+  id              String    @id @default(cuid())
+  couponId        String
+  userId          String
+  redeemedAt      DateTime  @default(now())
+  orderAmount     Float?
+  discountApplied Float
+  redemptionMethod RedemptionMethod @default(IN_PERSON)
+  staffNotes      String?
+  idVerified      Boolean   @default(false)
+  verificationCode String?
+  deletedAt       DateTime?
+  coupon          Coupon    @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coupon_redemptions")
 }
 
-// Agent profile model
-model AgentProfile {
-  id          String @id @default(cuid())
-  
-  // Agent details
-  userId      String @unique
-  user        User @relation(fields: [userId], references: [id])
-  
-  // Business onboarding
-  onboardedBusinesses Business[]
-  
-  // Bank details for payouts
-  bankName    String?
-  accountNumber String?
-  accountName String?
-  
-  // Agent metrics
-  totalEarnings Float @default(0)
-  totalBusinessesOnboarded Int @default(0)
-  
-  // Approval status
-  isApproved  Boolean @default(false)
-  approvedAt  DateTime?
-  approvedBy  String?
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("agent_profiles")
+model CouponFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  couponId  String
+  createdAt DateTime @default(now())
+  user      User     @relation("UserCouponFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  coupon    Coupon   @relation("CouponFavorites", fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, couponId])
+  @@map("coupon_favorites")
 }
 
-// Admin actions log
+model CouponAssignment {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+  userSpecificCode String?
+  status    CouponAssignmentStatus @default(ASSIGNED)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  coupon    Coupon   @relation("CouponAssignments", fields: [couponId], references: [id], onDelete: Cascade)
+  user      User     @relation("CouponAssignments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+  @@map("coupon_assignments")
+}
+
+model UserBusinessReview {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  hasReviewed Boolean @default(false)
+  lastReviewDate DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation("UserBusinessReviews", fields: [userId], references: [id], onDelete: Cascade)
+  business   Business @relation("UserBusinessReviews", fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@map("user_business_reviews")
+}
+
+model Agent {
+  id                        String     @id @default(cuid())
+  userId                    String     @unique
+  businessName              String?
+  businessAddress           String?
+  businessPhone             String?
+  businessEmail             String?
+  bankName                  String?
+  accountNumber             String?
+  accountName               String?
+  totalBusinesses           Int        @default(0)
+  totalEarnings             Float      @default(0)
+  registeredBusinessesCount Int        @default(0)
+  verifiedBusinessesCount   Int        @default(0)
+  isApproved                Boolean    @default(false)
+  approvedAt                DateTime?
+  approvedBy                String?
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  deletedAt                 DateTime?
+  user                      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  onboardedBusinesses        Business[] @relation("OnboardedBusinesses")
+
+  @@map("agents")
+}
+
+model Reward {
+  id          String    @id @default(cuid())
+  referrerId  String
+  amount      Float
+  type        String
+  description String
+  isRedeemed  Boolean   @default(false)
+  redeemedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  reviewId    String?
+  referrer    User      @relation("ReferrerRewards", fields: [referrerId], references: [id], onDelete: Cascade)
+  review      Review?   @relation(fields: [reviewId], references: [id])
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  amount      Float
+  phone       String?
+  status      String    @default("PENDING")
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reward_redemptions")
+}
+
+model BusinessAnalytics {
+  id                String   @id @default(cuid())
+  businessId        String
+  date              DateTime
+  visits            Int      @default(0)
+  uniqueVisitors    Int      @default(0)
+  pageViews         Int      @default(0)
+  reviews           Int      @default(0)
+  averageRating     Float    @default(0)
+  couponViews       Int      @default(0)
+  couponRedemptions Int      @default(0)
+  revenue           Float    @default(0)
+  createdAt         DateTime @default(now())
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, date])
+  @@map("business_analytics")
+}
+
+model BusinessView {
+  id         String   @id @default(cuid())
+  businessId String
+  viewerId   String?
+  ipAddress  String?
+  userAgent  String?
+  referrer   String?
+  source     String   @default("DIRECT")
+  viewType   String   @default("PROFILE")
+  sessionId  String?
+  duration   Int?
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  viewer     User?    @relation("UserBusinessViews", fields: [viewerId], references: [id])
+
+  @@index([businessId, createdAt])
+  @@index([viewerId, createdAt])
+  @@index([source, createdAt])
+  @@map("business_views")
+}
+
+model BusinessRecommendation {
+  id                  String           @id @default(cuid())
+  businessName        String
+  recommendedBy       String
+  status              String           @default("PENDING")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  additionalNotes     String?
+  adminNotes          String?
+  businessAddress     String
+  businessCategory    String
+  businessCity        String
+  businessDescription String?
+  businessEmail       String?
+  businessPhone       String?
+  businessState       String
+  businessWebsite     String?
+  ownerAddress        String?
+  ownerCity           String?
+  ownerEmail          String
+  ownerName           String
+  ownerPhone          String
+  ownerState          String
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  recommendedByUser   User             @relation("UserRecommendations", fields: [recommendedBy], references: [id], onDelete: Cascade)
+
+  @@map("business_recommendations")
+}
+
+model AgentApplication {
+  id                String    @id @default(cuid())
+  userId            String
+  motivation        String
+  experience        String
+  businessKnowledge String
+  commitment        String
+  
+  idDocumentType    String?
+  idDocumentNumber  String?
+  idDocumentImage   String?
+  idVerified        Boolean   @default(false)
+  idVerifiedAt      DateTime?
+  idVerifiedBy      String?
+  
+  registeredBusinessesCount Int @default(0)
+  verifiedBusinessesCount   Int @default(0)
+  
+  status            String    @default("PENDING")
+  adminNotes        String?
+  reviewedAt        DateTime?
+  reviewedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_applications")
+}
+
+model BusinessRegistration {
+  id                String    @id @default(cuid())
+  agentId           String
+  businessId        String?
+  registrationType  RegistrationType
+  status            RegistrationStatus @default(PENDING)
+  submittedAt       DateTime  @default(now())
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  adminNotes        String?
+  
+  businessName      String?
+  businessDescription String?
+  businessCategory  String?
+  businessPhone     String?
+  businessEmail     String?
+  businessAddress   String?
+  businessCity      String?
+  businessState     String?
+  businessWebsite   String?
+  
+  directorIdType    DirectorIdType?
+  directorIdNumber  String?
+  directorIdImage   String?
+  cacDocumentType   CacDocumentType?
+  cacDocumentImage  String?
+  firsTaxClearance  String?
+  addressEvidenceType AddressEvidenceType?
+  addressEvidenceImage String?
+  
+  ownerName         String?
+  ownerEmail        String?
+  ownerPhone        String?
+  ownerAddress      String?
+  ownerCity         String?
+  ownerState        String?
+  
+  agent             User      @relation("AgentRegistrations", fields: [agentId], references: [id], onDelete: Cascade)
+  business          Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@unique([agentId, businessId])
+  @@map("business_registrations")
+}
+
+model PlatformSettings {
+  id                                 String   @id
+  minimumRedemptionAmount            Int      @default(5000)
+  reviewRewardAmount                 Int      @default(50)
+  referralRewardAmount               Int      @default(20)
+  businessRecommendationRewardAmount Int      @default(100)
+  businessRegistrationRewardRate     Int      @default(100)
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime @updatedAt
+  minimumBusinessesForAgent          Int      @default(5)
+
+  @@map("platform_settings")
+}
+
+model AdminInvitation {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  role            UserRole
+  invitedBy       String
+  invitationToken String           @unique
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+  invitedByUser   User             @relation("AdminInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("admin_invitations")
+}
+
+model BusinessInvitation {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  businessName    String
+  invitationToken String           @unique
+  expiresAt       DateTime
+  status          InvitationStatus @default(PENDING)
+  invitedBy       String
+  createdAt       DateTime         @default(now())
+  invitedByUser   User             @relation("BusinessInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("business_invitations")
+}
+
 model AdminAction {
-  id          String @id @default(cuid())
-  
-  // Action details
-  action      String // e.g., "APPROVE_BUSINESS", "SUSPEND_USER"
-  targetType  String // e.g., "USER", "BUSINESS", "REVIEW"
-  targetId    String
-  
-  // Admin who performed the action
-  adminId     String
-  adminName   String
-  
-  // Action metadata
-  details     Json?
-  ipAddress   String?
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+  adminName  String?
+  ipAddress  String?
+  admin      User     @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+
   @@map("admin_actions")
+}
+
+model ReportedContent {
+  id          String       @id @default(cuid())
+  contentType ContentType
+  contentId   String
+  reporterId  String
+  reason      ReportReason
+  description String?
+  status      ReportStatus @default(PENDING)
+  adminNotes  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  reporter    User         @relation("UserReports", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolver    User?        @relation("AdminResolutions", fields: [resolvedBy], references: [id])
+
+  @@map("reported_content")
+}
+
+enum UserRole {
+  REVIEWER
+  BUSINESS_OWNER
+  AGENT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum State {
+  ABIA
+  ADAMAWA
+  AKWA_IBOM
+  ANAMBRA
+  BAUCHI
+  BAYELSA
+  BENUE
+  BORNO
+  CROSS_RIVER
+  DELTA
+  EBONYI
+  EDO
+  EKITI
+  ENUGU
+  FCT
+  GOMBE
+  IMO
+  JIGAWA
+  KADUNA
+  KANO
+  KATSINA
+  KEBBI
+  KOGI
+  KWARA
+  LAGOS
+  NASARAWA
+  NIGER
+  OGUN
+  ONDO
+  OSUN
+  OYO
+  PLATEAU
+  RIVERS
+  SOKOTO
+  TARABA
+  YOBE
+  ZAMFARA
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  VERIFIED
+  REJECTED
+  FLAGGED
+  SUSPENDED
+}
+
+enum CouponStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  EXPIRED
+  USED
+  DELETED
+}
+
+enum CouponAssignmentStatus {
+  ASSIGNED
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum CouponUseType {
+  SINGLE_USE
+  MULTI_USE
+  ONCE_PER_USER
+}
+
+enum CouponVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RedemptionMethod {
+  IN_PERSON
+  ONLINE
+  QR_CODE
+}
+
+enum BusinessVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+enum ContentType {
+  REVIEW
+  BUSINESS
+  USER
+}
+
+enum ReportReason {
+  INAPPROPRIATE_CONTENT
+  SPAM
+  HARASSMENT
+  FALSE_INFORMATION
+  COPYRIGHT_VIOLATION
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATED
+  RESOLVED
+  DISMISSED
+}
+
+enum AddressVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  REJECTED
+}
+
+enum DirectorIdType {
+  NATIONAL_ID
+  INTERNATIONAL_PASSPORT
+  DRIVERS_LICENSE
+  VOTER_CARD
+}
+
+enum CacDocumentType {
+  CAC_CERTIFICATE_OF_INCORPORATION
+  CAC_STATUS_REPORT
+  CAC_BUSINESS_NAME_REGISTRATION
+}
+
+enum AddressEvidenceType {
+  UTILITY_BILL
+  LEASE_AGREEMENT
+  SIGNAGE_PHOTO
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  UNDER_REVIEW
+}
+
+enum RegistrationType {
+  FULL_REGISTRATION
+  RECOMMENDATION
+}
+
+enum RegistrationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationSource {
+  REGISTRATION
+  RECOMMENDATION
 }

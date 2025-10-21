@@ -1,10 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { IAuthService } from "./interfaces";
-import { User, UserRole } from "@/types";
+import { UserRole, State, BaseUser, AccountStatus } from "@/types";
 import bcrypt from "bcryptjs";
 import { generateReferralCode } from "@/lib/utils";
+import { EmailService } from "./EmailService";
+import logger from "@/lib/logger";
+import crypto from "crypto";
 
 export class AuthService implements IAuthService {
+  private emailService: EmailService;
+
+  constructor() {
+    this.emailService = new EmailService();
+    logger.info("AuthService initialized");
+  }
+
   // Single Responsibility: This service only handles authentication-related operations
 
   async signUp(userData: {
@@ -14,12 +24,35 @@ export class AuthService implements IAuthService {
     password: string;
     role?: UserRole;
     referralCode?: string;
-    state?: string;
-    city?: string;
-    address?: string;
-  }): Promise<{ user: User; token: string }> {
+    state: State;
+    city: string;
+    address: string;
+  }): Promise<{ user: BaseUser; token: string }> {
     try {
-      // Check if user already exists
+      logger.info("Starting user signup process", {
+        email: userData.email,
+        phone: userData.phone,
+        role: userData.role || UserRole.REVIEWER,
+        hasReferralCode: !!userData.referralCode,
+        state: userData.state,
+        city: userData.city,
+        address: userData.address,
+      });
+
+      if (!userData.state || !userData.city || !userData.address) {
+        logger.error("User signup failed - missing required fields", {
+          email: userData.email,
+          hasState: !!userData.state,
+          hasCity: !!userData.city,
+          hasAddress: !!userData.address,
+        });
+        throw new Error("State, city, and address are required fields");
+      }
+
+      logger.debug("Checking for existing user", {
+        email: userData.email,
+        phone: userData.phone,
+      });
       const existingUser = await prisma.user.findFirst({
         where: {
           OR: [{ email: userData.email }, { phone: userData.phone }],
@@ -27,16 +60,52 @@ export class AuthService implements IAuthService {
       });
 
       if (existingUser) {
+        logger.warn("User signup failed - user already exists", {
+          email: userData.email,
+          phone: userData.phone,
+          existingUserId: existingUser.id,
+        });
         throw new Error("User with this email or phone already exists");
       }
 
-      // Hash password
+      logger.debug("No existing user found, proceeding with signup");
+
+      logger.debug("Hashing user password");
       const hashedPassword = await bcrypt.hash(userData.password, 12);
 
-      // Generate unique referral code
+      logger.debug("Generating unique referral code");
       const newReferralCode = await generateReferralCode();
 
-      // Create user
+      let referredByUserId: string | undefined;
+      if (userData.referralCode) {
+        logger.debug("Processing referral code", {
+          referralCode: userData.referralCode,
+        });
+        const referringUser = await prisma.user.findUnique({
+          where: { referralCode: userData.referralCode },
+          select: { id: true },
+        });
+        if (referringUser) {
+          referredByUserId = referringUser.id;
+          logger.info("Referral code processed successfully", {
+            referralCode: userData.referralCode,
+            referringUserId: referringUser.id,
+          });
+        } else {
+          logger.warn("Invalid referral code provided", {
+            referralCode: userData.referralCode,
+          });
+        }
+      }
+
+      logger.debug("Generating verification token");
+      const emailVerificationToken = crypto.randomBytes(32).toString("hex");
+
+      const emailVerificationExpiry = new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      );
+
+      logger.debug("Creating user in database");
       const user = await prisma.user.create({
         data: {
           name: userData.name,
@@ -44,12 +113,14 @@ export class AuthService implements IAuthService {
           phone: userData.phone,
           password: hashedPassword,
           role: userData.role || UserRole.REVIEWER,
-          status: "PENDING",
+          status: AccountStatus.PENDING,
           referralCode: newReferralCode,
-          referredBy: userData.referralCode,
-          state: userData.state as any,
+          referredBy: referredByUserId || undefined,
+          state: userData.state,
           city: userData.city,
           address: userData.address,
+          emailVerificationToken,
+          emailVerificationExpiry,
         },
         include: {
           business: true,
@@ -57,14 +128,65 @@ export class AuthService implements IAuthService {
         },
       });
 
-      // Generate JWT token (in a real app, you'd use a proper JWT library)
+      logger.info("User created successfully", {
+        userId: user.id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        referralCode: newReferralCode,
+      });
+
       const token = this.generateToken(user.id);
 
+      if (referredByUserId) {
+        try {
+          await prisma.reward.create({
+            data: {
+              referrerId: referredByUserId,
+              amount: 20,
+              type: "REFERRAL",
+              description: `Referral reward for ${userData.email}`,
+              isRedeemed: false,
+            },
+          });
+          logger.info("Referral reward created successfully", {
+            referrerId: referredByUserId,
+            referredUserId: user.id,
+            amount: 20,
+          });
+        } catch (error) {
+          logger.error("Failed to create referral reward", {
+            referrerId: referredByUserId,
+            referredUserId: user.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      logger.debug("Sending verification email");
+      await this.sendVerificationEmail(
+        userData.email,
+        userData.name,
+        emailVerificationToken,
+      );
+
+      logger.info("User signup completed successfully", {
+        userId: user.id,
+        email: userData.email,
+        phone: userData.phone,
+      });
+
       return {
-        user: user as User,
+        user: user as BaseUser,
         token,
       };
     } catch (error) {
+      logger.error("User signup failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        email: userData.email,
+        phone: userData.phone,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error(
         `Failed to sign up: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -76,9 +198,11 @@ export class AuthService implements IAuthService {
   async signIn(credentials: {
     email: string;
     password: string;
-  }): Promise<{ user: User; token: string }> {
+  }): Promise<{ user: BaseUser; token: string }> {
     try {
-      // Find user by email
+      logger.info("User signin attempt", { email: credentials.email });
+
+      logger.debug("Looking up user by email", { email: credentials.email });
       const user = await prisma.user.findUnique({
         where: { email: credentials.email },
         include: {
@@ -88,33 +212,75 @@ export class AuthService implements IAuthService {
       });
 
       if (!user || !user.password) {
+        logger.warn("Signin failed - user not found or no password", {
+          email: credentials.email,
+          userExists: !!user,
+          hasPassword: !!user?.password,
+        });
         throw new Error("Invalid credentials");
       }
 
-      // Check if account is active
-      if (user.status !== "ACTIVE") {
+      logger.debug("User found, checking account status", {
+        userId: user.id,
+        status: user.status,
+        isVerified: user.isVerified,
+      });
+
+      if (!user.emailVerified) {
+        logger.warn("Signin failed - email not verified", {
+          email: credentials.email,
+          userId: user.id,
+        });
         throw new Error(
-          "Account is not active. Please verify your email and phone.",
+          "Email not verified. Please check your email for verification link or resend verification email.",
         );
       }
 
-      // Verify password
+      if (user.status !== AccountStatus.ACTIVE) {
+        logger.warn("Signin failed - account not active", {
+          email: credentials.email,
+          userId: user.id,
+          status: user.status,
+        });
+        throw new Error(
+          "Account is not active. Please contact support for assistance.",
+        );
+      }
+
+      logger.debug("Verifying user password", { userId: user.id });
       const isPasswordValid = await bcrypt.compare(
         credentials.password,
         user.password,
       );
       if (!isPasswordValid) {
+        logger.warn("Signin failed - invalid password", {
+          email: credentials.email,
+          userId: user.id,
+        });
         throw new Error("Invalid credentials");
       }
 
-      // Generate JWT token
+      logger.debug("Password verified successfully", { userId: user.id });
+
       const token = this.generateToken(user.id);
 
+      logger.info("User signin successful", {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      });
+
       return {
-        user: user as User,
+        user: user as BaseUser,
         token,
       };
     } catch (error) {
+      logger.error("User signin failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        email: credentials.email,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error(
         `Failed to sign in: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -124,35 +290,67 @@ export class AuthService implements IAuthService {
   }
 
   async signOut(): Promise<void> {
-    // In a real app, you'd invalidate the JWT token
-    // For now, we'll just return successfully
     return Promise.resolve();
   }
 
-  async verifyEmail(token: string): Promise<boolean> {
+  async verifyEmail(
+    token: string,
+  ): Promise<{ success: boolean; user?: BaseUser; token?: string }> {
     try {
-      // In a real app, you'd verify the email verification token
-      // For now, we'll simulate email verification
+      logger.info("Verifying email with token", {
+        tokenPrefix: token.substring(0, 8) + "...",
+      });
+
       const user = await prisma.user.findFirst({
         where: {
-          email: token, // Assuming token is the email for now
+          emailVerificationToken: token,
+          emailVerificationExpiry: {
+            gt: new Date(),
+          },
+        },
+        include: {
+          business: true,
+          agentProfile: true,
         },
       });
 
       if (!user) {
-        throw new Error("Invalid verification token");
+        logger.warn("Email verification failed - invalid or expired token", {
+          tokenPrefix: token.substring(0, 8) + "...",
+        });
+        throw new Error("Invalid or expired verification token");
       }
 
       await prisma.user.update({
         where: { id: user.id },
         data: {
           emailVerified: new Date(),
+          emailVerificationToken: null,
+          emailVerificationExpiry: null,
           isVerified: true,
+          status: AccountStatus.ACTIVE,
         },
       });
 
-      return true;
+      logger.info("Email verified successfully", {
+        userId: user.id,
+        email: user.email,
+      });
+
+      // Generate a token for automatic login
+      const authToken = this.generateToken(user.id);
+
+      return {
+        success: true,
+        user: user as BaseUser,
+        token: authToken,
+      };
     } catch (error) {
+      logger.error("Email verification failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error(
         `Failed to verify email: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -161,50 +359,30 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async verifyPhone(phone: string, code: string): Promise<boolean> {
+  async sendVerificationEmail(
+    email: string,
+    name: string,
+    token: string,
+  ): Promise<void> {
     try {
-      // In a real app, you'd verify the SMS verification code
-      // For now, we'll simulate phone verification
-      const user = await prisma.user.findUnique({
-        where: { phone },
+      logger.info("Sending verification email", { email, name });
+
+      const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/verify?token=${token}`;
+
+      await this.emailService.sendVerificationEmail({
+        to: email,
+        name,
+        verificationToken: token,
+        verificationUrl,
       });
 
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      // For demo purposes, accept any 6-digit code
-      if (code.length !== 6 || !/^\d+$/.test(code)) {
-        throw new Error("Invalid verification code");
-      }
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          phoneVerified: new Date(),
-          isVerified: true,
-        },
+      logger.info("Verification email sent successfully", { email });
+    } catch (error) {
+      logger.error("Failed to send verification email", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        email,
+        stack: error instanceof Error ? error.stack : undefined,
       });
-
-      return true;
-    } catch (error) {
-      throw new Error(
-        `Failed to verify phone: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
-  async sendVerificationEmail(email: string): Promise<void> {
-    try {
-      // In a real app, you'd send an actual email
-      // For now, we'll just log it
-      console.log(`Verification email sent to: ${email}`);
-
-      // You could integrate with services like SendGrid, AWS SES, etc.
-      // await emailService.sendVerificationEmail(email, verificationToken);
-    } catch (error) {
       throw new Error(
         `Failed to send verification email: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -213,47 +391,52 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async sendVerificationSMS(phone: string): Promise<void> {
-    try {
-      // In a real app, you'd send an actual SMS
-      // For now, we'll just log it
-      console.log(`Verification SMS sent to: ${phone}`);
-
-      // You could integrate with services like Twilio, AWS SNS, etc.
-      // await smsService.sendVerificationSMS(phone, verificationCode);
-    } catch (error) {
-      throw new Error(
-        `Failed to send verification SMS: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      );
-    }
-  }
-
   async resetPassword(email: string): Promise<void> {
     try {
+      logger.info("Password reset requested", { email });
+
       const user = await prisma.user.findUnique({
         where: { email },
       });
 
       if (!user) {
+        logger.warn("Password reset failed - user not found", { email });
         throw new Error("User not found");
       }
 
-      // Generate reset token
       const resetToken = this.generateResetToken();
 
-      // Store reset token in database (you'd need to add this field to your schema)
-      // await prisma.user.update({
-      //   where: { id: user.id },
-      //   data: { resetToken, resetTokenExpiry: new Date(Date.now() + 3600000) }
-      // });
+      const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
-      // Send reset email
-      await this.sendVerificationEmail(email);
+      logger.debug("Generated password reset token", {
+        email,
+        tokenPrefix: resetToken.substring(0, 8) + "...",
+        expiry: resetTokenExpiry,
+      });
 
-      console.log(`Password reset email sent to: ${email}`);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetToken: resetToken,
+          passwordResetExpiry: resetTokenExpiry,
+        },
+      });
+
+      logger.info("Password reset token stored in database", { email });
+
+      await this.emailService.sendPasswordResetEmail(
+        email,
+        user.name || "User",
+        resetToken,
+      );
+
+      logger.info("Password reset email sent successfully", { email });
     } catch (error) {
+      logger.error("Password reset failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        email,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error(
         `Failed to reset password: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -276,7 +459,6 @@ export class AuthService implements IAuthService {
         throw new Error("User not found");
       }
 
-      // Verify old password
       const isOldPasswordValid = await bcrypt.compare(
         oldPassword,
         user.password,
@@ -285,10 +467,8 @@ export class AuthService implements IAuthService {
         throw new Error("Old password is incorrect");
       }
 
-      // Hash new password
       const hashedNewPassword = await bcrypt.hash(newPassword, 12);
 
-      // Update password
       await prisma.user.update({
         where: { id: userId },
         data: { password: hashedNewPassword },
@@ -302,10 +482,72 @@ export class AuthService implements IAuthService {
     }
   }
 
-  async validateToken(token: string): Promise<User | null> {
+  async verifyAndResetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<boolean> {
     try {
-      // In a real app, you'd verify the JWT token
-      // For now, we'll simulate token validation
+      logger.info("Password reset verification requested", {
+        tokenPrefix: token.substring(0, 8) + "...",
+      });
+
+      const user = await prisma.user.findFirst({
+        where: {
+          passwordResetToken: token,
+          passwordResetExpiry: {
+            gt: new Date(),
+          },
+        },
+      });
+
+      if (!user) {
+        logger.warn(
+          "Password reset verification failed - invalid or expired token",
+          {
+            tokenPrefix: token.substring(0, 8) + "...",
+          },
+        );
+        throw new Error("Invalid or expired reset token");
+      }
+
+      logger.debug("Valid reset token found", {
+        userId: user.id,
+        email: user.email,
+      });
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedNewPassword,
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        },
+      });
+
+      logger.info("Password reset completed successfully", {
+        userId: user.id,
+        email: user.email,
+      });
+
+      return true;
+    } catch (error) {
+      logger.error("Password reset verification failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw new Error(
+        `Failed to verify and reset password: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async validateToken(token: string): Promise<BaseUser | null> {
+    try {
       const userId = this.extractUserIdFromToken(token);
 
       if (!userId) {
@@ -320,15 +562,83 @@ export class AuthService implements IAuthService {
         },
       });
 
-      return user as User;
+      return user as BaseUser;
     } catch (error) {
+      logger.error("Failed to validate token", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return null;
     }
   }
 
+  /**
+   * Resend verification email with new token
+   */
+  async resendVerificationEmail(email: string): Promise<boolean> {
+    try {
+      logger.info("Resending verification email", { email });
+
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, name: true, email: true, emailVerified: true },
+      });
+
+      if (!user) {
+        logger.warn("Resend verification failed - user not found", { email });
+        throw new Error("User not found");
+      }
+
+      if (user.emailVerified) {
+        logger.warn("Resend verification failed - email already verified", {
+          email,
+        });
+        throw new Error("Email is already verified");
+      }
+
+      const newEmailVerificationToken = crypto.randomBytes(32).toString("hex");
+      const newEmailVerificationExpiry = new Date(
+        Date.now() + 24 * 60 * 60 * 1000,
+      );
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerificationToken: newEmailVerificationToken,
+          emailVerificationExpiry: newEmailVerificationExpiry,
+        },
+      });
+
+      logger.debug("New verification token generated", {
+        userId: user.id,
+        tokenPrefix: newEmailVerificationToken.substring(0, 8) + "...",
+      });
+
+      // Send new verification email
+      await this.sendVerificationEmail(
+        user.email,
+        user.name,
+        newEmailVerificationToken,
+      );
+
+      logger.info("Verification email resent successfully", { email });
+      return true;
+    } catch (error) {
+      logger.error("Failed to resend verification email", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        email,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw new Error(
+        `Failed to resend verification email: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
   private generateToken(userId: string): string {
-    // In a real app, you'd use a proper JWT library
-    // For now, we'll create a simple token
     const payload = {
       userId,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7, // 7 days
@@ -338,28 +648,27 @@ export class AuthService implements IAuthService {
   }
 
   private generateResetToken(): string {
-    // Generate a random 32-character token
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < 32; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    return crypto.randomBytes(32).toString("hex");
   }
 
   private extractUserIdFromToken(token: string): string | null {
     try {
-      // In a real app, you'd properly decode the JWT token
-      // For now, we'll decode our simple base64 token
       const payload = JSON.parse(Buffer.from(token, "base64").toString());
 
       if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-        return null; // Token expired
+        logger.warn("Token expired", {
+          tokenPrefix: token.substring(0, 8) + "...",
+        });
+        return null;
       }
 
       return payload.userId;
     } catch (error) {
+      logger.error("Failed to extract user ID from token", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        tokenPrefix: token.substring(0, 8) + "...",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return null;
     }
   }

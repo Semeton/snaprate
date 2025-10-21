@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { X, Star, Camera, Video, Upload, AlertCircle } from "lucide-react";
+import { X, Star, Camera, Video, AlertCircle } from "lucide-react";
 import { BusinessServiceData } from "@/types";
 
 interface ReviewSubmissionModalProps {
@@ -128,7 +128,7 @@ export default function ReviewSubmissionModal({
         throw new Error(errorData.error || "Failed to submit review");
       }
 
-      const result = await response.json();
+      await response.json();
       setSuccess(true);
 
       // Show success message for 2 seconds then close
@@ -188,7 +188,7 @@ export default function ReviewSubmissionModal({
                   Review submitted successfully!
                 </h3>
                 <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  You earned NGN 50 for your review. Thank you for your
+                  You earned your reward for your review. Thank you for your
                   feedback!
                 </p>
               </div>

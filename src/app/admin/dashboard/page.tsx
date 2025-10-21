@@ -2,638 +2,731 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import {
-  Shield,
   Users,
   Building2,
-  Star,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
+  MessageSquare,
+  Shield,
   Clock,
-  XCircle,
-  Settings,
-  FileText,
-  BarChart3,
-  Activity,
-  Eye,
-  Ban,
+  AlertCircle,
+  Crown,
   UserCheck,
 } from "lucide-react";
-import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 
-interface AdminDashboardStats {
-  totalUsers: number;
-  totalBusinesses: number;
-  totalReviews: number;
-  totalRewards: number;
-  pendingApprovals: number;
-  reportedContent: number;
+interface AdminDashboardData {
+  overview: {
+    totalUsers: number;
+    userBreakdown: {
+      reviewers: number;
+      businessOwners: number;
+      agents: number;
+      admins: number;
+      superAdmins: number;
+    };
+    totalBusinesses: number;
+    totalReviews: number;
+    totalAgents: number;
+    averageBusinessRating: number;
+    averageReviewRating: number;
+  };
+  pending: {
+    businesses: number;
+    agentApplications: number;
+    adminInvitations: number;
+  };
+  recent: {
+    adminActions: {
+      action: string;
+      admin: { name: string };
+      createdAt: string;
+      targetType: string;
+    }[];
+    adminActionsPagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    pendingBusinesses: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      state: string;
+      country: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    pendingAgents: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      city: string;
+      state: string;
+      country: string;
+      createdAt: string;
+      updatedAt: string;
+    }[];
+    pendingBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
+    approvedBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      reviewedAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
+    monthlyBusinessRecommendations: {
+      id: string;
+      businessName: string;
+      ownerEmail: string;
+      businessCategory: string;
+      businessCity: string;
+      businessState: string;
+      createdAt: string;
+      recommendedByUser: {
+        name: string;
+        email: string;
+      };
+    }[];
+  };
+  platformSettings: {
+    minimumRedemptionAmount: number;
+    reviewRewardAmount: number;
+    referralRewardAmount: number;
+    businessRecommendationRewardAmount: number;
+  };
+  adminRole: string;
 }
 
-interface PendingApproval {
-  id: string;
-  type: "USER" | "BUSINESS" | "AGENT" | "REVIEW";
-  name: string;
-  description: string;
-  status: string;
-  createdAt: Date;
-  priority: "LOW" | "MEDIUM" | "HIGH";
-}
-
-interface ReportedContent {
-  id: string;
-  type: "REVIEW" | "USER" | "BUSINESS";
-  title: string;
-  reason: string;
-  reportedBy: string;
-  reportedAt: Date;
-  status: "PENDING" | "RESOLVED" | "DISMISSED";
-}
-
-export default function AdminDashboardPage() {
-  const { data: session, status } = useSession();
-  const [stats, setStats] = useState<AdminDashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
-    [],
+export default function AdminDashboard() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(
+    null,
   );
-  const [reportedContent, setReportedContent] = useState<ReportedContent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adminActionsPage, setAdminActionsPage] = useState(1);
+  const [adminActionsLimit, setAdminActionsLimit] = useState(10);
+  const [paginationLoading, setPaginationLoading] = useState(false);
 
   useEffect(() => {
-    if (session?.user) {
-      // In a real app, you'd fetch admin data and stats from the API
-      // For now, we'll use mock data
-      // TODO: Replace with actual API calls to get admin stats
-      // For now, show loading state
-      setStats({
-        totalUsers: 0,
-        totalBusinesses: 0,
-        totalReviews: 0,
-        totalRewards: 0,
-        pendingApprovals: 0,
-        reportedContent: 0,
-      });
-
-      // TODO: Replace with actual API calls to get pending approvals and reported content
-      // For now, show empty arrays
-      setPendingApprovals([]);
-      setReportedContent([]);
-
-      setLoading(false);
+    fetchDashboardData();
+    if (adminActionsPage > 1) {
+      fetchDashboardData(true);
     }
-  }, [session]);
+    if (adminActionsLimit !== 10) {
+      fetchDashboardData(true);
+    }
+  }, [adminActionsPage, adminActionsLimit]);
 
-  if (status === "loading" || loading) {
+  const fetchDashboardData = async (isPagination = false) => {
+    try {
+      if (isPagination) {
+        setPaginationLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await fetch(
+        `/api/admin/dashboard?adminActionsPage=${adminActionsPage}&adminActionsLimit=${adminActionsLimit}`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      if (isPagination) {
+        setPaginationLoading(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleAdminActionsPageChange = (newPage: number) => {
+    setAdminActionsPage(newPage);
+  };
+
+  const navigateTo = (path: string) => {
+    router.push(path);
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading admin dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
     );
   }
 
-  if (!session?.user) {
+  if (!dashboardData) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Access Denied
-          </h1>
-          <p className="text-gray-600 mb-4">
-            You need to be signed in to view this page.
-          </p>
-          <Button asChild>
-            <a href="/auth/signin">Sign In</a>
-          </Button>
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+          <p className="text-gray-600">Failed to load dashboard data</p>
         </div>
       </div>
     );
   }
-
-  // Check if user is admin (in a real app, check role from session)
-  if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Access Denied
-          </h1>
-          <p className="text-gray-600 mb-4">
-            You need admin privileges to access this page.
-          </p>
-          <Button asChild>
-            <a href="/dashboard">Go to Dashboard</a>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "HIGH":
-        return <Badge variant="destructive">High</Badge>;
-      case "MEDIUM":
-        return <Badge variant="secondary">Medium</Badge>;
-      case "LOW":
-        return <Badge variant="outline">Low</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return <Badge variant="secondary">Pending</Badge>;
-      case "RESOLVED":
-        return <Badge variant="default">Resolved</Badge>;
-      case "DISMISSED":
-        return <Badge variant="outline">Dismissed</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "USER":
-        return <Users className="h-4 w-4" />;
-      case "BUSINESS":
-        return <Building2 className="h-4 w-4" />;
-      case "AGENT":
-        return <Shield className="h-4 w-4" />;
-      case "REVIEW":
-        return <Star className="h-4 w-4" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-xl font-bold">
-                {getInitials(session.user.name || "Admin")}
-              </span>
+      {/* Page Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center space-x-3">
+            <div className="p-3 bg-blue-100 rounded-full">
+              <Crown className="h-8 w-8 text-blue-600" />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-3">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Admin Dashboard
-                </h1>
-                <Badge variant="destructive" className="bg-red-600">
-                  <Shield className="h-3 w-3 mr-1" />
-                  {session.user.role === "SUPER_ADMIN"
-                    ? "Super Admin"
-                    : "Admin"}
-                </Badge>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
               <p className="text-gray-600">
-                System administration and moderation
+                Welcome back, {session?.user?.name}
               </p>
-              <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                <span className="flex items-center space-x-1">
-                  <Users className="h-4 w-4" />
-                  <span>{stats?.totalUsers} total users</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <Building2 className="h-4 w-4" />
-                  <span>{stats?.totalBusinesses} businesses</span>
-                </span>
-                <span className="flex items-center space-x-1">
-                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                  <span>{stats?.pendingApprovals} pending approvals</span>
-                </span>
-              </div>
-            </div>
-            <div className="flex space-x-2">
-              <Button variant="outline">
-                <Settings className="h-4 w-4 mr-2" />
-                System Settings
-              </Button>
-              <Button>
-                <BarChart3 className="h-4 w-4 mr-2" />
-                View Reports
-              </Button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Users
-                </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                <p className="text-xs text-muted-foreground">
-                  Registered users
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Overview Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData.overview.totalUsers}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                All platform users
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Businesses
+              </CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData.overview.totalBusinesses}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Registered businesses
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Reviews
+              </CardTitle>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData.overview.totalReviews}
+              </div>
+              <p className="text-xs text-muted-foreground">User reviews</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Agents
+              </CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {dashboardData.overview.totalAgents}
+              </div>
+              <p className="text-xs text-muted-foreground">Approved agents</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* User Breakdown */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>User Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center p-4 border rounded-lg">
+                <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-blue-900">
+                  {dashboardData.overview.userBreakdown.reviewers}
                 </p>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-blue-700">Reviewers</p>
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Businesses
-                </CardTitle>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats.totalBusinesses}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Registered businesses
+              <div className="text-center p-4 border rounded-lg">
+                <Building2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-green-900">
+                  {dashboardData.overview.userBreakdown.businessOwners}
                 </p>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-green-700">Business Owners</p>
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Reviews</CardTitle>
-                <Star className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalReviews}</div>
-                <p className="text-xs text-muted-foreground">
-                  Customer reviews
+              <div className="text-center p-4 border rounded-lg">
+                <Shield className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-purple-900">
+                  {dashboardData.overview.userBreakdown.agents}
                 </p>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-purple-700">Agents</p>
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Rewards
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(stats.totalRewards)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Distributed rewards
+              <div className="text-center p-4 border rounded-lg">
+                <UserCheck className="h-8 w-8 text-orange-600 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-orange-900">
+                  {dashboardData.overview.userBreakdown.admins}
                 </p>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-orange-700">Admins</p>
+              </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats.pendingApprovals}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Awaiting approval
+              <div className="text-center p-4 border rounded-lg">
+                <Crown className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                <p className="text-2xl font-bold text-red-900">
+                  {dashboardData.overview.userBreakdown.superAdmins}
                 </p>
-              </CardContent>
-            </Card>
+                <p className="text-sm text-red-700">Super Admins</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Reported</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats.reportedContent}
+        {/* Pending Items */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-yellow-200 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-yellow-900">
+                <Clock className="h-5 w-5" />
+                <span>Pending Businesses</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-yellow-900 mb-2">
+                  {dashboardData.pending.businesses}
+                </p>
+                <p className="text-yellow-700 mb-4">Awaiting verification</p>
+                <Button
+                  variant="outline"
+                  className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                  onClick={() => navigateTo("/admin/businesses")}
+                >
+                  Review All
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-blue-900">
+                <Shield className="h-5 w-5" />
+                <span>Pending Agents</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-blue-900 mb-2">
+                  {dashboardData.pending.agentApplications}
+                </p>
+                <p className="text-blue-700 mb-4">Agent applications</p>
+                <Button
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => navigateTo("/admin/agents")}
+                >
+                  Review All
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-purple-200 bg-purple-50">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-purple-900">
+                <UserCheck className="h-5 w-5" />
+                <span>Pending Invitations</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-purple-900 mb-2">
+                  {dashboardData.pending.adminInvitations}
+                </p>
+                <p className="text-purple-700 mb-4">Admin invitations</p>
+                <Button
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                  onClick={() => navigateTo("/admin/invitations")}
+                >
+                  View All
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Business Recommendations */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Building2 className="h-5 w-5" />
+              <span>Business Recommendations from Agents</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600">
+                  Manage business recommendations submitted by agents
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/admin/business-recommendations")}
+                >
+                  View All Recommendations
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 border rounded-lg bg-green-50">
+                  <p className="text-sm text-gray-600 mb-1">Pending Review</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {dashboardData.recent.pendingBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-green-700 text-sm">
+                    Awaiting admin review
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">Content reports</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Admin Actions Section */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Admin Actions</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button className="w-full" variant="outline">
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Users
-                </Button>
-                <Button className="w-full" variant="outline">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Manage Businesses
-                </Button>
-                <Button className="w-full" variant="outline">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Manage Agents
-                </Button>
-                <Button className="w-full" variant="outline">
-                  <Star className="h-4 w-4 mr-2" />
-                  Moderate Reviews
-                </Button>
-                <Button className="w-full" variant="outline">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  System Analytics
-                </Button>
-                <Button className="w-full" variant="outline">
-                  <Settings className="h-4 w-4 mr-2" />
-                  System Settings
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Quick Stats */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Quick Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    Active Users Today
-                  </span>
-                  <span className="font-medium">234</span>
+                <div className="text-center p-4 border rounded-lg bg-blue-50">
+                  <p className="text-sm text-gray-600 mb-1">Approved</p>
+                  <p className="text-2xl font-bold text-blue-900">
+                    {dashboardData.recent.approvedBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-blue-700 text-sm">
+                    Successfully processed
+                  </p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    New Registrations
-                  </span>
-                  <span className="font-medium">12</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">System Health</span>
-                  <Badge variant="default" className="bg-green-600">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Healthy
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Last Backup</span>
-                  <span className="font-medium">2 hours ago</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Main Dashboard Content */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="approvals">Approvals</TabsTrigger>
-                <TabsTrigger value="reports">Reports</TabsTrigger>
-                <TabsTrigger value="analytics">Analytics</TabsTrigger>
-              </TabsList>
+                <div className="text-center p-4 border rounded-lg bg-orange-50">
+                  <p className="text-sm text-gray-600 mb-1">This Month</p>
+                  <p className="text-2xl font-bold text-orange-900">
+                    {dashboardData.recent.monthlyBusinessRecommendations
+                      ?.length || 0}
+                  </p>
+                  <p className="text-orange-700 text-sm">New recommendations</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <TabsContent value="overview" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Overview</CardTitle>
-                    <CardDescription>
-                      Current system status and recent activities
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="text-center p-4 bg-green-50 rounded-lg">
-                          <div className="text-2xl font-bold text-green-600">
-                            98%
-                          </div>
-                          <div className="text-sm text-gray-600">Uptime</div>
-                        </div>
-                        <div className="text-center p-4 bg-blue-50 rounded-lg">
-                          <div className="text-2xl font-bold text-blue-600">
-                            1.2s
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Avg Response
-                          </div>
-                        </div>
-                        <div className="text-center p-4 bg-purple-50 rounded-lg">
-                          <div className="text-2xl font-bold text-purple-600">
-                            2.4K
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Daily Requests
-                          </div>
-                        </div>
-                        <div className="text-center p-4 bg-orange-50 rounded-lg">
-                          <div className="text-2xl font-bold text-orange-600">
-                            45GB
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Storage Used
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+        {/* Platform Settings */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Platform Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 border rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Min Redemption</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ₦{dashboardData.platformSettings.minimumRedemptionAmount}
+                </p>
+              </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Admin Actions</CardTitle>
-                    <CardDescription>
-                      Latest administrative activities
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="text-center p-4 border rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Review Reward</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ₦{dashboardData.platformSettings.reviewRewardAmount}
+                </p>
+              </div>
+
+              <div className="text-center p-4 border rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Referral Reward</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ₦{dashboardData.platformSettings.referralRewardAmount}
+                </p>
+              </div>
+
+              <div className="text-center p-4 border rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">
+                  Business Rec Reward
+                </p>
+                <p className="text-2xl font-bold text-gray-900">
+                  ₦
+                  {
+                    dashboardData.platformSettings
+                      .businessRecommendationRewardAmount
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <Button
+                variant="outline"
+                onClick={() => navigateTo("/admin/settings")}
+              >
+                Edit Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Admin Actions */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Recent Admin Actions</CardTitle>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin/actions")}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  View All
+                </Button>
+                <label htmlFor="pageSize" className="text-sm text-gray-600">
+                  Show:
+                </label>
+                <select
+                  id="pageSize"
+                  value={adminActionsLimit}
+                  onChange={(e) => {
+                    setAdminActionsLimit(parseInt(e.target.value));
+                    setAdminActionsPage(1); // Reset to first page when changing page size
+                  }}
+                  className="border border-gray-300 rounded px-2 py-1 text-sm"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {paginationLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading admin actions...</p>
+              </div>
+            ) : dashboardData.recent.adminActions.length > 0 ? (
+              <>
+                <div className="space-y-3 mb-4">
+                  {dashboardData.recent.adminActions.map((action, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-blue-100 rounded-full">
                           <UserCheck className="h-4 w-4 text-blue-600" />
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <p className="font-medium">
-                            User account activated: john@example.com
+                            {action.action.replace(/_/g, " ")}
                           </p>
                           <p className="text-sm text-gray-500">
-                            2 hours ago by Admin
+                            by {action.admin.name} •{" "}
+                            {new Date(action.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        <Badge variant="outline">User Management</Badge>
                       </div>
-
-                      <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            Business verified: ABC Restaurant
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            4 hours ago by Admin
-                          </p>
-                        </div>
-                        <Badge variant="outline">Business Verification</Badge>
-                      </div>
-
-                      <div className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                          <Ban className="h-4 w-4 text-red-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium">
-                            User suspended: spam@example.com
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            6 hours ago by Admin
-                          </p>
-                        </div>
-                        <Badge variant="outline">User Moderation</Badge>
-                      </div>
+                      <Badge variant="outline">{action.targetType}</Badge>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  ))}
+                </div>
 
-              <TabsContent value="approvals" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pending Approvals</CardTitle>
-                    <CardDescription>
-                      Items awaiting administrative review
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {pendingApprovals.map((approval) => (
-                        <div
-                          key={approval.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                              {getTypeIcon(approval.type)}
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-medium">{approval.name}</h3>
-                              <p className="text-sm text-gray-600">
-                                {approval.description}
-                              </p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <span className="text-xs text-gray-500">
-                                  {formatDate(approval.createdAt)}
+                {/* Pagination Controls */}
+                {dashboardData.recent.adminActionsPagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {(adminActionsPage - 1) * adminActionsLimit + 1}{" "}
+                      to{" "}
+                      {Math.min(
+                        adminActionsPage * adminActionsLimit,
+                        dashboardData.recent.adminActionsPagination.total,
+                      )}{" "}
+                      of {dashboardData.recent.adminActionsPagination.total}{" "}
+                      actions
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleAdminActionsPageChange(
+                            Math.max(1, adminActionsPage - 1),
+                          )
+                        }
+                        disabled={adminActionsPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center space-x-1">
+                        {Array.from(
+                          {
+                            length: Math.min(
+                              5,
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages,
+                            ),
+                          },
+                          (_, i) => {
+                            const pageNum = i + 1;
+                            if (
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages <= 5
+                            ) {
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={
+                                    pageNum === adminActionsPage
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() =>
+                                    handleAdminActionsPageChange(pageNum)
+                                  }
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            }
+
+                            // Show first page, last page, current page, and pages around current
+                            if (
+                              pageNum === 1 ||
+                              pageNum ===
+                                dashboardData.recent.adminActionsPagination
+                                  .totalPages ||
+                              (pageNum >= adminActionsPage - 1 &&
+                                pageNum <= adminActionsPage + 1)
+                            ) {
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={
+                                    pageNum === adminActionsPage
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() =>
+                                    handleAdminActionsPageChange(pageNum)
+                                  }
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum}
+                                </Button>
+                              );
+                            }
+
+                            // Show ellipsis
+                            if (
+                              pageNum === adminActionsPage - 2 ||
+                              pageNum === adminActionsPage + 2
+                            ) {
+                              return (
+                                <span
+                                  key={pageNum}
+                                  className="px-2 text-gray-500"
+                                >
+                                  ...
                                 </span>
-                                {getPriorityBadge(approval.priority)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-1" />
-                              Review
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                              );
+                            }
 
-              <TabsContent value="reports" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Reported Content</CardTitle>
-                    <CardDescription>
-                      Content flagged for review
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {reportedContent.map((report) => (
-                        <div
-                          key={report.id}
-                          className="flex items-center justify-between p-4 border rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <h3 className="font-medium">{report.title}</h3>
-                            <p className="text-sm text-gray-600">
-                              Reason: {report.reason}
-                            </p>
-                            <div className="flex items-center space-x-2 mt-1 text-xs text-gray-500">
-                              <span>Reported by: {report.reportedBy}</span>
-                              <span>•</span>
-                              <span>{formatDate(report.reportedAt)}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {getStatusBadge(report.status)}
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4 mr-1" />
-                              Review
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Resolve
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                            return null;
+                          },
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleAdminActionsPageChange(
+                            Math.min(
+                              dashboardData.recent.adminActionsPagination
+                                .totalPages,
+                              adminActionsPage + 1,
+                            ),
+                          )
+                        }
+                        disabled={
+                          adminActionsPage ===
+                          dashboardData.recent.adminActionsPagination.totalPages
+                        }
+                      >
+                        Next
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="analytics" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Analytics</CardTitle>
-                    <CardDescription>
-                      Performance metrics and system insights
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-500 text-center py-8">
-                      Advanced analytics and reporting interface will be
-                      displayed here
-                    </p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <UserCheck className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No recent admin actions</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

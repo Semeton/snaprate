@@ -8,7 +8,7 @@ const rewardService = new RewardService();
 // POST /api/rewards/[id]/redeem - Redeem a reward
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -26,7 +26,8 @@ export async function POST(
       );
     }
 
-    const reward = await rewardService.redeemReward(params.id, type);
+    const { id } = await params;
+    const reward = await rewardService.redeemReward(id, type);
 
     return NextResponse.json({
       reward,

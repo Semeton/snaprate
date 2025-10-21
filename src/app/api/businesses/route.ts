@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { BusinessService } from "@/services/BusinessService";
-
-const businessService = new BusinessService();
+import { prisma } from "@/lib/prisma";
+import logger from "@/lib/logger";
 
 // GET /api/businesses - Get businesses with filters
 export async function GET(request: NextRequest) {
@@ -12,23 +9,92 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const state = searchParams.get("state");
     const city = searchParams.get("city");
+    const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
 
-    const filters = {
-      category: category || undefined,
-      state: state || undefined,
-      city: city || undefined,
+    const where: Record<string, unknown> = {
+      isActive: true, // Only show active businesses
     };
 
-    const businesses = await businessService.searchBusinesses(
-      filters,
-      page,
-      limit,
+    if (category && category !== "all") {
+      where.category = category;
+    }
+
+    if (state && state !== "all") {
+      where.state = state;
+    }
+
+    if (city && city !== "all") {
+      where.city = city;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [businesses, total] = await Promise.all([
+      prisma.business.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          category: true,
+          city: true,
+          state: true,
+          averageRating: true,
+          totalReviews: true,
+          totalVisits: true,
+          logo: true,
+          coverImage: true,
+          verificationStatus: true,
+          isVerified: true,
+          verificationSource: true,
+          createdAt: true,
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              reviews: true,
+            },
+          },
+        },
+      }),
+      prisma.business.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    logger.info(
+      `Retrieved ${businesses.length} businesses out of ${total} total`,
     );
-    return NextResponse.json(businesses);
+
+    return NextResponse.json({
+      businesses: businesses,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
   } catch (error) {
-    console.error("Failed to fetch businesses:", error);
+    logger.error("Failed to fetch businesses", { error });
     return NextResponse.json(
       { error: "Failed to fetch businesses" },
       { status: 500 },

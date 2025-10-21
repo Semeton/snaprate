@@ -1,15 +1,13 @@
-import { prisma } from '@/lib/prisma';
-import { IRewardService } from './interfaces';
-import { Reward, RewardType } from '@/types';
+import { prisma } from "@/lib/prisma";
+import { Reward, RewardType } from "@/types";
+import PlatformSettingsService from "@/services/PlatformSettingsService";
 
-export class RewardService implements IRewardService {
-  // Single Responsibility: This service only handles reward-related operations
-  
+export class RewardService {
   async createReward(rewardData: {
     type: RewardType;
     amount: number;
     description: string;
-    userId: string;
+    referrerId: string;
     reviewId?: string;
   }): Promise<Reward> {
     try {
@@ -18,340 +16,428 @@ export class RewardService implements IRewardService {
           type: rewardData.type,
           amount: rewardData.amount,
           description: rewardData.description,
-          userId: rewardData.userId,
+          referrerId: rewardData.referrerId,
           reviewId: rewardData.reviewId,
-          isRedeemed: false,
         },
         include: {
-          user: true,
-          review: true,
-        }
+          referrer: true,
+          review: {
+            include: {
+              business: true,
+            },
+          },
+        },
       });
 
       return reward as Reward;
     } catch (error) {
-      throw new Error(`Failed to create reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create reward: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async findById(id: string): Promise<Reward | null> {
-    try {
-      const reward = await prisma.reward.findUnique({
-        where: { id },
-        include: {
-          user: true,
-          review: true,
-        }
-      });
-
-      return reward as Reward;
-    } catch (error) {
-      throw new Error(`Failed to find reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async findByUser(userId: string, page: number = 1, limit: number = 10): Promise<{
-    data: Reward[];
-    pagination: {
+  async getUserRewards(
+    referrerId: string,
+    options: {
       page: number;
       limit: number;
-      total: number;
-      totalPages: number;
-    };
-  }> {
+      type?: RewardType;
+      isRedeemed?: boolean;
+    },
+  ) {
     try {
+      const { page, limit, type, isRedeemed } = options;
       const skip = (page - 1) * limit;
+
+      const where: Record<string, unknown> = { referrerId: referrerId };
+      if (type) {
+        where.type = type;
+      }
+      if (isRedeemed !== undefined) {
+        where.isRedeemed = isRedeemed;
+      }
 
       const [rewards, total] = await Promise.all([
         prisma.reward.findMany({
-          where: { userId },
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
+          where,
           include: {
             review: {
               include: {
-                business: true,
-              }
+                business: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                  },
+                },
+              },
             },
-          }
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
         }),
-        prisma.reward.count({ where: { userId } })
+        prisma.reward.count({ where }),
       ]);
 
-      const totalPages = Math.ceil(total / limit);
-
       return {
-        data: rewards as Reward[],
+        rewards: rewards as unknown as Reward[],
         pagination: {
           page,
           limit,
           total,
-          totalPages,
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
-      throw new Error(`Failed to find rewards by user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get user rewards: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async updateReward(id: string, data: Partial<Reward>): Promise<Reward> {
+  async getRewardStats(referrerId: string) {
     try {
-      const reward = await prisma.reward.update({
-        where: { id },
-        data,
-        include: {
-          user: true,
-          review: true,
-        }
-      });
+      const [
+        totalEarnings,
+        pendingRewards,
+        redeemedRewards,
+        referralEarnings,
+        reviewEarnings,
+      ] = await Promise.all([
+        prisma.reward.aggregate({
+          where: { referrerId },
+          _sum: { amount: true },
+        }),
+        prisma.reward.aggregate({
+          where: { referrerId, isRedeemed: false },
+          _sum: { amount: true },
+        }),
+        prisma.reward.aggregate({
+          where: { referrerId, isRedeemed: true },
+          _sum: { amount: true },
+        }),
+        prisma.reward.aggregate({
+          where: { referrerId, type: "REFERRAL_BONUS" },
+          _sum: { amount: true },
+        }),
+        prisma.reward.aggregate({
+          where: { referrerId, type: "CASH", reviewId: { not: null } },
+          _sum: { amount: true },
+        }),
+      ]);
 
-      return reward as Reward;
+      return {
+        totalEarnings: totalEarnings._sum.amount || 0,
+        pendingRewards: pendingRewards._sum.amount || 0,
+        redeemedRewards: redeemedRewards._sum.amount || 0,
+        referralEarnings: referralEarnings._sum.amount || 0,
+        reviewEarnings: reviewEarnings._sum.amount || 0,
+      };
     } catch (error) {
-      throw new Error(`Failed to update reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get reward stats: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async deleteReward(id: string): Promise<void> {
-    try {
-      await prisma.reward.delete({
-        where: { id }
-      });
-    } catch (error) {
-      throw new Error(`Failed to delete reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async redeemReward(id: string, type: 'AIRTIME' | 'COUPON'): Promise<Reward> {
+  async redeemReward(rewardId: string, referrerId: string): Promise<Reward> {
     try {
       const reward = await prisma.reward.findUnique({
-        where: { id }
+        where: { id: rewardId },
       });
 
       if (!reward) {
-        throw new Error('Reward not found');
+        throw new Error("Reward not found");
+      }
+
+      if (reward.referrerId !== referrerId) {
+        throw new Error("You can only redeem your own rewards");
       }
 
       if (reward.isRedeemed) {
-        throw new Error('Reward has already been redeemed');
+        throw new Error("Reward has already been redeemed");
       }
 
-      if (reward.amount < 1000) {
-        throw new Error('Minimum amount required for redemption is NGN 1,000');
-      }
-
-      const redeemedReward = await prisma.reward.update({
-        where: { id },
+      const updatedReward = await prisma.reward.update({
+        where: { id: rewardId },
         data: {
           isRedeemed: true,
           redeemedAt: new Date(),
         },
         include: {
-          user: true,
-          review: true,
-        }
-      });
-
-      return redeemedReward as Reward;
-    } catch (error) {
-      throw new Error(`Failed to redeem reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async calculateReviewReward(reviewId: string): Promise<number> {
-    try {
-      const review = await prisma.reward.findUnique({
-        where: { reviewId }
-      });
-
-      if (review) {
-        throw new Error('Reward already exists for this review');
-      }
-
-      // Standard reward for review: NGN 50
-      return 50;
-    } catch (error) {
-      throw new Error(`Failed to calculate review reward: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async processReferralBonus(referrerId: string, referredId: string): Promise<Reward> {
-    try {
-      // Check if referral bonus already exists
-      const existingBonus = await prisma.reward.findFirst({
-        where: {
-          userId: referrerId,
-          type: RewardType.REFERRAL_BONUS,
-          description: {
-            contains: referredId
-          }
-        }
-      });
-
-      if (existingBonus) {
-        throw new Error('Referral bonus already processed');
-      }
-
-      // Create referral bonus: NGN 20
-      const reward = await prisma.reward.create({
-        data: {
-          type: RewardType.REFERRAL_BONUS,
-          amount: 20,
-          description: `Referral bonus for user ${referredId}`,
-          userId: referrerId,
-          isRedeemed: false,
-        },
-        include: {
-          user: true,
-        }
-      });
-
-      return reward as Reward;
-    } catch (error) {
-      throw new Error(`Failed to process referral bonus: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async processBusinessOnboardingBonus(agentId: string, businessId: string): Promise<Reward> {
-    try {
-      // Check if onboarding bonus already exists
-      const existingBonus = await prisma.reward.findFirst({
-        where: {
-          userId: agentId,
-          type: RewardType.BUSINESS_ONBOARDING,
-          description: {
-            contains: businessId
-          }
-        }
-      });
-
-      if (existingBonus) {
-        throw new Error('Onboarding bonus already processed');
-      }
-
-      // Create onboarding bonus: NGN 1,000
-      const reward = await prisma.reward.create({
-        data: {
-          type: RewardType.BUSINESS_ONBOARDING,
-          amount: 1000,
-          description: `Business onboarding bonus for business ${businessId}`,
-          userId: agentId,
-          isRedeemed: false,
-        },
-        include: {
-          user: true,
-        }
-      });
-
-      return reward as Reward;
-    } catch (error) {
-      throw new Error(`Failed to process business onboarding bonus: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getUserRewardStats(userId: string): Promise<{
-    totalReviews: number;
-    totalEarnings: number;
-    pendingRewards: number;
-    referralCount: number;
-    referralEarnings: number;
-  }> {
-    try {
-      const [reviews, rewards, referrals] = await Promise.all([
-        prisma.review.count({
-          where: { 
-            userId,
-            status: 'APPROVED'
-          }
-        }),
-        prisma.reward.aggregate({
-          where: { userId },
-          _sum: { amount: true }
-        }),
-        prisma.user.count({
-          where: { referredBy: userId }
-        })
-      ]);
-
-      const referralEarnings = await prisma.reward.aggregate({
-        where: {
-          userId,
-          type: RewardType.REFERRAL_BONUS
-        },
-        _sum: { amount: true }
-      });
-
-      const pendingRewards = await prisma.reward.count({
-        where: {
-          userId,
-          isRedeemed: false
-        }
-      });
-
-      return {
-        totalReviews: reviews,
-        totalEarnings: rewards._sum.amount || 0,
-        pendingRewards,
-        referralCount: referrals,
-        referralEarnings: referralEarnings._sum.amount || 0,
-      };
-    } catch (error) {
-      throw new Error(`Failed to get user reward stats: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getRewardHistory(userId: string, type?: RewardType): Promise<Reward[]> {
-    try {
-      const where: Record<string, unknown> = { userId };
-      
-      if (type) {
-        where.type = type;
-      }
-
-      const rewards = await prisma.reward.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        include: {
+          referrer: true,
           review: {
             include: {
               business: true,
-            }
+            },
           },
+        },
+      });
+
+      return updatedReward as Reward;
+    } catch (error) {
+      throw new Error(
+        `Failed to redeem reward: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async createReferralBonus(referrerId: string): Promise<Reward> {
+    try {
+      // Get dynamic referral reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const referralAmount =
+        await platformSettingsService.getReferralRewardAmount();
+
+      const reward = await prisma.reward.create({
+        data: {
+          type: "REFERRAL",
+          amount: referralAmount,
+          description: "Referral bonus for new user signup",
+          referrerId: referrerId,
+        },
+        include: {
+          referrer: true,
+        },
+      });
+
+      return reward as unknown as Reward;
+    } catch (error) {
+      throw new Error(
+        `Failed to create referral bonus: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async createBusinessOnboardingBonus(
+    referrerId: string,
+    businessName: string,
+  ): Promise<Reward> {
+    try {
+      // Get dynamic business recommendation reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const businessRecommendationAmount =
+        await platformSettingsService.getBusinessRecommendationRewardAmount();
+
+      const reward = await prisma.reward.create({
+        data: {
+          type: "BUSINESS_RECOMMENDATION",
+          amount: businessRecommendationAmount,
+          description: `Business onboarding bonus for ${businessName}`,
+          referrerId: referrerId,
+        },
+        include: {
+          referrer: true,
+        },
+      });
+
+      return reward as Reward;
+    } catch (error) {
+      throw new Error(
+        `Failed to create business onboarding bonus: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async createReviewReward(
+    referrerId: string,
+    reviewId: string,
+    businessName: string,
+  ): Promise<Reward> {
+    try {
+      // Get dynamic review reward amount from platform settings
+      const platformSettingsService = PlatformSettingsService.getInstance();
+      const reviewAmount =
+        await platformSettingsService.getReviewRewardAmount();
+
+      const reward = await prisma.reward.create({
+        data: {
+          type: "REVIEW",
+          amount: reviewAmount,
+          description: `Review reward for ${businessName}`,
+          referrerId: referrerId,
+        },
+        include: {
+          referrer: true,
+        },
+      });
+
+      return reward as Reward;
+    } catch (error) {
+      throw new Error(
+        `Failed to create review reward: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getPendingRewards(referrerId: string): Promise<Reward[]> {
+    try {
+      const rewards = await prisma.reward.findMany({
+        where: {
+          referrerId: referrerId,
+          isRedeemed: false,
+        },
+        include: {
+          review: {
+            include: {
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return rewards as unknown as Reward[];
+    } catch (error) {
+      throw new Error(
+        `Failed to get pending rewards: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getTotalEarnings(referrerId: string): Promise<number> {
+    try {
+      const result = await prisma.reward.aggregate({
+        where: { referrerId: referrerId },
+        _sum: { amount: true },
+      });
+
+      return result._sum.amount || 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get total earnings: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async getEarningsByType(
+    referrerId: string,
+  ): Promise<Record<RewardType, number>> {
+    try {
+      const rewards = await prisma.reward.groupBy({
+        by: ["type"],
+        where: { referrerId: referrerId },
+        _sum: { amount: true },
+      });
+
+      const earningsByType: Record<RewardType, number> = {
+        CASH: 0,
+        AIRTIME: 0,
+        COUPON: 0,
+        REFERRAL_BONUS: 0,
+        BUSINESS_ONBOARDING: 0,
+      };
+
+      rewards.forEach((reward) => {
+        if (reward.type && reward._sum.amount) {
+          earningsByType[reward.type as RewardType] = reward._sum.amount;
         }
       });
 
-      return rewards as Reward[];
+      return earningsByType;
     } catch (error) {
-      throw new Error(`Failed to get reward history: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get earnings by type: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 
-  async getTotalEarnings(userId: string): Promise<number> {
+  async getMonthlyEarnings(
+    referrerId: string,
+    year: number,
+    month: number,
+  ): Promise<number> {
     try {
-      const result = await prisma.reward.aggregate({
-        where: { userId },
-        _sum: { amount: true }
-      });
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
 
-      return result._sum.amount || 0;
-    } catch (error) {
-      throw new Error(`Failed to get total earnings: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getPendingEarnings(userId: string): Promise<number> {
-    try {
       const result = await prisma.reward.aggregate({
         where: {
-          userId,
-          isRedeemed: false
+          referrerId: referrerId,
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
-        _sum: { amount: true }
+        _sum: { amount: true },
       });
 
       return result._sum.amount || 0;
     } catch (error) {
-      throw new Error(`Failed to get pending earnings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get monthly earnings: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
+    }
+  }
+
+  async findByUser(referrerId: string, page: number, limit: number) {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [rewards, total] = await Promise.all([
+        prisma.reward.findMany({
+          where: { referrerId: referrerId },
+          include: {
+            referrer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: limit,
+        }),
+        prisma.reward.count({ where: { referrerId: referrerId } }),
+      ]);
+
+      return {
+        data: rewards,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get user rewards: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      );
     }
   }
 }
