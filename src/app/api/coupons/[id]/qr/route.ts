@@ -4,7 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CouponService } from "@/services/CouponService";
 import { QRCodeService } from "@/services/QRCodeService";
-import { Coupon } from "@/types";
 
 // Generate QR code for a coupon
 export async function GET(
@@ -45,12 +44,40 @@ export async function GET(
 
     // If not found by ID, try by code
     if (!coupon) {
-      coupon = (await couponService.getCouponByCode(
-        couponId,
-      )) as unknown as Coupon;
+      const couponByCode = await couponService.getCouponByCode(couponId);
+      if (!couponByCode) {
+        return NextResponse.json(
+          { error: "Coupon not found" },
+          { status: 404 },
+        );
+      }
+
+      // Fetch the full coupon with relations
+      coupon = await prisma.coupon.findUnique({
+        where: { id: couponByCode.id },
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              state: true,
+              city: true,
+            },
+          },
+          assignedUser: {
+            select: {
+              id: true,
+              name: true,
+              userIdentifier: true,
+            },
+          },
+        },
+      });
+
       if (!coupon) {
         return NextResponse.json(
-          { error: "Coupon not founddd" },
+          { error: "Coupon not found" },
           { status: 404 },
         );
       }
@@ -59,7 +86,6 @@ export async function GET(
     let hasAccess = false;
 
     if (session?.user) {
-      // Check if user is business owner
       const business = await prisma.business.findUnique({
         where: { ownerId: session.user.id },
         select: { id: true },
@@ -119,7 +145,10 @@ export async function GET(
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://snaprate.com";
-    const verificationURL = `${appUrl.replace(/\/$/, "")}/verify/${code}`;
+    const verificationURL = `${appUrl.replace(
+      /\/$/,
+      "",
+    )}/coupons/verify/${code}`;
 
     if (format === "svg") {
       const qrCodeSVG = await QRCodeService.generateQRCodeSVG(verificationURL);

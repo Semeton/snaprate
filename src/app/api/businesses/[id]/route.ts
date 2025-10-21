@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
-
-const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
@@ -45,17 +43,25 @@ export async function GET(
     });
 
     if (!business) {
+      logger.warn("Business not found", { businessId: id });
       return NextResponse.json(
         { error: "Business not found" },
         { status: 404 },
       );
     }
 
-    logger.info("Business details retrieved successfully", { businessId: id });
+    logger.info("Business details retrieved successfully", {
+      businessId: id,
+      businessName: business.name,
+    });
 
     return NextResponse.json(business);
   } catch (error) {
-    logger.error("Failed to get business details", { error });
+    logger.error("Failed to get business details", {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      businessId: (await params).id,
+    });
     return NextResponse.json(
       { error: "Failed to get business details" },
       { status: 500 },

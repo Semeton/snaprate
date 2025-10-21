@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,16 +20,21 @@ import {
   AlertCircle,
   Copy,
 } from "lucide-react";
-import { Coupon, Business } from "@/types";
+import { Coupon, Business, CouponAssignmentData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
+import { User } from "@prisma/client";
 
-export default function CouponVerificationPage({}: CouponVerificationPageProps) {
+export default function CouponVerificationPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
 
   const [coupon, setCoupon] = useState<Coupon | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
+  const [assignment, setAssignment] = useState<CouponAssignmentData | null>(
+    null,
+  );
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [verificationResult, setVerificationResult] = useState<{
@@ -37,16 +43,14 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
     canRedeem: boolean;
   } | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+  const [verifierType, setVerifierType] = useState<
+    "user" | "business_owner" | "anonymous" | null
+  >(null);
+  const [isBusinessOwner, setIsBusinessOwner] = useState(false);
 
   const couponCode = params.code as string;
 
-  useEffect(() => {
-    if (couponCode) {
-      verifyCoupon();
-    }
-  }, [couponCode]);
-
-  const verifyCoupon = async () => {
+  const verifyCoupon = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -57,7 +61,29 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
       if (response.ok) {
         setCoupon(data.coupon);
         setBusiness(data.business);
+        setAssignment(data.assignment);
+        setUser(data.user);
         setVerificationResult(data.verification);
+
+        // Determine verifier type
+        if (session?.user) {
+          if (data.user && session.user.id === data.user.id) {
+            setVerifierType("user"); // User verifying their own coupon
+            setIsBusinessOwner(false);
+          } else if (
+            data.business &&
+            session.user.id === data.business.ownerId
+          ) {
+            setVerifierType("business_owner"); // Business owner verifying
+            setIsBusinessOwner(true);
+          } else {
+            setVerifierType("anonymous"); // Logged in but not the owner/assignee
+            setIsBusinessOwner(false);
+          }
+        } else {
+          setVerifierType("anonymous"); // Not logged in
+          setIsBusinessOwner(false);
+        }
       } else {
         setError(data.error || "Failed to verify coupon");
         setVerificationResult({
@@ -65,6 +91,7 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
           message: data.error || "Invalid coupon",
           canRedeem: false,
         });
+        setVerifierType("anonymous");
       }
     } catch (error) {
       console.error("Error verifying coupon:", error);
@@ -74,10 +101,17 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
         message: "Failed to verify coupon",
         canRedeem: false,
       });
+      setVerifierType("anonymous");
     } finally {
       setLoading(false);
     }
-  };
+  }, [couponCode, session?.user]);
+
+  useEffect(() => {
+    if (couponCode) {
+      verifyCoupon();
+    }
+  }, [couponCode, verifyCoupon]);
 
   const handleRedeemCoupon = async () => {
     if (!session?.user) {
@@ -89,12 +123,18 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
 
     try {
       setRedeeming(true);
-      const response = await fetch("/api/coupons/claim", {
+      const response = await fetch("/api/coupons/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ couponId: coupon.id }),
+        body: JSON.stringify({
+          code: couponCode,
+          orderAmount: 0, // Default order amount
+          redemptionMethod: "IN_PERSON",
+          staffNotes: "",
+          idVerified: false,
+        }),
       });
 
       if (response.ok) {
@@ -133,10 +173,16 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
   };
 
   const getStatusColor = (isValid: boolean) => {
+    if (assignment?.status === "REDEEMED") {
+      return "text-blue-600";
+    }
     return isValid ? "text-green-600" : "text-red-600";
   };
 
   const getStatusIcon = (isValid: boolean) => {
+    if (assignment?.status === "REDEEMED") {
+      return <CheckCircle className="h-8 w-8 text-blue-600" />;
+    }
     return isValid ? (
       <CheckCircle className="h-8 w-8 text-green-600" />
     ) : (
@@ -184,7 +230,11 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
                 verificationResult?.isValid || false,
               )}`}
             >
-              {verificationResult?.isValid ? "Valid Coupon" : "Invalid Coupon"}
+              {assignment?.status === "REDEEMED"
+                ? "Redeemed Coupon"
+                : verificationResult?.isValid
+                ? "Valid Coupon"
+                : "Invalid Coupon"}
             </CardTitle>
             <p className="text-gray-600">{verificationResult?.message}</p>
           </CardHeader>
@@ -223,27 +273,36 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
                 </div>
 
                 {/* Coupon Code */}
-                {coupon.baseCode && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-sm text-gray-500">
-                          Coupon Code
-                        </Label>
-                        <p className="font-mono text-xl font-semibold">
-                          {coupon.baseCode}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm text-gray-500">
+                        {assignment?.userSpecificCode
+                          ? "Your Coupon Code"
+                          : "Coupon Code"}
+                      </Label>
+                      <p className="font-mono text-xl font-semibold">
+                        {assignment?.userSpecificCode || coupon.baseCode}
+                      </p>
+                      {assignment?.userSpecificCode && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          This is your unique code for this coupon
                         </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopyCode(coupon.baseCode!)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      )}
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        handleCopyCode(
+                          assignment?.userSpecificCode || coupon.baseCode!,
+                        )
+                      }
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
+                </div>
 
                 {/* Validity Information */}
                 <div className="space-y-2">
@@ -287,6 +346,69 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
               </CardContent>
             </Card>
 
+            {/* User Information - Show for both user and business owner */}
+            {user &&
+              (verifierType === "user" ||
+                verifierType === "business_owner") && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      {verifierType === "user"
+                        ? "Your Information"
+                        : "Assigned User Information"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-sm text-gray-500">Name</Label>
+                        <p className="font-medium">{user.name}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-gray-500">Email</Label>
+                        <p className="font-medium">{user.email}</p>
+                      </div>
+                      {user.phone && (
+                        <div>
+                          <Label className="text-sm text-gray-500">Phone</Label>
+                          <p className="font-medium">{user.phone}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-sm text-gray-500">
+                          Assignment Status
+                        </Label>
+                        <Badge
+                          variant="outline"
+                          className={
+                            assignment?.status === "ASSIGNED"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : assignment?.status === "REDEEMED"
+                              ? "bg-blue-100 text-blue-800 border-blue-200"
+                              : "bg-gray-100 text-gray-800 border-gray-200"
+                          }
+                        >
+                          {assignment?.status}
+                        </Badge>
+                      </div>
+                      {assignment?.assignedAt && (
+                        <div>
+                          <Label className="text-sm text-gray-500">
+                            Assigned On
+                          </Label>
+                          <p className="font-medium">
+                            {new Date(
+                              assignment.assignedAt,
+                            ).toLocaleDateString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
             {/* Business Information */}
             <Card className="mb-6">
               <CardHeader>
@@ -299,9 +421,11 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
                 <div className="flex items-start space-x-4">
                   <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
                     {business.logo ? (
-                      <img
+                      <Image
                         src={business.logo}
                         alt={business.name}
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover rounded-lg"
                       />
                     ) : (
@@ -332,67 +456,121 @@ export default function CouponVerificationPage({}: CouponVerificationPageProps) 
               </CardContent>
             </Card>
 
-            {/* Action Buttons */}
-            <div className="space-y-4">
-              {verificationResult?.canRedeem && session?.user ? (
-                <Button
-                  onClick={handleRedeemCoupon}
-                  disabled={redeeming}
-                  className="w-full"
-                  size="lg"
-                >
-                  {redeeming ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Redeeming...
-                    </>
-                  ) : (
-                    <>
-                      <Gift className="h-5 w-5 mr-2" />
-                      Redeem Coupon
-                    </>
-                  )}
-                </Button>
-              ) : !session?.user ? (
-                <Button
-                  onClick={() =>
-                    router.push(
-                      `/auth/signin?redirect=/coupons/verify/${couponCode}`,
-                    )
-                  }
-                  className="w-full"
-                  size="lg"
-                >
-                  Sign In to Redeem
-                </Button>
-              ) : (
-                <div className="text-center">
-                  <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                  <p className="text-gray-600">
-                    This coupon cannot be redeemed at this time.
-                  </p>
-                </div>
-              )}
+            {/* Action Buttons - Only for business owners */}
+            {isBusinessOwner && (
+              <div className="space-y-4">
+                {assignment?.status === "ASSIGNED" &&
+                verificationResult?.canRedeem ? (
+                  <Button
+                    onClick={handleRedeemCoupon}
+                    disabled={redeeming}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {redeeming ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Marking as Redeemed...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Mark as Redeemed for Customer
+                      </>
+                    )}
+                  </Button>
+                ) : assignment?.status === "REDEEMED" ? (
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <CheckCircle className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                    <p className="text-blue-700 font-medium">
+                      Already Redeemed
+                    </p>
+                    <p className="text-sm text-blue-600">
+                      This coupon has been redeemed by the customer
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                    <p className="text-yellow-700 font-medium">Cannot Redeem</p>
+                    <p className="text-sm text-yellow-600">
+                      This coupon is not valid for redemption at this time
+                    </p>
+                  </div>
+                )}
 
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push(`/businesses/${business.id}`)}
-                  className="flex-1"
-                >
-                  View Business
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    router.push(`/businesses/${business.id}/coupons`)
-                  }
-                  className="flex-1"
-                >
-                  More Coupons
-                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/businesses/${business.id}`)}
+                    className="flex-1"
+                  >
+                    View Business
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/business/coupons/simple`)}
+                    className="flex-1"
+                  >
+                    Manage Coupons
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Information for non-business owners */}
+            {!isBusinessOwner && (
+              <div className="space-y-4">
+                {verifierType === "user" ? (
+                  assignment?.status === "REDEEMED" ? (
+                    <div className="text-center p-4 bg-blue-50 rounded-lg">
+                      <CheckCircle className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                      <p className="text-blue-700 font-medium">
+                        Coupon Redeemed
+                      </p>
+                      <p className="text-sm text-blue-600">
+                        This coupon has been successfully redeemed
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center p-4 bg-green-50 rounded-lg">
+                      <Gift className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-green-700 font-medium">Your Coupon</p>
+                      <p className="text-sm text-green-600">
+                        Show this code to the business to redeem your discount
+                      </p>
+                    </div>
+                  )
+                ) : verifierType === "anonymous" ? (
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                    <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                    <p className="text-yellow-700 font-medium">
+                      Access Restricted
+                    </p>
+                    <p className="text-sm text-yellow-600">
+                      This coupon is assigned to a specific user
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/businesses/${business.id}`)}
+                    className="flex-1"
+                  >
+                    View Business
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/coupons`)}
+                    className="flex-1"
+                  >
+                    Browse Coupons
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

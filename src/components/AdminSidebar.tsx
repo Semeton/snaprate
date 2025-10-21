@@ -90,13 +90,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       icon: Shield,
       current: pathname === "/admin/agents",
     },
-    {
-      name: "Moderation",
-      href: "/admin/moderation",
-      icon: Shield,
-      current: pathname === "/admin/moderation",
-      superAdminOnly: true,
-    },
+    // {
+    //   name: "Moderation",
+    //   href: "/admin/moderation",
+    //   icon: Shield,
+    //   current: pathname === "/admin/moderation",
+    //   superAdminOnly: true,
+    // },
     {
       name: "Reviews",
       href: "/admin/reviews",

@@ -1,3 +1,5 @@
+import { CouponAssignmentStatus } from "@prisma/client";
+
 // Core user types
 export interface BaseUser {
   id: string;
@@ -388,8 +390,14 @@ export interface CouponCreationData {
 }
 
 export interface CouponAssignmentData {
+  id: string;
   couponId: string;
   userId: string;
+  userSpecificCode?: string;
+  status: CouponAssignmentStatus;
+  assignedAt: Date;
+  assignedBy?: string;
+  expiresAt?: Date;
 }
 
 export interface CouponVerificationData {

@@ -7,6 +7,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
 
+    console.log("code", code);
+
     if (!code) {
       return NextResponse.json(
         { error: "Coupon code is required" },
@@ -14,11 +16,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // First, find the coupon assignment by user-specific code
+    // First, find the coupon assignment by user-specific code (both assigned and redeemed)
     const assignment = await prisma.couponAssignment.findFirst({
       where: {
         userSpecificCode: code,
-        status: "ASSIGNED",
+        status: { in: ["ASSIGNED", "REDEEMED"] },
       },
       include: {
         coupon: {
@@ -33,6 +35,7 @@ export async function GET(request: NextRequest) {
                 averageRating: true,
                 totalReviews: true,
                 isVerified: true,
+                ownerId: true,
               },
             },
             _count: {
@@ -47,7 +50,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!assignment) {
-      return NextResponse.json({ error: "Coupon assignment not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Coupon assignment not found" },
+        { status: 404 },
+      );
     }
 
     const coupon = assignment.coupon;
@@ -74,12 +80,17 @@ export async function GET(request: NextRequest) {
     const isActive = coupon.status === "ACTIVE";
     const hasReachedMaxUses =
       coupon.maxUses && (coupon.currentUses || 0) >= coupon.maxUses;
+    const isRedeemed = assignment.status === "REDEEMED";
 
     let isValid = true;
     let message = "Coupon is valid";
     let canRedeem = true;
 
-    if (isExpired) {
+    if (isRedeemed) {
+      isValid = true; // Still valid to view, just can't redeem again
+      message = "This coupon has been redeemed";
+      canRedeem = false;
+    } else if (isExpired) {
       isValid = false;
       message = "This coupon has expired";
       canRedeem = false;
@@ -105,14 +116,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    logger.info(`Coupon verification: ${code}`, {
-      couponId: coupon.id,
-      assignmentId: assignment.id,
-      userId: assignment.userId,
-      isValid,
-      canRedeem,
-      businessId: coupon.businessId,
-    });
+    // Get user information if coupon is assigned
+    let userInfo = null;
+    if (assignment.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: assignment.userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          userIdentifier: true,
+          phone: true,
+        },
+      });
+      userInfo = user;
+    }
 
     return NextResponse.json({
       success: true,
@@ -129,6 +147,7 @@ export async function GET(request: NextRequest) {
         status: assignment.status,
         assignedAt: assignment.assignedAt,
       },
+      user: userInfo,
       verification: {
         isValid,
         message,
@@ -168,7 +187,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // First, find the coupon assignment by user-specific code
+    // First, find the coupon assignment by user-specific code (only assigned for redemption)
     const assignment = await prisma.couponAssignment.findFirst({
       where: {
         userSpecificCode: code,
@@ -182,6 +201,7 @@ export async function POST(request: NextRequest) {
                 id: true,
                 name: true,
                 isVerified: true,
+                ownerId: true,
               },
             },
           },
@@ -224,7 +244,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check minimum order amount if specified
-    if (coupon.minimumOrderAmount && orderAmount && orderAmount < coupon.minimumOrderAmount) {
+    if (
+      coupon.minimumOrderAmount &&
+      orderAmount &&
+      orderAmount < coupon.minimumOrderAmount
+    ) {
       return NextResponse.json(
         {
           error: `Minimum order amount is ₦${coupon.minimumOrderAmount.toLocaleString()}`,
@@ -233,12 +257,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate discount applied
+    const discountApplied =
+      coupon.type === "PERCENTAGE"
+        ? orderAmount
+          ? (orderAmount * coupon.value) / 100
+          : 0
+        : coupon.value;
+
     // Create redemption record
     const redemption = await prisma.couponRedemption.create({
       data: {
         couponId: coupon.id,
         userId: assignment.userId,
         orderAmount: orderAmount ? parseFloat(orderAmount.toString()) : null,
+        discountApplied,
         redemptionMethod,
         staffNotes,
         idVerified,
@@ -261,7 +294,6 @@ export async function POST(request: NextRequest) {
       where: { id: assignment.id },
       data: {
         status: "REDEEMED",
-        redeemedAt: new Date(),
       },
     });
 

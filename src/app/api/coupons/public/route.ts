@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { CouponVisibility } from "@/types";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    const whereClause: any = {
+    const whereClause: Prisma.CouponWhereInput = {
       couponType: CouponVisibility.PUBLIC,
       status: "ACTIVE",
       validFrom: { lte: new Date() },
