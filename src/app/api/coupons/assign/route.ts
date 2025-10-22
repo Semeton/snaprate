@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Only business owners can assign coupons
     if (session.user.role !== "BUSINESS_OWNER") {
       return NextResponse.json(
         { error: "Only business owners can assign coupons" },
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { couponId, userId } = body;
 
-    // Debug logging
     console.log("Coupon assignment request body:", { couponId, userId, body });
 
     if (!couponId || !userId) {

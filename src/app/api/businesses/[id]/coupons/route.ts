@@ -4,10 +4,10 @@ import logger from "@/lib/logger";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const businessId = params.id;
+    const { id: businessId } = await params;
 
     // Get the business to verify it exists
     const business = await prisma.business.findUnique({
@@ -120,7 +120,7 @@ export async function GET(
   } catch (error) {
     logger.error("Failed to fetch business coupons", {
       error: error instanceof Error ? error.message : error,
-      businessId: params.id,
+      businessId: (await params).id,
     });
     return NextResponse.json(
       {

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface UserAvatarProps {
   user: {
@@ -15,17 +16,17 @@ interface UserAvatarProps {
 }
 
 const sizeClasses = {
-  sm: "w-8 h-8 text-xs",
-  md: "w-10 h-10 text-sm",
-  lg: "w-12 h-12 text-base",
-  xl: "w-16 h-16 text-lg",
+  sm: { width: 32, height: 32, textSize: "xs" },
+  md: { width: 40, height: 40, textSize: "sm" },
+  lg: { width: 48, height: 48, textSize: "base" },
+  xl: { width: 64, height: 64, textSize: "lg" },
 };
 
 const textSizeClasses = {
-  sm: "text-xs",
-  md: "text-sm",
-  lg: "text-base",
-  xl: "text-lg",
+  sm: { textSize: "xs" },
+  md: { textSize: "sm" },
+  lg: { textSize: "base" },
+  xl: { textSize: "lg" },
 };
 
 export function UserAvatar({
@@ -76,20 +77,26 @@ export function UserAvatar({
       {/* Avatar */}
       <div className="relative">
         {user.avatar ? (
-          <img
+          <Image
             src={user.avatar}
             alt={user.name || "User"}
             className={cn(
               "rounded-full object-cover border-2 border-gray-200 dark:border-gray-600",
-              sizeClasses[size],
+              sizeClasses[size].width,
+              sizeClasses[size].height,
             )}
+            width={sizeClasses[size].width}
+            height={sizeClasses[size].height}
+            priority
+            unoptimized
           />
         ) : (
           <div
             className={cn(
               "rounded-full flex items-center justify-center text-white font-medium border-2 border-gray-200 dark:border-gray-600",
               fallbackColor,
-              sizeClasses[size],
+              sizeClasses[size].width,
+              sizeClasses[size].height,
             )}
           >
             {initials}
@@ -104,7 +111,7 @@ export function UserAvatar({
             <p
               className={cn(
                 "font-medium text-gray-900 dark:text-white truncate",
-                textSizeClasses[size],
+                textSizeClasses[size].textSize,
               )}
             >
               {user.name}
@@ -114,7 +121,7 @@ export function UserAvatar({
             <p
               className={cn(
                 "text-gray-500 dark:text-gray-400 truncate",
-                textSizeClasses[size],
+                textSizeClasses[size].textSize,
               )}
             >
               {user.email}
@@ -199,21 +206,27 @@ export function Avatar({
   return (
     <div className="relative">
       {user.avatar ? (
-        <img
+        <Image
           src={user.avatar}
           alt={user.name || "User"}
           className={cn(
             "rounded-full object-cover border-2 border-gray-200 dark:border-gray-600",
-            sizeClasses[size],
+            sizeClasses[size].width,
+            sizeClasses[size].height,
             className,
           )}
+          width={sizeClasses[size].width}
+          height={sizeClasses[size].height}
+          priority
+          unoptimized
         />
       ) : (
         <div
           className={cn(
             "rounded-full flex items-center justify-center text-white font-medium border-2 border-gray-200 dark:border-gray-600",
             fallbackColor,
-            sizeClasses[size],
+            sizeClasses[size].width,
+            sizeClasses[size].height,
             className,
           )}
         >

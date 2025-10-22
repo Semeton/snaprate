@@ -355,6 +355,11 @@ export default function BusinessViewPage() {
       }
     } catch (error) {
       console.error("Failed to add comment:", error);
+      toast({
+        title: "Failed to add comment.",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setSubmittingComment(null);
     }
@@ -474,13 +479,10 @@ export default function BusinessViewPage() {
     reviewId: string,
     isReply = false,
   ) => {
-    const canEdit =
-      comment.authorId === session?.user?.id ||
-      ["ADMIN", "SUPER_ADMIN"].includes(session?.user?.role || "");
-    const canDelete =
-      canEdit ||
-      (session?.user?.role === "BUSINESS_OWNER" &&
-        comment.authorType === "BUSINESS_OWNER");
+    const canEdit = comment.author.id === session?.user?.id;
+    // || ["ADMIN", "SUPER_ADMIN"].includes(session?.user?.role || "");
+    const canDelete = canEdit;
+    // || (session?.user?.role === "BUSINESS_OWNER" && comment.authorType === "BUSINESS_OWNER");
 
     return (
       <div

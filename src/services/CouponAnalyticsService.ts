@@ -1,5 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { CouponStatus, CouponType } from "@/types";
+import { Prisma } from "@prisma/client";
+
+export interface MonthlyStats {
+  month: string;
+  couponsCreated: number;
+  redemptions: number;
+  discountGiven: number;
+}
 
 export interface CouponAnalytics {
   totalCoupons: number;
@@ -73,7 +81,7 @@ export class CouponAnalyticsService {
     endDate?: Date,
   ): Promise<CouponAnalytics> {
     try {
-      const whereClause: any = { businessId };
+      const whereClause: Prisma.CouponWhereInput = { businessId };
 
       if (startDate || endDate) {
         whereClause.createdAt = {};
@@ -266,9 +274,18 @@ export class CouponAnalyticsService {
         averageRedemptionRate,
         topPerformingCoupons,
         redemptionTrends: trends,
-        couponTypeDistribution,
-        monthlyStats,
-      };
+        couponTypeDistribution: couponTypeDistribution as Array<{
+          type: CouponType;
+          count: number;
+          percentage: number;
+        }>,
+        monthlyStats: monthlyStats as Array<{
+          month: string;
+          couponsCreated: number;
+          redemptions: number;
+          discountGiven: number;
+        }>,
+      } as CouponAnalytics;
     } catch (error) {
       throw new Error(
         `Failed to get coupon analytics: ${

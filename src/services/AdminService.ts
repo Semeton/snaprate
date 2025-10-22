@@ -265,7 +265,7 @@ export class AdminService implements IAdminService {
         createdAt: business.createdAt,
         updatedAt: business.updatedAt,
         owner: business.owner as BaseUser,
-        onboardedByAgent: business.onboardedByAgent as Agent,
+        onboardedByAgent: business.onboardedByAgent as unknown as Agent,
         reviews: [],
         coupons: [],
         businessHours: [],
@@ -716,10 +716,15 @@ export class AdminService implements IAdminService {
         monthlyActiveUsers,
         totalReviewsThisMonth,
         averageRating: averageRating._avg.rating || 0,
-        topCategories: topCategories.map((cat) => ({
-          category: cat.category,
-          count: cat._count.category,
-        })),
+        topCategories: topCategories
+          .filter(
+            (cat): cat is typeof cat & { category: string } =>
+              cat.category !== null,
+          )
+          .map((cat) => ({
+            category: cat.category,
+            count: cat._count.category,
+          })),
         userGrowth,
       };
     } catch (error) {

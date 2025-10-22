@@ -45,8 +45,33 @@ export async function GET(
 
     // If not found by ID, try by code
     if (!coupon) {
-      coupon = await couponService.getCouponByCode(couponId);
-      console.log(`Coupon found by code: ${!!coupon}`);
+      const couponByCode = await couponService.getCouponByCode(couponId);
+      console.log(`Coupon found by code: ${!!couponByCode}`);
+
+      if (couponByCode) {
+        // Fetch the full coupon with relations
+        coupon = await prisma.coupon.findUnique({
+          where: { id: couponByCode.id },
+          include: {
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                state: true,
+                city: true,
+              },
+            },
+            assignedUser: {
+              select: {
+                id: true,
+                name: true,
+                userIdentifier: true,
+              },
+            },
+          },
+        });
+      }
     }
 
     if (!coupon) {
@@ -101,7 +126,7 @@ export async function GET(
     );
     const code = coupon.userSpecificCode || coupon.baseCode;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="coupon-${code}.pdf"`,

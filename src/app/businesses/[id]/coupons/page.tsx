@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,31 +8,33 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   Gift,
   Search,
-  Star,
   MapPin,
   Calendar,
   Users,
   Eye,
   QrCode,
-  Download,
   Copy,
   CheckCircle,
   Clock,
   AlertCircle,
 } from "lucide-react";
-import { Coupon, CouponStatus, CouponVisibility, Business } from "@/types";
+import {
+  Coupon,
+  CouponStatus,
+  CouponVisibility,
+  Business,
+  CouponAssignmentData,
+} from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
-interface BusinessCouponsPageProps {}
-
-export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
-  const params = useParams();
+export default function BusinessCouponsPage() {
   const router = useRouter();
+  const params = useParams();
   const { data: session } = useSession();
 
   const [business, setBusiness] = useState<Business | null>(null);
@@ -41,31 +43,14 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("public");
   const [userClaimedCoupons, setUserClaimedCoupons] = useState<Set<string>>(
     new Set(),
   );
 
   const businessId = params.id as string;
 
-  useEffect(() => {
-    if (businessId) {
-      fetchBusinessDetails();
-      fetchBusinessCoupons();
-    }
-  }, [businessId]);
-
-  useEffect(() => {
-    if (session?.user) {
-      fetchUserClaimedCoupons();
-    }
-  }, [session?.user]);
-
-  useEffect(() => {
-    filterCoupons();
-  }, [coupons, searchTerm, activeTab]);
-
-  const fetchBusinessDetails = async () => {
+  const fetchBusinessDetails = useCallback(async () => {
     try {
       const response = await fetch(`/api/businesses/${businessId}`);
       if (response.ok) {
@@ -78,9 +63,9 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
       console.error("Error fetching business:", error);
       setError("Failed to load business details");
     }
-  };
+  }, [businessId]);
 
-  const fetchBusinessCoupons = async () => {
+  const fetchBusinessCoupons = useCallback(async () => {
     try {
       const response = await fetch(`/api/businesses/${businessId}/coupons`);
       if (response.ok) {
@@ -95,9 +80,9 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
 
-  const fetchUserClaimedCoupons = async () => {
+  const fetchUserClaimedCoupons = useCallback(async () => {
     if (!session?.user) return;
 
     try {
@@ -105,16 +90,18 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
       if (response.ok) {
         const data = await response.json();
         const claimedCouponIds = new Set(
-          data.assignments?.map((assignment: any) => assignment.couponId) || [],
+          data.assignments?.map(
+            (assignment: CouponAssignmentData) => assignment.couponId,
+          ) || [],
         );
-        setUserClaimedCoupons(claimedCouponIds);
+        setUserClaimedCoupons(claimedCouponIds as Set<string>);
       }
     } catch (error) {
       console.error("Error fetching user claimed coupons:", error);
     }
-  };
+  }, [session?.user]);
 
-  const filterCoupons = () => {
+  const filterCoupons = useCallback(() => {
     let filtered = coupons;
 
     // Filter by search term
@@ -156,7 +143,24 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
     }
 
     setFilteredCoupons(filtered);
-  };
+  }, [coupons, searchTerm, activeTab]);
+
+  useEffect(() => {
+    if (businessId) {
+      fetchBusinessDetails();
+      fetchBusinessCoupons();
+    }
+  }, [businessId, fetchBusinessDetails, fetchBusinessCoupons]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserClaimedCoupons();
+    }
+  }, [session?.user, fetchUserClaimedCoupons]);
+
+  useEffect(() => {
+    filterCoupons();
+  }, [filterCoupons]);
 
   const handleClaimCoupon = async (couponId: string) => {
     if (!session?.user) {
@@ -178,7 +182,6 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
           title: "Coupon Claimed!",
           description: "You have successfully claimed this coupon.",
         });
-        // Refresh coupons to update counts and user's claimed coupons
         fetchBusinessCoupons();
         fetchUserClaimedCoupons();
       } else {
@@ -332,7 +335,11 @@ export default function BusinessCouponsPage({}: BusinessCouponsPageProps) {
             </div>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="mb-4 hidden"
+          >
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="all">
                 Available (

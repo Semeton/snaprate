@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CouponService } from "@/services/CouponService";
 import { CouponStatus, CouponType, CouponUseType } from "@/types";
 
 interface BulkOperationResult {
@@ -12,6 +11,38 @@ interface BulkOperationResult {
   couponId?: string;
   couponTitle?: string;
   error?: string;
+}
+
+interface BulkCreateData {
+  count: number;
+  titlePrefix: string;
+  titleSuffix?: string;
+  value: number;
+  type: CouponType;
+  useType: CouponUseType;
+  validFrom: string;
+  validUntil: string;
+  maxUses?: number;
+  minimumOrderAmount?: number;
+  allowedDaysOfWeek?: number[];
+  cannotCombineWithOtherCoupons?: boolean;
+  requiresIdVerification?: boolean;
+}
+
+interface BulkUpdateData {
+  couponIds: string[];
+  field: string;
+  value: unknown;
+}
+
+interface BulkAssignData {
+  couponIds: string[];
+  userIds: string[];
+}
+
+interface BulkDeleteData {
+  couponIds: string[];
+  reason?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +78,6 @@ export async function POST(request: NextRequest) {
 
     const { operation, data } = await request.json();
 
-    const couponService = new CouponService();
     const results: BulkOperationResult[] = [];
 
     switch (operation) {
@@ -91,7 +121,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleBulkCreate(
-  data: any,
+  data: BulkCreateData,
   businessId: string,
   results: BulkOperationResult[],
 ) {
@@ -127,12 +157,20 @@ async function handleBulkCreate(
         }`.trim(),
         description: `Bulk created coupon ${i + 1}`,
         type: type as CouponType,
-        value: parseFloat(value),
+        value: typeof value === "number" ? value : parseFloat(String(value)),
         useType: useType as CouponUseType,
         validFrom: new Date(validFrom),
         validUntil: new Date(validUntil),
-        maxUses: parseInt(maxUses) || 100,
-        minimumOrderAmount: parseFloat(minimumOrderAmount) || 0,
+        maxUses: maxUses
+          ? typeof maxUses === "number"
+            ? maxUses
+            : parseInt(String(maxUses))
+          : 100,
+        minimumOrderAmount: minimumOrderAmount
+          ? typeof minimumOrderAmount === "number"
+            ? minimumOrderAmount
+            : parseFloat(String(minimumOrderAmount))
+          : 0,
         allowedDaysOfWeek,
         cannotCombineWithOtherCoupons: Boolean(cannotCombineWithOtherCoupons),
         requiresIdVerification: Boolean(requiresIdVerification),
@@ -156,11 +194,11 @@ async function handleBulkCreate(
 }
 
 async function handleBulkUpdate(
-  data: any,
+  data: BulkUpdateData,
   businessId: string,
   results: BulkOperationResult[],
 ) {
-  const { couponIds, field, value, reason } = data;
+  const { couponIds, field, value } = data;
 
   for (const couponId of couponIds) {
     const operationId = `update_${couponId}`;
@@ -185,7 +223,7 @@ async function handleBulkUpdate(
       }
 
       // Update the specified field
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       updateData[field] = value;
 
       await prisma.coupon.update({
@@ -205,11 +243,11 @@ async function handleBulkUpdate(
 }
 
 async function handleBulkAssign(
-  data: any,
+  data: BulkAssignData,
   businessId: string,
   results: BulkOperationResult[],
 ) {
-  const { couponIds, userIds, reason } = data;
+  const { couponIds, userIds } = data;
 
   for (const couponId of couponIds) {
     const operationId = `assign_${couponId}`;
@@ -239,9 +277,8 @@ async function handleBulkAssign(
           data: {
             couponId,
             userId,
-            assignedBy: "BULK_OPERATION",
-            reason: reason || "Bulk assignment",
-            assignedAt: new Date(),
+            assignedBy: businessId,
+            status: "ASSIGNED",
           },
         });
       }
@@ -258,7 +295,7 @@ async function handleBulkAssign(
 }
 
 async function handleBulkDelete(
-  data: any,
+  data: BulkDeleteData,
   businessId: string,
   results: BulkOperationResult[],
 ) {

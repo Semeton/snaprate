@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CouponStatus } from "@/types";
+
+interface UserPreferences {
+  preferredCategories?: string[];
+  preferredLocations?: string[];
+  totalClaims?: number;
+  totalReviews?: number;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,12 +16,9 @@ export async function GET(request: NextRequest) {
     const lat = searchParams.get("lat");
     const lng = searchParams.get("lng");
 
-    // Get user preferences and history if userId is provided
-    let userPreferences: any = {};
-    let userHistory: any[] = [];
+    let userPreferences: UserPreferences = {};
 
     if (userId) {
-      // Get user's claimed coupons and reviews to understand preferences
       const [claimedCoupons, userReviews] = await Promise.all([
         prisma.coupon.findMany({
           where: { assignedUserId: userId },
@@ -33,9 +35,9 @@ export async function GET(request: NextRequest) {
       ]);
 
       // Analyze user preferences
-      const categories = [...claimedCoupons, ...userReviews].map(
-        (item) => item.business.category,
-      );
+      const categories = [...claimedCoupons, ...userReviews]
+        .map((item) => item.business.category)
+        .filter((category): category is string => category !== null);
       const locations = [...claimedCoupons, ...userReviews].map(
         (item) => `${item.business.city}, ${item.business.state}`,
       );
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build recommendation query
-    let whereClause: any = {
+    const whereClause = {
       status: CouponStatus.ACTIVE,
       assignedUserId: null,
       validFrom: { lte: new Date() },
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
     // Calculate recommendation scores
     const recommendations = coupons.map((coupon) => {
       let score = 0.1; // Base score
-      let reasons: string[] = [];
+      const reasons: string[] = [];
 
       // Location-based scoring
       if (lat && lng && coupon.business.latitude && coupon.business.longitude) {
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
 
       // Category preference scoring
       if (
+        coupon.business.category &&
         userPreferences.preferredCategories?.includes(coupon.business.category)
       ) {
         score += 0.25;

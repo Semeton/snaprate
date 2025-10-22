@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { Coupon } from "@/types";
 
 interface CouponNotification {
   id: string;
@@ -179,16 +180,19 @@ export const useCouponNotifications = () => {
         const data = await response.json();
         if (data.expiringCoupons && data.expiringCoupons.length > 0) {
           // Create notifications for expiring coupons
-          const newNotifications = data.expiringCoupons.map((coupon: any) => ({
-            id: `expiring-${coupon.id}`,
-            type: "expiring" as const,
-            title: "Coupon Expiring Soon",
-            message: `Your coupon "${coupon.title}" expires in ${coupon.daysUntilExpiry} days`,
-            couponId: coupon.id,
-            businessId: coupon.businessId,
-            read: false,
-            createdAt: new Date().toISOString(),
-          }));
+          const newNotifications = data.expiringCoupons.map(
+            (coupon: Coupon & { validUntil: Date }) =>
+              ({
+                id: `expiring-${coupon.id}`,
+                type: "expiring" as const,
+                title: "Coupon Expiring Soon",
+                message: `Your coupon "${coupon.title}" expires in ${coupon.validUntil} days`,
+                couponId: coupon.id,
+                businessId: coupon.business?.id,
+                read: false,
+                createdAt: new Date().toISOString(),
+              } as CouponNotification),
+          );
 
           setNotifications((prev) => [...newNotifications, ...prev]);
         }

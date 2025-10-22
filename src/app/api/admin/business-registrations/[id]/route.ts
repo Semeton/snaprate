@@ -11,7 +11,7 @@ import bcrypt from "bcryptjs";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -30,8 +30,10 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
+
     const registration = await prisma.businessRegistration.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agent: {
           select: {
@@ -82,7 +84,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -101,6 +103,8 @@ export async function POST(
       );
     }
 
+    const { id } = await params;
+
     const body = await request.json();
     const { action, adminNotes } = body;
 
@@ -109,7 +113,7 @@ export async function POST(
     }
 
     const registration = await prisma.businessRegistration.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agent: true,
       },
@@ -138,7 +142,7 @@ export async function POST(
 
     // Update registration status
     const updatedRegistration = await prisma.businessRegistration.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: newStatus,
         verifiedAt: new Date(),
@@ -243,7 +247,7 @@ export async function POST(
 
       // Update registration with business ID
       await prisma.businessRegistration.update({
-        where: { id: params.id },
+        where: { id },
         data: { businessId: business.id },
       });
 
@@ -252,7 +256,7 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
       // Create business owner invitation
-      const businessInvitation = await prisma.businessInvitation.create({
+      await prisma.businessInvitation.create({
         data: {
           email: ownerData.email,
           businessName: registration.businessName!,
@@ -277,7 +281,6 @@ export async function POST(
         console.log("Business invitation email sent successfully");
       } catch (emailError) {
         console.error("Failed to send business invitation email:", emailError);
-        // Continue processing even if email fails
       }
 
       // Create business verification record

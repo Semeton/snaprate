@@ -7,7 +7,7 @@ import { CouponStatus } from "@/types";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +23,7 @@ export async function PATCH(
       );
     }
 
-    const couponId = params.id;
+    const { id: couponId } = await params;
     const body = await request.json();
     const { status } = body;
 

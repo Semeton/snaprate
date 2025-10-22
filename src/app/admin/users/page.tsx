@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,19 +25,13 @@ import { toast } from "@/components/ui/use-toast";
 import {
   Users,
   Search,
-  Filter,
   Eye,
   Shield,
   UserCheck,
   UserX,
-  Crown,
   Building2,
   Star,
-  Mail,
-  Phone,
   MapPin,
-  Calendar,
-  MoreHorizontal,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -66,7 +59,6 @@ interface User {
 }
 
 export default function AdminUsersPage() {
-  const { data: session } = useSession();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");

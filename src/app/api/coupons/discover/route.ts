@@ -12,26 +12,22 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get("sort") || "distance";
 
     // Build base query
-    let whereClause: any = {
+    const whereClause = {
       status: CouponStatus.ACTIVE,
-      assignedUserId: null, // Only unassigned coupons
+      // assignedUserId: null, // Only unassigned coupons
       validFrom: { lte: new Date() },
       validUntil: { gte: new Date() },
+      business:
+        category !== "all"
+          ? {
+              category: category,
+              isVerified: true,
+            }
+          : {
+              isVerified: true,
+            },
     };
 
-    // Add category filter
-    if (category !== "all") {
-      whereClause.business = {
-        category: category,
-        isVerified: true,
-      };
-    } else {
-      whereClause.business = {
-        isVerified: true,
-      };
-    }
-
-    // Get coupons with business data
     const coupons = await prisma.coupon.findMany({
       where: whereClause,
       include: {
@@ -52,7 +48,6 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate distances if location is provided
     let couponsWithDistance = coupons.map((coupon) => {
       let distance: number | undefined;
 

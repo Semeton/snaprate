@@ -6,7 +6,6 @@ import {
   CouponUseType,
   RedemptionMethod,
   CouponCreationData,
-  CouponAssignmentData,
   CouponVerificationData,
 } from "@/types";
 import {
@@ -115,9 +114,10 @@ export class CouponService {
     }
   }
 
-  async assignCouponToUser(
-    assignmentData: CouponAssignmentData,
-  ): Promise<Coupon> {
+  async assignCouponToUser(assignmentData: {
+    couponId: string;
+    userId: string;
+  }): Promise<Coupon> {
     try {
       const { couponId, userId } = assignmentData;
 

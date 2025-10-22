@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { reviewId, rating, content, images, video, isAnonymous } = body;
+    const { reviewId, rating, content, images, video } = body;
 
     // Validation
     if (!reviewId || !rating || !content) {

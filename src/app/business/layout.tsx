@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import BusinessSidebar from "@/components/BusinessSidebar";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { UserRole } from "@/types";
 import { useTheme } from "@/components/providers/ThemeProvider";
-import { Bell, Search, Sun, Moon } from "lucide-react";
+import { Search, Sun, Moon } from "lucide-react";
 
 export default function BusinessLayout({
   children,

@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update application based on action
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       idVerified: action === "APPROVE",
       idVerifiedAt: new Date(),
       idVerifiedBy: session.user.id,
