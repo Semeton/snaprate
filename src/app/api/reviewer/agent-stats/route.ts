@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -39,6 +39,10 @@ export async function GET(request: NextRequest) {
       approvedRecommendations,
       pendingRecommendations,
       rejectedRecommendations,
+      totalRegistrations,
+      approvedRegistrations,
+      pendingRegistrations,
+      rejectedRegistrations,
     ] = await Promise.all([
       // Total recommendations
       prisma.businessRecommendation.count({
@@ -65,22 +69,51 @@ export async function GET(request: NextRequest) {
           status: "REJECTED",
         },
       }),
+      // Total business registrations
+      prisma.businessRegistration.count({
+        where: { agentId: user.id },
+      }),
+      // Approved/Verified business registrations
+      prisma.businessRegistration.count({
+        where: {
+          agentId: user.id,
+          status: "VERIFIED",
+        },
+      }),
+      // Pending business registrations
+      prisma.businessRegistration.count({
+        where: {
+          agentId: user.id,
+          status: "PENDING",
+        },
+      }),
+      // Rejected business registrations
+      prisma.businessRegistration.count({
+        where: {
+          agentId: user.id,
+          status: "REJECTED",
+        },
+      }),
     ]);
 
-    // Get total earnings from business recommendation rewards
+    // Get total earnings from all agent-related rewards
     const totalEarnings = await prisma.reward.aggregate({
       where: {
         referrerId: user.id,
-        type: "BUSINESS_RECOMMENDATION",
+        type: {
+          in: ["BUSINESS_RECOMMENDATION", "BUSINESS_REGISTRATION"],
+        },
       },
       _sum: { amount: true },
     });
 
-    // Get monthly earnings from business recommendation rewards
+    // Get monthly earnings from all agent-related rewards
     const monthlyEarnings = await prisma.reward.aggregate({
       where: {
         referrerId: user.id,
-        type: "BUSINESS_RECOMMENDATION",
+        type: {
+          in: ["BUSINESS_RECOMMENDATION", "BUSINESS_REGISTRATION"],
+        },
         createdAt: {
           gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         },
@@ -130,6 +163,10 @@ export async function GET(request: NextRequest) {
       approvedRecommendations,
       pendingRecommendations,
       rejectedRecommendations,
+      totalRegistrations,
+      approvedRegistrations,
+      pendingRegistrations,
+      rejectedRegistrations,
       totalEarnings: totalEarnings._sum.amount || 0,
       monthlyEarnings: monthlyEarnings._sum.amount || 0,
       averageRating: averageRating._avg.rating || 0,

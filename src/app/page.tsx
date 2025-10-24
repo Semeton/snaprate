@@ -8,20 +8,17 @@ import PublicNavigation from "@/components/PublicNavigation";
 import {
   Star,
   Building2,
-  Users,
   TrendingUp,
   Award,
   ArrowRight,
-  CheckCircle,
-  Play,
   MessageSquare,
   Gift,
   CreditCard,
-  ChevronRight,
   Eye,
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 
 // Types for our dynamic data
 interface FeaturedBusiness {
@@ -333,10 +330,13 @@ export default function LandingPage() {
                   {/* Business Cover Image */}
                   <div className="relative h-48 bg-gradient-to-r from-blue-500 to-purple-600">
                     {business.coverImage ? (
-                      <img
+                      <Image
                         src={business.coverImage}
                         alt={`${business.name} cover`}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        width={1000}
+                        height={1000}
+                        priority
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -347,10 +347,14 @@ export default function LandingPage() {
                     <div className="absolute -bottom-8 left-4">
                       <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-xl border-4 border-white dark:border-gray-800 shadow-lg flex items-center justify-center overflow-hidden">
                         {business.logo ? (
-                          <img
+                          <Image
                             src={business.logo}
                             alt={`${business.name} logo`}
                             className="w-full h-full object-cover"
+                            width={64}
+                            height={64}
+                            priority
+                            unoptimized
                           />
                         ) : (
                           <Building2 className="w-8 h-8 text-gray-400" />
@@ -623,7 +627,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-white border-white hover:bg-white hover:text-blue-600 text-lg px-8 py-4"
+                className="text-black border-white hover:bg-white hover:text-blue-600 text-lg px-8 py-4"
               >
                 Explore Businesses
               </Button>

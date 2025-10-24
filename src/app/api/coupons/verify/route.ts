@@ -7,8 +7,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
 
-    console.log("code", code);
-
     if (!code) {
       return NextResponse.json(
         { error: "Coupon code is required" },
@@ -49,14 +47,41 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!assignment) {
-      return NextResponse.json(
-        { error: "Coupon assignment not found" },
-        { status: 404 },
-      );
+    let coupon = assignment?.coupon || null;
+    if (!coupon) {
+      coupon = await prisma.coupon.findFirst({
+        where: {
+          baseCode: code,
+        },
+        include: {
+          business: {
+            select: {
+              id: true,
+              name: true,
+              logo: true,
+              city: true,
+              state: true,
+              averageRating: true,
+              totalReviews: true,
+              isVerified: true,
+              ownerId: true,
+            },
+          },
+          _count: {
+            select: {
+              redemptions: true,
+              assignments: true,
+            },
+          },
+        },
+      });
+      if (!coupon) {
+        return NextResponse.json(
+          { error: "Coupon not found" },
+          { status: 404 },
+        );
+      }
     }
-
-    const coupon = assignment.coupon;
 
     // Check if business is verified
     if (!coupon.business.isVerified) {
@@ -80,7 +105,7 @@ export async function GET(request: NextRequest) {
     const isActive = coupon.status === "ACTIVE";
     const hasReachedMaxUses =
       coupon.maxUses && (coupon.currentUses || 0) >= coupon.maxUses;
-    const isRedeemed = assignment.status === "REDEEMED";
+    const isRedeemed = assignment?.status === "REDEEMED";
 
     let isValid = true;
     let message = "Coupon is valid";
@@ -118,7 +143,7 @@ export async function GET(request: NextRequest) {
 
     // Get user information if coupon is assigned
     let userInfo = null;
-    if (assignment.userId) {
+    if (assignment?.userId) {
       const user = await prisma.user.findUnique({
         where: { id: assignment.userId },
         select: {
@@ -140,13 +165,15 @@ export async function GET(request: NextRequest) {
         totalAssignments: coupon._count.assignments,
       },
       business: coupon.business,
-      assignment: {
-        id: assignment.id,
-        userId: assignment.userId,
-        userSpecificCode: assignment.userSpecificCode,
-        status: assignment.status,
-        assignedAt: assignment.assignedAt,
-      },
+      assignment: assignment
+        ? {
+            id: assignment.id,
+            userId: assignment.userId,
+            userSpecificCode: assignment.userSpecificCode,
+            status: assignment.status,
+            assignedAt: assignment.assignedAt,
+          }
+        : null,
       user: userInfo,
       verification: {
         isValid,

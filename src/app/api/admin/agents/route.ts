@@ -43,9 +43,37 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    // Enhance each application with business registration counts
+    const enhancedApplications = await Promise.all(
+      applications.map(async (application) => {
+        const [registeredBusinessesCount, verifiedBusinessesCount] =
+          await Promise.all([
+            prisma.businessRegistration.count({
+              where: {
+                agentId: application.userId,
+                registrationType: "FULL_REGISTRATION",
+              },
+            }),
+            prisma.businessRegistration.count({
+              where: {
+                agentId: application.userId,
+                registrationType: "FULL_REGISTRATION",
+                status: "VERIFIED",
+              },
+            }),
+          ]);
+
+        return {
+          ...application,
+          registeredBusinessesCount,
+          verifiedBusinessesCount,
+        };
+      }),
+    );
+
     return NextResponse.json({
       success: true,
-      data: applications,
+      data: enhancedApplications,
     });
   } catch (error) {
     console.error("Admin agents error:", error);

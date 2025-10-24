@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,17 +25,13 @@ import {
   Plus,
   Gift,
   Users,
-  Calendar,
-  Clock,
   AlertCircle,
-  CheckCircle,
-  XCircle,
   Download,
   Copy,
+  QrCode,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { CouponType, CouponUseType } from "@/types";
-
 interface Coupon {
   id: string;
   title: string;
@@ -68,7 +63,6 @@ interface Coupon {
 }
 
 export default function BusinessCouponManager() {
-  const { data: session } = useSession();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -159,14 +153,14 @@ export default function BusinessCouponManager() {
     setFormData({
       title: "",
       description: "",
-      type: "FIXED_AMOUNT",
+      type: "FIXED_AMOUNT" as CouponType,
       value: "",
       minimumOrderAmount: "",
       maximumDiscount: "",
       maxUses: "",
       validFrom: "",
       validUntil: "",
-      useType: "SINGLE_USE",
+      useType: "SINGLE_USE" as CouponUseType,
       allowedDaysOfWeek: [],
       allowedTimeStart: "",
       allowedTimeEnd: "",

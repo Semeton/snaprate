@@ -11,7 +11,7 @@ import bcrypt from "bcryptjs";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -30,8 +30,10 @@ export async function GET(
       );
     }
 
+    const { id } = await params;
+
     const registration = await prisma.businessRegistration.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agent: {
           select: {
@@ -82,7 +84,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -101,6 +103,8 @@ export async function POST(
       );
     }
 
+    const { id } = await params;
+
     const body = await request.json();
     const { action, adminNotes } = body;
 
@@ -109,7 +113,7 @@ export async function POST(
     }
 
     const registration = await prisma.businessRegistration.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         agent: true,
       },
@@ -138,7 +142,7 @@ export async function POST(
 
     // Update registration status
     const updatedRegistration = await prisma.businessRegistration.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: newStatus,
         verifiedAt: new Date(),
@@ -147,35 +151,8 @@ export async function POST(
       },
     });
 
-    // If approved, create reward for the agent and create the business
+    // If approved, create the business and process rewards
     if (action === "APPROVE") {
-      // Create reward for the agent who registered the business
-      try {
-        // Get platform settings for business registration reward amount
-        const platformSettings = await prisma.platformSettings.findFirst();
-        const businessRegistrationRewardAmount =
-          platformSettings?.businessRegistrationRewardRate || 200;
-
-        await prisma.reward.create({
-          data: {
-            referrerId: registration.agentId,
-            type: "BUSINESS_REGISTRATION",
-            amount: businessRegistrationRewardAmount,
-            description: `Business registration reward for ${registration.businessName}`,
-            isRedeemed: false,
-          },
-        });
-
-        console.log(
-          `Reward created for agent ${registration.agentId} for business registration: ${registration.businessName} (Amount: ₦${businessRegistrationRewardAmount})`,
-        );
-      } catch (rewardError) {
-        console.error(
-          "Failed to create business registration reward:",
-          rewardError,
-        );
-        // Don't fail the approval process if reward creation fails
-      }
       // Extract owner information from the registration
       const ownerData = {
         name: registration.ownerName || registration.businessName!, // Fallback to business name
@@ -237,13 +214,16 @@ export async function POST(
           state: registration.businessState!,
           verificationSource: "REGISTRATION",
           registeredByAgentId: registration.agentId,
-          isVerified: true, // Auto-verify registered businesses
+          isVerified: true,
+          reviewStatus: "APPROVED",
+          verificationStatus: "VERIFIED",
+          verifiedAt: new Date(),
         },
       });
 
       // Update registration with business ID
       await prisma.businessRegistration.update({
-        where: { id: params.id },
+        where: { id },
         data: { businessId: business.id },
       });
 
@@ -252,7 +232,7 @@ export async function POST(
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
       // Create business owner invitation
-      const businessInvitation = await prisma.businessInvitation.create({
+      await prisma.businessInvitation.create({
         data: {
           email: ownerData.email,
           businessName: registration.businessName!,
@@ -277,7 +257,6 @@ export async function POST(
         console.log("Business invitation email sent successfully");
       } catch (emailError) {
         console.error("Failed to send business invitation email:", emailError);
-        // Continue processing even if email fails
       }
 
       // Create business verification record
@@ -298,7 +277,83 @@ export async function POST(
         },
       });
 
-      // Create earnings record if this qualifies (3rd business onwards)
+      // STEP 1: Check if reviewer should be promoted to AGENT (after 2nd verified business)
+      // This happens BEFORE reward processing to ensure role is updated first
+      if (registration.registrationType === "FULL_REGISTRATION") {
+        const verifiedBusinessesCount = await prisma.businessRegistration.count(
+          {
+            where: {
+              agentId: registration.agentId,
+              status: RegistrationStatus.VERIFIED,
+              registrationType: "FULL_REGISTRATION",
+            },
+          },
+        );
+
+        // Auto-approve as agent after 2nd verified business
+        if (verifiedBusinessesCount >= 2) {
+          const agentUser = await prisma.user.findUnique({
+            where: { id: registration.agentId },
+            select: { role: true },
+          });
+
+          // Only update role if user is not already an agent
+          if (agentUser && agentUser.role !== "AGENT") {
+            // Update user role to AGENT
+            await prisma.user.update({
+              where: { id: registration.agentId },
+              data: { role: "AGENT" },
+            });
+
+            // If there's an existing agent application, update it to approved
+            const existingApplication = await prisma.agentApplication.findFirst(
+              {
+                where: {
+                  userId: registration.agentId,
+                },
+                orderBy: { createdAt: "desc" },
+              },
+            );
+
+            if (existingApplication) {
+              await prisma.agentApplication.update({
+                where: { id: existingApplication.id },
+                data: {
+                  status: "APPROVED",
+                  reviewedAt: new Date(),
+                  reviewedBy: user.id,
+                },
+              });
+            } else {
+              // Create a new approved agent application record for tracking
+              await prisma.agentApplication.create({
+                data: {
+                  userId: registration.agentId,
+                  motivation:
+                    "Auto-approved after registering 2 verified businesses",
+                  experience: "Auto-approved",
+                  businessKnowledge: "Auto-approved",
+                  commitment: "Auto-approved",
+                  status: "APPROVED",
+                  reviewedAt: new Date(),
+                  reviewedBy: user.id,
+                  idDocumentType: "AUTO_APPROVED",
+                  idDocumentNumber: "N/A",
+                  idDocumentImage: null,
+                },
+              });
+            }
+
+            console.log(
+              `✓ User ${registration.agentId} promoted to AGENT role after ${verifiedBusinessesCount} verified businesses`,
+            );
+          }
+        }
+      }
+
+      // STEP 2: Create earnings record for agents (3rd business onwards)
+      // At this point, if this is the 2nd business, user is now already AGENT
+      // When 3rd business is approved, user is AGENT and gets rewarded
       await AgentEarningsService.createEarningsFromRegistration(
         registration.agentId,
         registration.id,
@@ -323,79 +378,6 @@ export async function POST(
           rewardError,
         );
         // Don't fail the registration process if reward processing fails
-      }
-    }
-
-    // Check if agent should be auto-approved
-    if (
-      action === "APPROVE" &&
-      registration.registrationType === "FULL_REGISTRATION"
-    ) {
-      const verifiedBusinessesCount = await prisma.businessRegistration.count({
-        where: {
-          agentId: registration.agentId,
-          status: RegistrationStatus.VERIFIED,
-          registrationType: "FULL_REGISTRATION",
-        },
-      });
-
-      // Auto-approve agent if they have 2 verified businesses
-      if (verifiedBusinessesCount >= 2) {
-        // Get the current user to check if they're already an agent
-        const agentUser = await prisma.user.findUnique({
-          where: { id: registration.agentId },
-          select: { role: true },
-        });
-
-        // Only update role if user is not already an agent
-        if (agentUser && agentUser.role !== "AGENT") {
-          // Update user role to AGENT
-          await prisma.user.update({
-            where: { id: registration.agentId },
-            data: { role: "AGENT" },
-          });
-
-          // If there's an existing agent application, update it to approved
-          const existingApplication = await prisma.agentApplication.findFirst({
-            where: {
-              userId: registration.agentId,
-            },
-            orderBy: { createdAt: "desc" }, // Get the most recent application
-          });
-
-          if (existingApplication) {
-            await prisma.agentApplication.update({
-              where: { id: existingApplication.id },
-              data: {
-                status: "APPROVED",
-                reviewedAt: new Date(),
-                reviewedBy: user.id,
-              },
-            });
-          } else {
-            // Create a new approved agent application record for tracking
-            await prisma.agentApplication.create({
-              data: {
-                userId: registration.agentId,
-                motivation:
-                  "Auto-approved after registering 2 verified businesses",
-                experience: "Auto-approved",
-                businessKnowledge: "Auto-approved",
-                commitment: "Auto-approved",
-                status: "APPROVED",
-                reviewedAt: new Date(),
-                reviewedBy: user.id,
-                idDocumentType: "AUTO_APPROVED",
-                idDocumentNumber: "N/A",
-                idDocumentImage: null,
-              },
-            });
-          }
-
-          console.log(
-            `User ${registration.agentId} auto-approved as agent after registering ${verifiedBusinessesCount} verified businesses`,
-          );
-        }
       }
     }
 

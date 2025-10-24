@@ -1084,7 +1084,7 @@ export default function BusinessRegistrationPage() {
                   Business Owner Information *
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Provide the business owner's details. An account will be
+                  Provide the business owner&apos;s details. An account will be
                   created for them and an invitation email will be sent.
                 </p>
 

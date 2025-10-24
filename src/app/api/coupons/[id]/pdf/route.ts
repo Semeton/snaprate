@@ -45,13 +45,40 @@ export async function GET(
 
     // If not found by ID, try by code
     if (!coupon) {
-      coupon = await couponService.getCouponByCode(couponId);
-      console.log(`Coupon found by code: ${!!coupon}`);
+      const couponByCode = await couponService.getCouponByCode(couponId);
+      console.log(`Coupon found by code: ${!!couponByCode}`);
+
+      if (couponByCode) {
+        // Fetch the full coupon with relations
+        coupon = await prisma.coupon.findUnique({
+          where: { id: couponByCode.id },
+          include: {
+            business: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                state: true,
+                city: true,
+              },
+            },
+            assignedUser: {
+              select: {
+                id: true,
+                name: true,
+                userIdentifier: true,
+              },
+            },
+          },
+        });
+      }
     }
 
     if (!coupon) {
       return NextResponse.json({ error: "Coupon not found" }, { status: 404 });
     }
+
+    let assignment = null;
 
     // Check if user has access (business owner, assigned user, admin, or public access for active coupons)
     let hasAccess = false;
@@ -68,11 +95,10 @@ export async function GET(
       }
       // Check if user is assigned to this coupon
       else if (["REVIEWER", "AGENT"].includes(session.user.role || "")) {
-        const assignment = await prisma.couponAssignment.findFirst({
+        assignment = await prisma.couponAssignment.findFirst({
           where: {
             couponId: coupon.id,
             userId: session.user.id,
-            status: "ASSIGNED",
           },
         });
         hasAccess = !!assignment;
@@ -99,9 +125,9 @@ export async function GET(
       couponId,
       session?.user?.id,
     );
-    const code = coupon.userSpecificCode || coupon.baseCode;
+    const code = assignment?.userSpecificCode || coupon.baseCode;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="coupon-${code}.pdf"`,

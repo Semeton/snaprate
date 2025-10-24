@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/user-avatar";
-import { Star, User, LogOut, Menu, X, Sun, Moon } from "lucide-react";
+import { Star, LogOut, Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { useState } from "react";
 
@@ -55,6 +55,12 @@ export default function PublicNavigation() {
               className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               Businesses
+            </Link>
+            <Link
+              href="/coupons"
+              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Coupons
             </Link>
             <Link
               href="#testimonials"
@@ -193,6 +199,13 @@ export default function PublicNavigation() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Businesses
+              </Link>
+              <Link
+                href="/coupons"
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Coupons
               </Link>
               <Link
                 href="#testimonials"

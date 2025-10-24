@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Star, Camera, Video, Upload, X, ArrowLeft } from "lucide-react";
+import Image from "next/image";
 
 interface Business {
   id: string;
@@ -29,7 +29,7 @@ interface Business {
 }
 
 export default function SubmitReview() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const businessId = searchParams.get("businessId");
@@ -402,10 +402,14 @@ export default function SubmitReview() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                   {images.map((image, index) => (
                     <div key={index} className="relative">
-                      <img
+                      <Image
                         src={URL.createObjectURL(image)}
                         alt={`Upload ${index + 1}`}
                         className="w-full h-24 object-cover rounded-lg"
+                        width={100}
+                        height={100}
+                        unoptimized
+                        priority
                       />
                       <button
                         type="button"
@@ -470,7 +474,7 @@ export default function SubmitReview() {
               </div>
 
               {/* Anonymous Option */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 hidden">
                 <input
                   type="checkbox"
                   id="anonymous"

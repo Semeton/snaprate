@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { RegistrationStatus, RegistrationType } from "@prisma/client";
+import { Prisma, RegistrationStatus } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,20 +24,21 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const type = searchParams.get("type");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
 
-    const where: any = {
+    const where: Prisma.BusinessRegistrationWhereInput = {
       // Only show FULL_REGISTRATION types - RECOMMENDATION types go to business-recommendations
       registrationType: "FULL_REGISTRATION",
     };
 
     if (
       status &&
-      Object.values(RegistrationStatus).includes(status as RegistrationStatus)
+      Object.values(RegistrationStatus).includes(
+        status as unknown as RegistrationStatus,
+      )
     ) {
-      where.status = status;
+      where.status = status as unknown as RegistrationStatus;
     }
 
     const [registrations, total] = await Promise.all([

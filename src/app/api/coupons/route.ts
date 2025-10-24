@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CouponService } from "@/services/CouponService";
-import { CouponCreationData, CouponStatus } from "@/types";
+import { CouponCreationData, CouponStatus, CouponVisibility } from "@/types";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       validFrom,
       validUntil,
       useType,
+      couponType,
+      requiresReview,
       allowedDaysOfWeek,
       allowedTimeStart,
       allowedTimeEnd,
@@ -76,6 +78,8 @@ export async function POST(request: NextRequest) {
       validFrom: new Date(validFrom),
       validUntil: new Date(validUntil),
       useType,
+      couponType: (couponType as CouponVisibility) || CouponVisibility.PUBLIC,
+      requiresReview: requiresReview || false,
       allowedDaysOfWeek,
       allowedTimeStart,
       allowedTimeEnd,

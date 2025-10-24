@@ -15,16 +15,17 @@ import {
 import {
   Gift,
   Search,
-  Filter,
   Calendar,
   Clock,
   Users,
   CheckCircle,
   Building2,
   MapPin,
+  Download,
+  QrCode,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { CouponStatus, CouponType, CouponUseType } from "@/types";
+import { formatDate } from "@/lib/utils";
+import { CouponType, CouponUseType } from "@/types";
 import Image from "next/image";
 
 interface CouponCatalogProps {

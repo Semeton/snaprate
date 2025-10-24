@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { BusinessCategory, State } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +27,7 @@ export async function POST(request: NextRequest) {
       ownerName,
       ownerEmail,
       ownerPhone,
+      ownerState,
     } = body;
 
     // Validation
@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
       !city ||
       !state ||
       !ownerName ||
-      !ownerEmail
+      !ownerEmail ||
+      !ownerPhone ||
+      !ownerState
     ) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
@@ -81,17 +83,18 @@ export async function POST(request: NextRequest) {
     const recommendation = await prisma.businessRecommendation.create({
       data: {
         businessName,
-        businessCategory: category as BusinessCategory,
+        businessCategory: category as string,
         businessPhone: phone || null,
         businessEmail: email || null,
         businessAddress: address,
         businessCity: city,
-        businessState: state as State,
+        businessState: state as string,
         businessDescription: description || null,
         additionalNotes: reason || null,
         ownerName,
         ownerEmail,
-        ownerPhone: ownerPhone || null,
+        ownerPhone,
+        ownerState,
         recommendedBy: user.id,
         status: "PENDING",
       },

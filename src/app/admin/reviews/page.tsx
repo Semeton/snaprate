@@ -184,21 +184,6 @@ export default function AdminReviewsPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return "text-yellow-600";
-      case "APPROVED":
-        return "text-green-600";
-      case "REJECTED":
-        return "text-red-600";
-      case "FLAGGED":
-        return "text-orange-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
   const getRatingStars = (rating: number) => {
     return (
       <div className="flex items-center space-x-1">

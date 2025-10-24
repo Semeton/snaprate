@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +15,10 @@ import {
   Calendar,
   MapPin,
   Clock,
-  CheckCircle,
   AlertCircle,
   Search,
-  Filter,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import Image from "next/image";
 
 interface UserCoupon {
   id: string;
@@ -36,7 +32,8 @@ interface UserCoupon {
   maximumDiscount?: number;
   validFrom: string;
   validUntil: string;
-  status: string;
+  status: string; // Coupon status (ACTIVE, EXPIRED, etc.)
+  assignmentStatus?: string; // Assignment status (ASSIGNED, REDEEMED, EXPIRED, CANCELLED)
   useType: string;
   allowedDaysOfWeek: number[];
   allowedTimeStart?: string;
@@ -62,7 +59,6 @@ export default function UserCouponsPage() {
 }
 
 function UserCouponsContent() {
-  const { data: session } = useSession();
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,12 +161,14 @@ function UserCouponsContent() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "ACTIVE":
+      case "ASSIGNED":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "USED":
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+      case "REDEEMED":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
       case "EXPIRED":
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+      case "CANCELLED":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
       default:
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
     }
@@ -214,7 +212,7 @@ function UserCouponsContent() {
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
     const matchesStatus =
-      statusFilter === "all" || coupon.status === statusFilter;
+      statusFilter === "all" || coupon.assignmentStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -285,9 +283,10 @@ function UserCouponsContent() {
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           >
             <option value="all">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="USED">Used</option>
+            <option value="ASSIGNED">Assigned</option>
+            <option value="REDEEMED">Redeemed</option>
             <option value="EXPIRED">Expired</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
 
@@ -327,8 +326,12 @@ function UserCouponsContent() {
                         </p>
                       </div>
                     </div>
-                    <Badge className={getStatusColor(coupon.status)}>
-                      {coupon.status}
+                    <Badge
+                      className={getStatusColor(
+                        coupon.assignmentStatus || coupon.status,
+                      )}
+                    >
+                      {coupon.assignmentStatus || coupon.status}
                     </Badge>
                   </div>
                 </CardHeader>

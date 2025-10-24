@@ -350,8 +350,13 @@ export class RewardService {
         CASH: 0,
         AIRTIME: 0,
         COUPON: 0,
+        REFERRAL: 0,
         REFERRAL_BONUS: 0,
+        REVIEW: 0,
+        BUSINESS_RECOMMENDATION: 0,
+        BUSINESS_REGISTRATION: 0,
         BUSINESS_ONBOARDING: 0,
+        AGENT_APPROVAL: 0,
       };
 
       rewards.forEach((reward) => {

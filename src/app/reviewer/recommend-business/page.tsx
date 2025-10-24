@@ -19,9 +19,6 @@ import { toast } from "@/components/ui/use-toast";
 import {
   Building2,
   User,
-  MapPin,
-  Phone,
-  Mail,
   Shield,
   ArrowLeft,
   Send,
@@ -79,20 +76,8 @@ export default function RecommendBusinessPage() {
     "RECOMMENDATION" | "FULL_REGISTRATION"
   >("RECOMMENDATION");
 
-  // Check if any verification data is provided (for dynamic form behavior)
-  const hasVerificationData =
-    verificationForm.directorIdType ||
-    verificationForm.directorIdNumber ||
-    verificationForm.directorIdImage ||
-    verificationForm.cacDocumentType ||
-    verificationForm.cacDocumentImage ||
-    verificationForm.firsTaxClearance ||
-    verificationForm.addressEvidenceType ||
-    verificationForm.addressEvidenceImage;
-
   useEffect(() => {
     if (status === "authenticated" && session?.user && !isRedirecting) {
-      // Allow both REVIEWER and AGENT roles to recommend businesses
       if (!["REVIEWER", "AGENT"].includes(session.user.role)) {
         setIsRedirecting(true);
         router.push("/reviewer/dashboard");
@@ -101,7 +86,6 @@ export default function RecommendBusinessPage() {
     }
   }, [session, status, router, isRedirecting]);
 
-  // Check if user is an approved agent
   useEffect(() => {
     const checkAgentStatus = async () => {
       if (status === "authenticated" && session?.user?.role === "AGENT") {
@@ -883,7 +867,7 @@ export default function RecommendBusinessPage() {
                             International Passport
                           </SelectItem>
                           <SelectItem value="DRIVERS_LICENSE">
-                            Driver's License
+                            Driver&apos;s License
                           </SelectItem>
                           <SelectItem value="VOTER_CARD">Voter Card</SelectItem>
                         </SelectContent>
@@ -929,14 +913,14 @@ export default function RecommendBusinessPage() {
                               ID document
                             </p>
                             <p className="text-xs text-gray-500">
-                              PNG, JPG or PDF (MAX. 10MB)
+                              PNG, JPG (MAX. 10MB)
                             </p>
                           </div>
                         )}
                         <input
                           id="directorIdImage"
                           type="file"
-                          accept="image/*,application/pdf"
+                          accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
@@ -1006,7 +990,7 @@ export default function RecommendBusinessPage() {
                           <input
                             id="cacDocumentImage"
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
@@ -1082,7 +1066,7 @@ export default function RecommendBusinessPage() {
                           <input
                             id="addressEvidenceImage"
                             type="file"
-                            accept="image/*,application/pdf"
+                            accept="image/*"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
@@ -1125,7 +1109,7 @@ export default function RecommendBusinessPage() {
                       <input
                         id="firsTaxClearance"
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {

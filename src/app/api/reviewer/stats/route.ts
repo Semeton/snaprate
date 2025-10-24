@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -32,7 +32,7 @@ import PlatformSettingsService from "@/services/PlatformSettingsService";
  * This ensures that changes to platform settings only affect NEW rewards,
  * not existing earned rewards.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -89,48 +89,64 @@ export async function GET(request: NextRequest) {
 
     // Calculate rewards based on ACTUAL stored values in the Reward model
     // This ensures that changes to platform settings don't affect existing reward calculations
-    const [reviewRewards, referralRewards, businessRecommendationRewards] =
-      await Promise.all([
-        // Get actual review rewards earned
-        prisma.reward.aggregate({
-          where: {
-            referrerId: user.id,
-            type: "REVIEW",
-          },
-          _sum: { amount: true },
-          _count: { id: true },
-        }),
-        // Get actual referral rewards earned
-        prisma.reward.aggregate({
-          where: {
-            referrerId: user.id,
-            type: "REFERRAL",
-          },
-          _sum: { amount: true },
-          _count: { id: true },
-        }),
-        // Get actual business recommendation rewards earned
-        prisma.reward.aggregate({
-          where: {
-            referrerId: user.id,
-            type: "BUSINESS_RECOMMENDATION",
-          },
-          _sum: { amount: true },
-          _count: { id: true },
-        }),
-      ]);
+    const [
+      reviewRewards,
+      referralRewards,
+      businessRecommendationRewards,
+      businessRegistrationRewards,
+    ] = await Promise.all([
+      // Get actual review rewards earned
+      prisma.reward.aggregate({
+        where: {
+          referrerId: user.id,
+          type: "REVIEW",
+        },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+      // Get actual referral rewards earned
+      prisma.reward.aggregate({
+        where: {
+          referrerId: user.id,
+          type: "REFERRAL",
+        },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+      // Get actual business recommendation rewards earned
+      prisma.reward.aggregate({
+        where: {
+          referrerId: user.id,
+          type: "BUSINESS_RECOMMENDATION",
+        },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+      // Get actual business registration rewards earned (from agent full registrations)
+      prisma.reward.aggregate({
+        where: {
+          referrerId: user.id,
+          type: "BUSINESS_REGISTRATION",
+        },
+        _sum: { amount: true },
+        _count: { id: true },
+      }),
+    ]);
 
     // Use actual stored amounts, not calculated amounts
     const actualReviewReward = reviewRewards._sum.amount || 0;
     const actualReferralReward = referralRewards._sum.amount || 0;
     const actualBusinessRecommendationReward =
       businessRecommendationRewards._sum.amount || 0;
+    const actualBusinessRegistrationReward =
+      businessRegistrationRewards._sum.amount || 0;
 
-    // Calculate total rewards from actual stored values
+    // Calculate total rewards from actual stored values (including business registration rewards)
     const totalRewards =
       actualReviewReward +
       actualReferralReward +
-      actualBusinessRecommendationReward;
+      actualBusinessRecommendationReward +
+      actualBusinessRegistrationReward;
 
     // Debug log to see what we're getting from the database vs platform settings
     console.log("Reward calculation comparison:", {
@@ -143,6 +159,7 @@ export async function GET(request: NextRequest) {
       actualReviewReward,
       actualReferralReward,
       actualBusinessRecommendationReward,
+      actualBusinessRegistrationReward,
       // Counts
       totalReviews,
       referralStats,
@@ -150,6 +167,7 @@ export async function GET(request: NextRequest) {
       referralRewardsCount: referralRewards._count.id,
       businessRecommendationRewardsCount:
         businessRecommendationRewards._count.id,
+      businessRegistrationRewardsCount: businessRegistrationRewards._count.id,
     });
 
     // Calculate current streak (consecutive days with reviews)
@@ -222,7 +240,7 @@ export async function GET(request: NextRequest) {
         referralReward: Math.max(0, actualReferralReward),
         businessRecommendationReward: Math.max(
           0,
-          actualBusinessRecommendationReward,
+          actualBusinessRecommendationReward + actualBusinessRegistrationReward,
         ),
       },
       currentRates: {

@@ -125,7 +125,7 @@ export default function AdminInvitationsPage() {
   };
 
   const copyInvitationLink = (invitation: AdminInvitation) => {
-    const link = `${window.location.origin}/admin/accept-invitation?token=${invitation.invitationToken}`;
+    const link = `${window.location.origin}/accept-invitation?token=${invitation.invitationToken}`;
     navigator.clipboard.writeText(link);
     toast({
       title: "Copied!",

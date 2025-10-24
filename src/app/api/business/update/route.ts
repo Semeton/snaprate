@@ -4,19 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import logger from "@/lib/logger";
 import { Session } from "next-auth";
-import { BusinessCategory, State } from "@prisma/client";
 
 export async function PUT(request: NextRequest) {
   let body: {
     name: string;
     description: string;
-    category: BusinessCategory;
+    category: string;
     phone: string;
     email: string;
     website: string;
     address: string;
     city: string;
-    state: State;
+    state: string;
     servicesImages?: string[];
   };
   let session: Session | null;
