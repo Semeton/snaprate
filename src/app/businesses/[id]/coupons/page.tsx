@@ -31,6 +31,7 @@ import {
   CouponAssignmentData,
 } from "@/types";
 import { toast } from "@/components/ui/use-toast";
+import PublicNavigation from "@/components/PublicNavigation";
 
 export default function BusinessCouponsPage() {
   const router = useRouter();
@@ -261,285 +262,295 @@ export default function BusinessCouponsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading coupons...</p>
+      <>
+        <PublicNavigation />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading coupons...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (error || !business) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-xl font-semibold mb-2">
-            {error || "Business Not Found"}
+      <>
+        <PublicNavigation />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-600 text-xl font-semibold mb-2">
+              {error || "Business Not Found"}
+            </div>
+            <p className="text-gray-600 mb-4">
+              {error || "The business you're looking for doesn't exist."}
+            </p>
+            <Button onClick={() => router.back()}>Go Back</Button>
           </div>
-          <p className="text-gray-600 mb-4">
-            {error || "The business you're looking for doesn't exist."}
-          </p>
-          <Button onClick={() => router.back()}>Go Back</Button>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.back()}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {business.name} Coupons
-                </h1>
-                <p className="text-gray-600">
-                  Discover and claim exclusive offers from {business.name}
-                </p>
+    <>
+      <PublicNavigation />
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-white border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.back()}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {business.name} Coupons
+                  </h1>
+                  <p className="text-gray-600">
+                    Discover and claim exclusive offers from {business.name}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <MapPin className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-600">
+                  {business.city}, {business.state}
+                </span>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-600">
-                {business.city}, {business.state}
-              </span>
-            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filters */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search coupons..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Search and Filters */}
+          <div className="mb-8">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search coupons..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
+
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="mb-4 hidden"
+            >
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="all">
+                  Available (
+                  {
+                    coupons.filter(
+                      (c) =>
+                        c.couponType === CouponVisibility.PUBLIC &&
+                        c.status === "ACTIVE",
+                    ).length
+                  }
+                  )
+                </TabsTrigger>
+                <TabsTrigger value="public">
+                  Public (
+                  {
+                    coupons.filter(
+                      (c) => c.couponType === CouponVisibility.PUBLIC,
+                    ).length
+                  }
+                  )
+                </TabsTrigger>
+                <TabsTrigger value="private">
+                  Private (
+                  {
+                    coupons.filter(
+                      (c) => c.couponType === CouponVisibility.PRIVATE,
+                    ).length
+                  }
+                  )
+                </TabsTrigger>
+                <TabsTrigger value="active">
+                  Active ({coupons.filter((c) => c.status === "ACTIVE").length})
+                </TabsTrigger>
+                <TabsTrigger value="expired">
+                  Expired (
+                  {coupons.filter((c) => c.status === "EXPIRED").length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="mb-4 hidden"
-          >
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="all">
-                Available (
-                {
-                  coupons.filter(
-                    (c) =>
-                      c.couponType === CouponVisibility.PUBLIC &&
-                      c.status === "ACTIVE",
-                  ).length
-                }
-                )
-              </TabsTrigger>
-              <TabsTrigger value="public">
-                Public (
-                {
-                  coupons.filter(
-                    (c) => c.couponType === CouponVisibility.PUBLIC,
-                  ).length
-                }
-                )
-              </TabsTrigger>
-              <TabsTrigger value="private">
-                Private (
-                {
-                  coupons.filter(
-                    (c) => c.couponType === CouponVisibility.PRIVATE,
-                  ).length
-                }
-                )
-              </TabsTrigger>
-              <TabsTrigger value="active">
-                Active ({coupons.filter((c) => c.status === "ACTIVE").length})
-              </TabsTrigger>
-              <TabsTrigger value="expired">
-                Expired ({coupons.filter((c) => c.status === "EXPIRED").length})
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {/* Coupons Grid */}
-        {filteredCoupons.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCoupons.map((coupon) => (
-              <Card key={coupon.id} className="relative overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold line-clamp-2">
-                        {coupon.title}
-                      </CardTitle>
-                      {coupon.description && (
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {coupon.description}
-                        </p>
-                      )}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={`${getStatusColor(coupon.status)} ml-2`}
-                    >
-                      {coupon.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {/* Coupon Value */}
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600">
-                      {coupon.type === "PERCENTAGE"
-                        ? `${coupon.value}%`
-                        : `₦${coupon.value}`}
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      {coupon.type === "PERCENTAGE" ? "off" : "discount"}
-                    </p>
-                  </div>
-
-                  {/* Coupon Code */}
-                  {coupon.baseCode && (
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-xs text-gray-500">
-                            Coupon Code
-                          </Label>
-                          <p className="font-mono text-lg font-semibold">
-                            {coupon.baseCode}
+          {/* Coupons Grid */}
+          {filteredCoupons.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCoupons.map((coupon) => (
+                <Card key={coupon.id} className="relative overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg font-semibold line-clamp-2">
+                          {coupon.title}
+                        </CardTitle>
+                        {coupon.description && (
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {coupon.description}
                           </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCopyCode(coupon.baseCode!)}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
+                        )}
                       </div>
+                      <Badge
+                        variant="outline"
+                        className={`${getStatusColor(coupon.status)} ml-2`}
+                      >
+                        {coupon.status}
+                      </Badge>
                     </div>
-                  )}
+                  </CardHeader>
 
-                  {/* Validity Period */}
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      <span>
-                        Valid until{" "}
-                        {new Date(coupon.validUntil).toLocaleDateString()}
-                      </span>
+                  <CardContent className="space-y-4">
+                    {/* Coupon Value */}
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600">
+                        {coupon.type === "PERCENTAGE"
+                          ? `${coupon.value}%`
+                          : `₦${coupon.value}`}
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {coupon.type === "PERCENTAGE" ? "off" : "discount"}
+                      </p>
                     </div>
-                    {coupon.maxUses && (
+
+                    {/* Coupon Code */}
+                    {coupon.baseCode && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <Label className="text-xs text-gray-500">
+                              Coupon Code
+                            </Label>
+                            <p className="font-mono text-lg font-semibold">
+                              {coupon.baseCode}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCopyCode(coupon.baseCode!)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Validity Period */}
+                    <div className="space-y-2">
                       <div className="flex items-center text-sm text-gray-600">
-                        <Users className="h-4 w-4 mr-2" />
+                        <Calendar className="h-4 w-4 mr-2" />
                         <span>
-                          {coupon.currentUses || 0} / {coupon.maxUses} uses
+                          Valid until{" "}
+                          {new Date(coupon.validUntil).toLocaleDateString()}
                         </span>
                       </div>
-                    )}
-                  </div>
+                      {coupon.maxUses && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Users className="h-4 w-4 mr-2" />
+                          <span>
+                            {coupon.currentUses || 0} / {coupon.maxUses} uses
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Actions */}
-                  <div className="flex space-x-2">
-                    {isCouponActive(coupon) &&
-                    coupon.couponType === CouponVisibility.PUBLIC ? (
+                    {/* Actions */}
+                    <div className="flex space-x-2">
+                      {isCouponActive(coupon) &&
+                      coupon.couponType === CouponVisibility.PUBLIC ? (
+                        <Button
+                          onClick={() => handleClaimCoupon(coupon.id)}
+                          className="flex-1"
+                          disabled={
+                            !session?.user || userClaimedCoupons.has(coupon.id)
+                          }
+                          variant={
+                            userClaimedCoupons.has(coupon.id)
+                              ? "outline"
+                              : "default"
+                          }
+                        >
+                          {!session?.user ? (
+                            <>
+                              <Gift className="h-4 w-4 mr-2" />
+                              Sign In to Claim
+                            </>
+                          ) : userClaimedCoupons.has(coupon.id) ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Already Claimed
+                            </>
+                          ) : (
+                            <>
+                              <Gift className="h-4 w-4 mr-2" />
+                              Claim Coupon
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button variant="outline" className="flex-1" disabled>
+                          {isCouponExpired(coupon) ? (
+                            <>
+                              <Clock className="h-4 w-4 mr-2" />
+                              Expired
+                            </>
+                          ) : coupon.couponType === CouponVisibility.PRIVATE ? (
+                            <>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Private
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Inactive
+                            </>
+                          )}
+                        </Button>
+                      )}
                       <Button
-                        onClick={() => handleClaimCoupon(coupon.id)}
-                        className="flex-1"
-                        disabled={
-                          !session?.user || userClaimedCoupons.has(coupon.id)
-                        }
-                        variant={
-                          userClaimedCoupons.has(coupon.id)
-                            ? "outline"
-                            : "default"
-                        }
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadQR(coupon.id)}
                       >
-                        {!session?.user ? (
-                          <>
-                            <Gift className="h-4 w-4 mr-2" />
-                            Sign In to Claim
-                          </>
-                        ) : userClaimedCoupons.has(coupon.id) ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Already Claimed
-                          </>
-                        ) : (
-                          <>
-                            <Gift className="h-4 w-4 mr-2" />
-                            Claim Coupon
-                          </>
-                        )}
+                        <QrCode className="h-4 w-4" />
                       </Button>
-                    ) : (
-                      <Button variant="outline" className="flex-1" disabled>
-                        {isCouponExpired(coupon) ? (
-                          <>
-                            <Clock className="h-4 w-4 mr-2" />
-                            Expired
-                          </>
-                        ) : coupon.couponType === CouponVisibility.PRIVATE ? (
-                          <>
-                            <Eye className="h-4 w-4 mr-2" />
-                            Private
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-4 w-4 mr-2" />
-                            Inactive
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadQR(coupon.id)}
-                    >
-                      <QrCode className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <Gift className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No coupons found
-            </h3>
-            <p className="text-gray-500">
-              {searchTerm
-                ? "Try adjusting your search terms"
-                : "This business hasn't published any coupons yet."}
-            </p>
-          </div>
-        )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Gift className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No coupons found
+              </h3>
+              <p className="text-gray-500">
+                {searchTerm
+                  ? "Try adjusting your search terms"
+                  : "This business hasn't published any coupons yet."}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

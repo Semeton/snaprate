@@ -521,8 +521,8 @@ export default function CouponVerificationPage() {
             {/* Information for non-business owners */}
             {!isBusinessOwner && (
               <div className="space-y-4">
-                {verifierType === "user" ? (
-                  assignment?.status === "REDEEMED" ? (
+                {verifierType === "user" &&
+                  (assignment?.status === "REDEEMED" ? (
                     <div className="text-center p-4 bg-blue-50 rounded-lg">
                       <CheckCircle className="h-8 w-8 text-blue-500 mx-auto mb-2" />
                       <p className="text-blue-700 font-medium">
@@ -540,18 +540,7 @@ export default function CouponVerificationPage() {
                         Show this code to the business to redeem your discount
                       </p>
                     </div>
-                  )
-                ) : verifierType === "anonymous" ? (
-                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                    <AlertCircle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                    <p className="text-yellow-700 font-medium">
-                      Access Restricted
-                    </p>
-                    <p className="text-sm text-yellow-600">
-                      This coupon is assigned to a specific user
-                    </p>
-                  </div>
-                ) : null}
+                  ))}
 
                 <div className="flex space-x-2">
                   <Button

@@ -10,11 +10,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's coupon assignments
+    // Get user's coupon assignments (all statuses: ASSIGNED, REDEEMED, EXPIRED, CANCELLED)
     const assignments = await prisma.couponAssignment.findMany({
       where: {
         userId: session.user.id,
-        status: "ASSIGNED",
+        // Include all statuses to show claimed, redeemed, expired, and cancelled coupons
       },
       include: {
         coupon: {

@@ -652,7 +652,7 @@ export default function RewardsPage() {
         </Card>
 
         {/* Redemption History */}
-        <Card>
+        <Card className="hidden">
           <CardHeader>
             <CardTitle>Redemption History</CardTitle>
           </CardHeader>

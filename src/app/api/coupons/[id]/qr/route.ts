@@ -83,6 +83,8 @@ export async function GET(
       }
     }
 
+    let assignment = null;
+
     let hasAccess = false;
 
     if (session?.user) {
@@ -96,11 +98,10 @@ export async function GET(
       }
       // Check if user is assigned to this coupon
       else if (["REVIEWER", "AGENT"].includes(session.user.role || "")) {
-        const assignment = await prisma.couponAssignment.findFirst({
+        assignment = await prisma.couponAssignment.findFirst({
           where: {
             couponId: coupon.id,
             userId: session.user.id,
-            status: "ASSIGNED",
           },
         });
         hasAccess = !!assignment;
@@ -123,7 +124,7 @@ export async function GET(
     }
 
     // Get user-specific code if user is assigned to this coupon
-    let code = coupon.baseCode!;
+    let code = assignment?.userSpecificCode || coupon.baseCode!;
     if (
       session?.user &&
       ["REVIEWER", "AGENT"].includes(session.user.role || "")

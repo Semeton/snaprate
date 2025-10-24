@@ -594,11 +594,11 @@ export class CouponService {
 
   async getUserCoupons(userId: string) {
     try {
-      // Get user's coupon assignments with coupon details
+      // Get user's coupon assignments with coupon details (all statuses: ASSIGNED, REDEEMED, EXPIRED, CANCELLED)
       const assignments = await prisma.couponAssignment.findMany({
         where: {
           userId: userId,
-          status: "ASSIGNED",
+          // Include all statuses to show claimed, redeemed, expired, and cancelled coupons
         },
         include: {
           coupon: {
@@ -618,10 +618,10 @@ export class CouponService {
         orderBy: { assignedAt: "desc" },
       });
 
-      // Filter out assignments where the coupon is null or not active
+      // Filter out assignments where the coupon is null
+      // Note: We keep all coupon statuses (ACTIVE, EXPIRED, etc.) so users can see their full coupon history
       const validAssignments = assignments.filter(
-        (assignment) =>
-          assignment.coupon !== null && assignment.coupon.status === "ACTIVE",
+        (assignment) => assignment.coupon !== null,
       );
 
       // Transform to the expected format
@@ -630,6 +630,7 @@ export class CouponService {
         userSpecificCode: assignment.userSpecificCode,
         assignedAt: assignment.assignedAt,
         expiresAt: assignment.expiresAt,
+        assignmentStatus: assignment.status, // Include assignment status (ASSIGNED, REDEEMED, EXPIRED, CANCELLED)
       }));
 
       return coupons as unknown as Coupon[];

@@ -347,16 +347,6 @@ export default function AdminBusinessesPage() {
                 Refresh
               </Button>
             </CardTitle>
-            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
-              <p>
-                <strong>Purpose:</strong> This page controls whether businesses
-                can receive reviews from users.
-              </p>
-              <p>
-                <strong>Note:</strong> Document verification is handled
-                separately on the Verification page.
-              </p>
-            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -381,7 +371,6 @@ export default function AdminBusinessesPage() {
                         {getSortIcon("category")}
                       </div>
                     </TableHead>
-                    <TableHead>Location</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead
