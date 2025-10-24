@@ -33,6 +33,10 @@ import {
   Star,
   Eye,
   RefreshCw,
+  QrCode,
+  Download,
+  Copy,
+  Check,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -76,6 +80,10 @@ function BusinessProfileContent() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -287,6 +295,66 @@ function BusinessProfileContent() {
       setTimeout(() => setMessage(null), 5000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateQRCode = async () => {
+    if (!profile) return;
+
+    setGeneratingQr(true);
+    try {
+      const response = await fetch(`/api/business/${profile.id}/qr-code`);
+
+      if (!response.ok) {
+        throw new Error("Failed to generate QR code");
+      }
+
+      const data = await response.json();
+      setQrCode(data.qrCode);
+      setShowQrCode(true);
+      setMessage({ type: "success", text: "QR code generated successfully!" });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+      setMessage({ type: "error", text: "Failed to generate QR code" });
+      setTimeout(() => setMessage(null), 5000);
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+
+  const handleDownloadQRCode = () => {
+    if (!qrCode || !profile) return;
+
+    const link = document.createElement("a");
+    link.href = qrCode;
+    link.download = `${profile.name.replace(/\s+/g, "-")}-qr-code.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopyUrl = async () => {
+    if (!profile) return;
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    const businessUrl = `${baseUrl}/businesses/${profile.id}`;
+
+    try {
+      await navigator.clipboard.writeText(businessUrl);
+      setCopiedUrl(true);
+      setMessage({
+        type: "success",
+        text: "Business URL copied to clipboard!",
+      });
+      setTimeout(() => {
+        setCopiedUrl(false);
+        setMessage(null);
+      }, 3000);
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+      setMessage({ type: "error", text: "Failed to copy URL" });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -809,6 +877,101 @@ function BusinessProfileContent() {
                     {new Date(profile.createdAt).toLocaleDateString()}
                   </span>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* QR Code Generator */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <QrCode className="w-5 h-5 mr-2" />
+                  Business QR Code
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Generate a QR code that links to your business profile page.
+                  Customers can scan it to view your details and reviews.
+                </p>
+
+                {/* Copy Business URL Button */}
+                <Button
+                  onClick={handleCopyUrl}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {copiedUrl ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2 text-green-500" />
+                      URL Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Business URL
+                    </>
+                  )}
+                </Button>
+
+                {!showQrCode ? (
+                  <Button
+                    onClick={handleGenerateQRCode}
+                    disabled={generatingQr}
+                    className="w-full"
+                  >
+                    {generatingQr ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <QrCode className="w-4 h-4 mr-2" />
+                        Generate QR Code
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="space-y-4">
+                    {qrCode && (
+                      <div className="flex justify-center p-4 bg-white dark:bg-gray-700 rounded-lg border-2 border-gray-200 dark:border-gray-600">
+                        <Image
+                          src={qrCode}
+                          alt="Business QR Code"
+                          width={200}
+                          height={200}
+                          className="rounded-lg"
+                        />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={handleDownloadQRCode}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </Button>
+                      <Button
+                        onClick={handleGenerateQRCode}
+                        variant="outline"
+                        size="sm"
+                        disabled={generatingQr}
+                      >
+                        <RefreshCw
+                          className={`w-4 h-4 mr-1 ${
+                            generatingQr ? "animate-spin" : ""
+                          }`}
+                        />
+                        Regenerate
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                      Share this QR code on posters, menus, or social media
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

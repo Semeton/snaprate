@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +23,9 @@ import {
   Gift,
   RefreshCw,
   Star,
+  CheckCircle,
 } from "lucide-react";
-import { Coupon, CouponVisibility, BusinessCategory } from "@/types";
+import { Coupon, CouponAssignmentData } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import PublicNavigation from "@/components/PublicNavigation";
 
@@ -38,6 +39,9 @@ export default function PublicCouponsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [userClaimedCoupons, setUserClaimedCoupons] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     fetchCoupons(true); // Reset coupons when category changes or on initial mount
@@ -81,10 +85,30 @@ export default function PublicCouponsPage() {
     }
   };
 
-  const handleSearch = () => {
-    // TODO: Implement search functionality
-    console.log("Searching for:", searchTerm);
-  };
+  const fetchUserClaimedCoupons = useCallback(async () => {
+    if (!session?.user) return;
+
+    try {
+      const response = await fetch(`/api/user/coupons/assignments`);
+      if (response.ok) {
+        const data = await response.json();
+        const claimedCouponIds = new Set(
+          data.assignments?.map(
+            (assignment: CouponAssignmentData) => assignment.couponId,
+          ) || [],
+        );
+        setUserClaimedCoupons(claimedCouponIds as Set<string>);
+      }
+    } catch (error) {
+      console.error("Error fetching user claimed coupons:", error);
+    }
+  }, [session?.user]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserClaimedCoupons();
+    }
+  }, [session?.user, fetchUserClaimedCoupons]);
 
   const handleClaimCoupon = async (couponId: string) => {
     if (!session) {
@@ -160,9 +184,6 @@ export default function PublicCouponsPage() {
                 />
               </div>
             </div>
-            <Button onClick={handleSearch} className="md:w-auto">
-              Search
-            </Button>
           </div>
 
           <div className="flex flex-wrap gap-4">
@@ -292,9 +313,29 @@ export default function PublicCouponsPage() {
                   <Button
                     className="w-full"
                     onClick={() => handleClaimCoupon(coupon.id)}
-                    disabled={coupon.assignedUserId !== null}
+                    disabled={
+                      !session?.user || userClaimedCoupons.has(coupon.id)
+                    }
+                    variant={
+                      userClaimedCoupons.has(coupon.id) ? "outline" : "default"
+                    }
                   >
-                    {coupon.assignedUserId ? "Already Claimed" : "Claim Coupon"}
+                    {!session?.user ? (
+                      <>
+                        <Gift className="h-4 w-4 mr-2" />
+                        Sign In to Claim
+                      </>
+                    ) : userClaimedCoupons.has(coupon.id) ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Already Claimed
+                      </>
+                    ) : (
+                      <>
+                        <Gift className="h-4 w-4 mr-2" />
+                        Claim Coupon
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>

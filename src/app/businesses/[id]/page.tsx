@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/user-avatar";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useBusinessViewTracking } from "@/hooks/useBusinessViewTracking";
 import {
@@ -29,6 +28,7 @@ import {
   Trash2,
   AlertCircle,
   Gift,
+  CheckCircle,
 } from "lucide-react";
 import { BusinessCategory, State } from "@/types";
 import Image from "next/image";
@@ -724,9 +724,9 @@ export default function BusinessViewPage() {
         {/* Business Info Overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/50 to-transparent">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="flex items-end space-x-6">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:space-x-6 space-y-6 lg:space-y-0">
               {/* Logo */}
-              <div className="w-24 h-24 md:w-32 md:h-32 bg-white dark:bg-gray-800 rounded-2xl border-4 border-white dark:border-gray-800 shadow-xl flex items-center justify-center overflow-hidden">
+              <div className="w-24 h-24 md:w-32 md:h-32 bg-white dark:bg-gray-800 rounded-2xl border-4 border-white dark:border-gray-800 shadow-xl flex items-center justify-center overflow-hidden mx-auto lg:mx-0">
                 {business.logo ? (
                   <Image
                     src={business.logo}
@@ -741,8 +741,8 @@ export default function BusinessViewPage() {
               </div>
 
               {/* Business Details */}
-              <div className="flex-1 text-white">
-                <div className="flex items-center space-x-4 mb-2">
+              <div className="flex-1 text-white flex flex-col items-center lg:items-start w-full">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:space-x-4 mb-2 items-center space-y-2 lg:space-y-0">
                   <h1 className="text-3xl md:text-4xl font-bold">
                     {business.name}
                   </h1>
@@ -753,7 +753,7 @@ export default function BusinessViewPage() {
                     >
                       {formatCategory(business.category)}
                     </Badge>
-                    {!business.isVerified && (
+                    {!business.isVerified ? (
                       <Badge
                         variant="outline"
                         className="bg-orange-500/20 text-orange-200 border-orange-300/30"
@@ -761,10 +761,18 @@ export default function BusinessViewPage() {
                         <AlertCircle className="w-3 h-3 mr-1" />
                         Unverified
                       </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="bg-green-500/20 text-green-200 border-green-300/30"
+                      >
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center space-x-6 text-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center items-center space-y-2 lg:space-y-0 lg:space-x-6 text-sm">
                   <div className="flex items-center space-x-2">
                     <Star className="h-5 w-5 text-yellow-400 fill-current" />
                     <span className="font-medium">
@@ -784,11 +792,11 @@ export default function BusinessViewPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center w-full lg:w-auto space-y-2 lg:space-y-0 lg:space-x-3">
                 <Button
                   variant="ghost"
                   onClick={() => router.back()}
-                  className="text-white hover:bg-white/20 border-white/30"
+                  className="text-white hover:bg-white/20 border-white/30 w-full lg:w-auto"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Back
@@ -798,14 +806,14 @@ export default function BusinessViewPage() {
                   onClick={() =>
                     router.push(`/businesses/${businessId}/coupons`)
                   }
-                  className="text-white hover:bg-white/20 border-white/30"
+                  className="text-white hover:bg-white/20 border-white/30 w-full lg:w-auto"
                 >
                   <Gift className="h-4 w-4 mr-2" />
                   View Coupons
                 </Button>
                 <Button
                   onClick={handleAddReview}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white w-full lg:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   {session?.user ? "Add Review" : "Sign Up & Review"}
