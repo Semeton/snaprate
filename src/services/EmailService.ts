@@ -29,11 +29,32 @@ export class EmailService {
     let config: { host: string; port: number; secure: boolean };
 
     if (process.env.NODE_ENV === "production") {
-      // Production SMTP settings
+      // Production SMTP settings - FAIL FAST if missing
+      const host = process.env.SMTP_HOST;
+      const user = process.env.SMTP_USER;
+      const pass = process.env.SMTP_PASS;
+
+      if (!host || !user || !pass) {
+        const missing = [];
+        if (!host) missing.push("SMTP_HOST");
+        if (!user) missing.push("SMTP_USER");
+        if (!pass) missing.push("SMTP_PASS");
+
+        const errorMsg = `Missing required email environment variables: ${missing.join(
+          ", ",
+        )}`;
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      const port = parseInt(process.env.SMTP_PORT || "587");
+      // Use SMTP_SECURE env var if present, otherwise default based on port (465 is usually secure)
+      const secure = process.env.SMTP_SECURE === "true" || port === 465;
+
       config = {
-        host: process.env.SMTP_HOST || "smtp.gmail.com",
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: false, // true for 465, false for other ports
+        host,
+        port,
+        secure,
       };
 
       this.transporter = nodemailer.createTransport({
@@ -41,8 +62,8 @@ export class EmailService {
         port: config.port,
         secure: config.secure,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user,
+          pass,
         },
       });
     } else {
