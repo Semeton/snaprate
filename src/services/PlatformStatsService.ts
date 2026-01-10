@@ -44,7 +44,7 @@ export class PlatformStatsService {
           take: 3,
           orderBy: { createdAt: "desc" },
           include: {
-            user: { select: { name: true } },
+            reviewer: { select: { name: true } },
             business: { select: { name: true } },
           },
         }),
@@ -65,8 +65,8 @@ export class PlatformStatsService {
         ...recentReviews.map((review) => ({
           id: review.id,
           type: "REVIEW" as const,
-          title: `New review for ${review.business.name}`,
-          description: `by ${review.user.name}`,
+          title: `New review for ${review.business?.name}`,
+          description: `by ${review.reviewer.name}`,
           timestamp: review.createdAt,
         })),
         ...recentBusinesses.map((business) => ({
@@ -92,10 +92,15 @@ export class PlatformStatsService {
         totalBusinesses,
         totalReviews,
         totalRewards: totalRewards._sum.amount || 0,
-        topCategories: topCategories.map((cat) => ({
-          category: cat.category,
-          count: cat._count.category,
-        })),
+        topCategories: topCategories
+          .filter(
+            (cat): cat is typeof cat & { category: string } =>
+              cat.category !== null,
+          )
+          .map((cat) => ({
+            category: cat.category,
+            count: cat._count.category,
+          })),
         recentActivity,
       };
     } catch (error) {
@@ -128,6 +133,10 @@ export class PlatformStatsService {
       );
 
       return categories
+        .filter(
+          (cat): cat is typeof cat & { category: string } =>
+            cat.category !== null,
+        )
         .map((cat) => {
           const percentage = (cat._count.category / totalBusinesses) * 100;
           let demand = "Low";
